@@ -21,14 +21,20 @@ void main() async {
     DeviceOrientation.landscapeRight,
   ]);
 
-  // Set system UI overlay style
+  // Set system UI overlay style for edge-to-edge display
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: AppTheme.primaryColor,
-      systemNavigationBarIconBrightness: Brightness.light,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.dark,
+      systemNavigationBarDividerColor: Colors.transparent,
     ),
+  );
+
+  // Enable edge-to-edge display
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.edgeToEdge,
   );
 
   runApp(const MyApp());
