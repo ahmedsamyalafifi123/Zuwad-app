@@ -39,6 +39,7 @@ class _ChatPageState extends State<ChatPage> {
   int _currentPage = 1;
   Timer? _refreshTimer;
   String? _lastMessageId;
+  final Set<String> _sentMessageIds = {}; // Track successfully sent messages
 
   @override
   void dispose() {
@@ -57,55 +58,98 @@ class _ChatPageState extends State<ChatPage> {
       );
 
       print('Received ${messages.length} messages during refresh');
-      for (var msg in messages) {
-        print(
-            'Refresh message: ${msg.id} from ${msg.senderId} content: ${msg.content}');
-      }
 
       if (mounted && messages.isNotEmpty) {
-        // Merge server messages with existing local messages
-        setState(() {
-          // Get existing messages from controller
-          final existingMessages =
-              List<core.Message>.from(_chatController.messages);
+        // Get existing messages from controller
+        final existingMessages =
+            List<core.Message>.from(_chatController.messages);
+        final existingMessageIds =
+            existingMessages.map((msg) => msg.id).toSet();
 
-          // Convert server messages to flutter_chat_core messages
-          final serverCoreMessages = messages
-              .map((msg) => core.TextMessage(
+        // Convert server messages to flutter_chat_core messages
+        final serverCoreMessages = messages
+            .map((msg) => core.TextMessage(
+                  id: msg.id,
+                  authorId: msg.senderId,
+                  createdAt: msg.timestamp, // Already converted to local time in ChatMessage.fromJson
+                  text: msg.content,
+                ))
+            .toList();
+
+        // Only add new messages that don't exist locally
+        final newMessages = serverCoreMessages
+            .where((msg) => !existingMessageIds.contains(msg.id))
+            .toList();
+
+        if (newMessages.isNotEmpty) {
+          print('Adding ${newMessages.length} new messages');
+          setState(() {
+            // Create a set of server message IDs for tracking sent messages
+            final serverMessageIds =
+                serverCoreMessages.map((msg) => msg.id).toSet();
+
+            // Update sent message status for local messages that now exist on server
+            final updatedMessages = existingMessages.map((msg) {
+              if (msg.authorId == widget.studentId &&
+                  serverMessageIds.contains(msg.id)) {
+                _sentMessageIds.add(msg.id);
+                // Update message status to sent
+                if (msg is core.TextMessage) {
+                  return core.TextMessage(
                     id: msg.id,
-                    authorId: msg.senderId,
-                    createdAt: msg.timestamp.toUtc(),
-                    text: msg.content,
-                  ))
-              .toList();
+                    authorId: msg.authorId,
+                    createdAt: msg.createdAt,
+                    text: msg.text,
+                    status: core.MessageStatus.sent,
+                  );
+                }
+              }
+              return msg;
+            }).toList();
 
-          // Create a set of server message IDs for quick lookup
+            // Add new messages
+            final allMessages = [...updatedMessages, ...newMessages];
+
+            // Sort by creation time in ascending order (oldest first)
+            allMessages.sort((a, b) => a.createdAt!.compareTo(b.createdAt!));
+
+            // Update controller with messages
+            _chatController.setMessages(allMessages);
+            print('Updated UI with ${newMessages.length} new messages');
+          });
+        } else {
+          // No new messages, just update status of existing sent messages
           final serverMessageIds =
               serverCoreMessages.map((msg) => msg.id).toSet();
+          final existingMessages =
+              List<core.Message>.from(_chatController.messages);
+          bool hasStatusUpdate = false;
 
-          // Keep local messages that are not in server response (recently sent)
-          final localOnlyMessages = existingMessages
-              .where((msg) => !serverMessageIds.contains(msg.id))
-              .toList();
+          final updatedMessages = existingMessages.map((msg) {
+            if (msg.authorId == widget.studentId &&
+                serverMessageIds.contains(msg.id) &&
+                !_sentMessageIds.contains(msg.id)) {
+              _sentMessageIds.add(msg.id);
+              hasStatusUpdate = true;
+              if (msg is core.TextMessage) {
+                return core.TextMessage(
+                  id: msg.id,
+                  authorId: msg.authorId,
+                  createdAt: msg.createdAt,
+                  text: msg.text,
+                  status: core.MessageStatus.sent,
+                );
+              }
+            }
+            return msg;
+          }).toList();
 
-          // Combine server messages with local-only messages
-          final allMessages = [...serverCoreMessages, ...localOnlyMessages];
-
-          // Sort by creation time in descending order (newest first) for flutter_chat_ui
-          allMessages.sort((a, b) => b.createdAt!.compareTo(a.createdAt!));
-
-          // Update the last message ID
-          _lastMessageId = messages.first.id;
-          print('Setting last message ID to: $_lastMessageId');
-
-          // Update controller with merged messages
-          // flutter_chat_ui expects messages in reverse chronological order (newest first)
-          _chatController.setMessages(allMessages);
-          print(
-              'Updated UI with ${allMessages.length} messages (${serverCoreMessages.length} from server, ${localOnlyMessages.length} local)');
-
-          // Messages will automatically show newest first due to reverse order
-        });
+          if (hasStatusUpdate) {
+            setState(() {
+              _chatController.setMessages(updatedMessages);
+            });
+          }
+        }
       }
     } catch (e) {
       print('Error refreshing messages: $e');
@@ -127,8 +171,8 @@ class _ChatPageState extends State<ChatPage> {
       _loadMessages();
     });
 
-    // Set up periodic refresh every 3 seconds
-    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+    // Set up periodic refresh every 5 seconds (less frequent to reduce flickering)
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (mounted) {
         _refreshMessages();
       }
@@ -171,17 +215,18 @@ class _ChatPageState extends State<ChatPage> {
               .map((msg) => core.TextMessage(
                     id: msg.id,
                     authorId: msg.senderId,
-                    createdAt: msg.timestamp.toUtc(),
+                    createdAt: msg.timestamp, // Already converted to local time in ChatMessage.fromJson
                     text: msg.content,
                   ))
               .toList();
 
-          // Server messages are already in DESC order (newest first), which is what flutter_chat_ui expects
+          // Sort messages in ascending order (oldest first) so flutter_chat_ui displays newest at bottom
+          coreMessages.sort((a, b) => a.createdAt!.compareTo(b.createdAt!));
           _chatController.setMessages(coreMessages);
           _currentPage++;
           _isLoading = false;
 
-          // Messages will automatically show newest first due to reverse order
+          // Messages will automatically show newest at bottom due to chronological order
         });
       } else {
         setState(() {
@@ -211,17 +256,17 @@ class _ChatPageState extends State<ChatPage> {
     final textMessage = core.TextMessage(
       id: messageId,
       authorId: widget.studentId,
-      createdAt: DateTime.now().toUtc(),
+      createdAt: DateTime.now(), // Use local time for consistency
       text: message.text,
+      status: core.MessageStatus.sending, // Show sending status
     );
 
     // Add the message to the UI immediately (optimistic update)
-    // Get current messages, add new message, and sort properly
     final currentMessages = List<core.Message>.from(_chatController.messages);
     currentMessages.add(textMessage);
 
-    // Sort by creation time in descending order (newest first) for flutter_chat_ui
-    currentMessages.sort((a, b) => b.createdAt!.compareTo(a.createdAt!));
+    // Sort by creation time in ascending order (oldest first)
+    currentMessages.sort((a, b) => a.createdAt!.compareTo(b.createdAt!));
 
     // Update controller with properly sorted messages
     _chatController.setMessages(currentMessages);
@@ -240,12 +285,56 @@ class _ChatPageState extends State<ChatPage> {
         message: messageText,
       );
 
-      // Message sent successfully - no need to update UI as the message is already there
-      // The server will return the message in future refreshes with the correct server ID
-      print('Message sent successfully: ${sentMessage.id}');
+      // Message sent successfully - update status to sent with checkmark
+      if (mounted) {
+        _sentMessageIds.add(sentMessage.id);
+
+        // Update the message status to sent
+        final currentMessages =
+            List<core.Message>.from(_chatController.messages);
+        final updatedMessages = currentMessages.map((msg) {
+          if (msg.id == messageId && msg is core.TextMessage) {
+            return core.TextMessage(
+              id: sentMessage.id, // Use server ID
+              authorId: msg.authorId,
+              createdAt: msg.createdAt,
+              text: msg.text,
+              status:
+                  core.MessageStatus.sent, // Show sent status with checkmark
+            );
+          }
+          return msg;
+        }).toList();
+
+        setState(() {
+          _chatController.setMessages(updatedMessages);
+        });
+
+        print('Message sent successfully: ${sentMessage.id}');
+      }
     } catch (e) {
       if (mounted) {
-        // Show error message but keep the message in UI
+        // Update message status to error
+        final currentMessages =
+            List<core.Message>.from(_chatController.messages);
+        final updatedMessages = currentMessages.map((msg) {
+          if (msg.id == messageId && msg is core.TextMessage) {
+            return core.TextMessage(
+              id: msg.id,
+              authorId: msg.authorId,
+              createdAt: msg.createdAt,
+              text: msg.text,
+              status: core.MessageStatus.error, // Show error status
+            );
+          }
+          return msg;
+        }).toList();
+
+        setState(() {
+          _chatController.setMessages(updatedMessages);
+        });
+
+        // Show error message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content:
@@ -255,8 +344,6 @@ class _ChatPageState extends State<ChatPage> {
           ),
         );
 
-        // The message stays in the UI with its original ID
-        // It will be handled when connection is restored
         print('Failed to send message: $e');
       }
     }
@@ -356,13 +443,8 @@ class _ChatPageState extends State<ChatPage> {
                   onMessageSend: (String text) {
                     _handleSendPressed(types.PartialText(text: text));
                   },
-                  builders: core.Builders(
-                    chatAnimatedListBuilder: (context, itemBuilder) {
-                      return ChatAnimatedListReversed(
-                        itemBuilder: itemBuilder,
-                      );
-                    },
-                  ),
+                  // Removed custom builders to use default flutter_chat_ui behavior
+                  // This ensures messages are displayed with newest at bottom
                   theme: ChatTheme.light().copyWith(
                     colors: ChatTheme.light().colors.copyWith(
                           primary: AppTheme.primaryColor,

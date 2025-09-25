@@ -38,7 +38,8 @@ class ChatMessage {
     String timestampStr = json['timestamp'] ??
         json['created_at'] ??
         DateTime.now().toIso8601String();
-    final DateTime messageTimestamp = DateTime.parse(timestampStr);
+    // Parse as UTC since database stores timestamps in UTC, then convert to local time
+    final DateTime messageTimestamp = DateTime.parse(timestampStr + 'Z').toLocal();
 
     // isRead can be boolean or integer (0/1)
     bool messageIsRead = false;

@@ -44,7 +44,8 @@ class ChatRepository {
   }
 
   // This method is no longer needed as we're not using local database for messages
-  Future<List<ChatMessage>> loadLocalMessages(String userId1, String userId2) async {
+  Future<List<ChatMessage>> loadLocalMessages(
+      String userId1, String userId2) async {
     // Return empty list as we're not using local database anymore
     return [];
   }
@@ -59,8 +60,9 @@ class ChatRepository {
       if (token == null) throw Exception('Not authenticated');
 
       final url = Uri.parse('$baseUrl/wp-json/zuwad/v1/chat/messages');
-      print('Fetching messages from $url with studentId=$studentId, recipientId=$recipientId, page=$page');
-      
+      print(
+          'Fetching messages from $url with studentId=$studentId, recipientId=$recipientId, page=$page');
+
       final response = await http.post(
         url,
         headers: {
@@ -81,15 +83,18 @@ class ChatRepository {
         final List<dynamic> data = jsonDecode(response.body);
         print('Received ${data.length} messages from server');
         for (var msg in data) {
-          print('Message: ${msg['id']} from ${msg['sender_id']} to ${msg['recipient_id']}, content: ${msg['content'] ?? msg['message']}');
+          print(
+              'Message: ${msg['id']} from ${msg['sender_id']} to ${msg['recipient_id']}, content: ${msg['content'] ?? msg['message']}');
         }
-        
-        final messages = data.map((json) => ChatMessage.fromJson(json)).toList();
-        
+
+        final messages =
+            data.map((json) => ChatMessage.fromJson(json)).toList();
+
         // Return the server messages directly
         return messages;
       } else {
-        print('Failed to load messages: ${response.statusCode} - ${response.body}');
+        print(
+            'Failed to load messages: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to load messages: ${response.statusCode}');
       }
     } catch (e) {
@@ -107,7 +112,7 @@ class ChatRepository {
     // Check connectivity first
     final connectivityResult = await _connectivity.checkConnectivity();
     final bool isOnline = connectivityResult != ConnectivityResult.none;
-    
+
     // Create a pending message
     final pendingMessage = _createPendingMessage(
       studentId: studentId,
@@ -152,11 +157,10 @@ class ChatRepository {
         try {
           errorJson = jsonDecode(response.body);
         } catch (_) {}
-        
+
         throw Exception(
-          'Failed to send message. Status: ${response.statusCode}. '
-          'Error: ${errorJson?['message'] ?? response.body}'
-        );
+            'Failed to send message. Status: ${response.statusCode}. '
+            'Error: ${errorJson?['message'] ?? response.body}');
       }
     } catch (e) {
       print('Error sending message: $e');
@@ -191,7 +195,7 @@ class ChatRepository {
     if (response.statusCode != 200) {
       throw Exception('Failed to mark message as read');
     }
-    
+
     // No need to update local database as we're not using it anymore
   }
 }
