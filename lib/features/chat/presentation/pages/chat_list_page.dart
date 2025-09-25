@@ -11,14 +11,14 @@ class ChatListPage extends StatelessWidget {
   final String supervisorName;
 
   const ChatListPage({
-    Key? key,
+    super.key,
     required this.studentId,
     required this.studentName,
     required this.teacherId,
     required this.teacherName,
     required this.supervisorId,
     required this.supervisorName,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

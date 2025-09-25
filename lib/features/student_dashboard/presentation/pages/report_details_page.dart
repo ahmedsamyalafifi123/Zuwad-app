@@ -5,7 +5,7 @@ import '../../domain/models/student_report.dart';
 class ReportDetailsPage extends StatelessWidget {
   final StudentReport report;
 
-  const ReportDetailsPage({Key? key, required this.report}) : super(key: key);
+  const ReportDetailsPage({super.key, required this.report});
 
   @override
   Widget build(BuildContext context) {
@@ -31,10 +31,12 @@ class ReportDetailsPage extends StatelessWidget {
             _buildHeaderSection(),
             const SizedBox(height: 24),
             _buildDetailsCard('تفاصيل الحصة', [
-              DetailItem(label: 'رقم الجلسة', value: report.sessionNumber.toString()),
+              DetailItem(
+                  label: 'رقم الجلسة', value: report.sessionNumber.toString()),
               DetailItem(label: 'التاريخ', value: report.date),
               DetailItem(label: 'الوقت', value: report.time),
-              DetailItem(label: 'مدة الدرس', value: '${report.lessonDuration} دقيقة'),
+              DetailItem(
+                  label: 'مدة الدرس', value: '${report.lessonDuration} دقيقة'),
               DetailItem(label: 'الحضور', value: report.attendance),
             ]),
             const SizedBox(height: 16),
@@ -81,7 +83,8 @@ class ReportDetailsPage extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.assignment, color: AppTheme.primaryColor, size: 28),
+              const Icon(Icons.assignment,
+                  color: AppTheme.primaryColor, size: 28),
               const SizedBox(width: 12),
               Text(
                 'تقرير الحصة رقم ${report.sessionNumber.toString()}',

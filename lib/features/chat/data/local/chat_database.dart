@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:path/path.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:sqflite/sqlite_api.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/chat_message.dart';
@@ -111,7 +109,8 @@ class ChatDatabase {
   }
 
   // This method is no longer used as we're not storing messages locally
-  Future<void> updateMessagePendingStatus(String messageId, bool isPending) async {
+  Future<void> updateMessagePendingStatus(
+      String messageId, bool isPending) async {
     // No-op as we're not using local database for messages anymore
     return;
   }

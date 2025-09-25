@@ -20,12 +20,12 @@ class ChatPage extends StatefulWidget {
   final String studentName;
 
   const ChatPage({
-    Key? key,
+    super.key,
     required this.recipientId,
     required this.recipientName,
     required this.studentId,
     required this.studentName,
-  }) : super(key: key);
+  });
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -39,9 +39,6 @@ class _ChatPageState extends State<ChatPage> {
   int _currentPage = 1;
   Timer? _refreshTimer;
   String? _lastMessageId;
-
-
-
 
   @override
   void dispose() {
@@ -69,8 +66,9 @@ class _ChatPageState extends State<ChatPage> {
         // Merge server messages with existing local messages
         setState(() {
           // Get existing messages from controller
-          final existingMessages = List<core.Message>.from(_chatController.messages);
-          
+          final existingMessages =
+              List<core.Message>.from(_chatController.messages);
+
           // Convert server messages to flutter_chat_core messages
           final serverCoreMessages = messages
               .map((msg) => core.TextMessage(
@@ -82,19 +80,20 @@ class _ChatPageState extends State<ChatPage> {
               .toList();
 
           // Create a set of server message IDs for quick lookup
-          final serverMessageIds = serverCoreMessages.map((msg) => msg.id).toSet();
-          
+          final serverMessageIds =
+              serverCoreMessages.map((msg) => msg.id).toSet();
+
           // Keep local messages that are not in server response (recently sent)
           final localOnlyMessages = existingMessages
               .where((msg) => !serverMessageIds.contains(msg.id))
               .toList();
-          
+
           // Combine server messages with local-only messages
           final allMessages = [...serverCoreMessages, ...localOnlyMessages];
-          
+
           // Sort by creation time in descending order (newest first) for flutter_chat_ui
           allMessages.sort((a, b) => b.createdAt!.compareTo(a.createdAt!));
-          
+
           // Update the last message ID
           _lastMessageId = messages.first.id;
           print('Setting last message ID to: $_lastMessageId');
@@ -102,8 +101,9 @@ class _ChatPageState extends State<ChatPage> {
           // Update controller with merged messages
           // flutter_chat_ui expects messages in reverse chronological order (newest first)
           _chatController.setMessages(allMessages);
-          print('Updated UI with ${allMessages.length} messages (${serverCoreMessages.length} from server, ${localOnlyMessages.length} local)');
-          
+          print(
+              'Updated UI with ${allMessages.length} messages (${serverCoreMessages.length} from server, ${localOnlyMessages.length} local)');
+
           // Messages will automatically show newest first due to reverse order
         });
       }
@@ -112,16 +112,12 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-
-
   @override
   void initState() {
     super.initState();
     _chatRepository = ChatRepository(
       baseUrl: 'https://system.zuwad-academy.com',
     );
-
-
 
     // Initialize InMemoryChatController
     _chatController = core.InMemoryChatController();
@@ -138,7 +134,6 @@ class _ChatPageState extends State<ChatPage> {
       }
     });
   }
-
 
   Future<void> _loadMessages() async {
     if (_isLoading) return;
@@ -172,18 +167,20 @@ class _ChatPageState extends State<ChatPage> {
         // Update UI with server messages
         setState(() {
           // Convert server messages to flutter_chat_core types
-          final coreMessages = serverMessages.map((msg) => core.TextMessage(
-            id: msg.id,
-            authorId: msg.senderId,
-            createdAt: msg.timestamp.toUtc(),
-            text: msg.content,
-          )).toList();
-          
+          final coreMessages = serverMessages
+              .map((msg) => core.TextMessage(
+                    id: msg.id,
+                    authorId: msg.senderId,
+                    createdAt: msg.timestamp.toUtc(),
+                    text: msg.content,
+                  ))
+              .toList();
+
           // Server messages are already in DESC order (newest first), which is what flutter_chat_ui expects
           _chatController.setMessages(coreMessages);
           _currentPage++;
           _isLoading = false;
-          
+
           // Messages will automatically show newest first due to reverse order
         });
       } else {
@@ -222,10 +219,10 @@ class _ChatPageState extends State<ChatPage> {
     // Get current messages, add new message, and sort properly
     final currentMessages = List<core.Message>.from(_chatController.messages);
     currentMessages.add(textMessage);
-    
+
     // Sort by creation time in descending order (newest first) for flutter_chat_ui
     currentMessages.sort((a, b) => b.createdAt!.compareTo(a.createdAt!));
-    
+
     // Update controller with properly sorted messages
     _chatController.setMessages(currentMessages);
 

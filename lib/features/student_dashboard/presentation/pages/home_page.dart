@@ -26,9 +26,9 @@ class _HomePageState extends State<HomePage> {
   final ReportRepository _reportRepository = ReportRepository();
   StudentSchedule? _nextSchedule;
   Schedule? _nextLesson;
-  String _teacherName = '';
-  String _lessonName = '';
-  bool _isLoading = true;
+  final String _teacherName = '';
+  final String _lessonName = '';
+  final bool _isLoading = true;
   Duration? _timeUntilNextLesson;
   Timer? _countdownTimer;
   List<StudentReport> _reports = [];

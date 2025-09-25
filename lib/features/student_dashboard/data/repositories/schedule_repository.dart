@@ -131,9 +131,7 @@ class ScheduleRepository {
       for (var schedule in schedules) {
         if (schedule.schedules.isNotEmpty) {
           // Use the first schedule as the base for metadata
-          if (baseSchedule == null) {
-            baseSchedule = schedule;
-          }
+          baseSchedule ??= schedule;
           // Add all schedules from this StudentSchedule object
           allSchedules.addAll(schedule.schedules);
         }

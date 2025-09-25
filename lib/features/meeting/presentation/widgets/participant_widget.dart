@@ -54,7 +54,7 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
       _videoTrack = videoPublication!.track as VideoTrack;
       _isScreenSharing = screenSharePublication != null;
       print(
-          'Video track found for ${widget.participant.identity}: source=${videoPublication.source}, isScreenShare=${_isScreenSharing}');
+          'Video track found for ${widget.participant.identity}: source=${videoPublication.source}, isScreenShare=$_isScreenSharing');
     } else {
       _isScreenSharing = false;
       print('No video track found for ${widget.participant.identity}');

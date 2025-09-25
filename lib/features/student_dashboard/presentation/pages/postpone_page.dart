@@ -15,14 +15,14 @@ class PostponePage extends StatefulWidget {
   final String? currentLessonDate;
 
   const PostponePage({
-    Key? key,
+    super.key,
     required this.teacherId,
     required this.freeSlots,
     required this.studentLessonDuration,
     this.currentLessonDay,
     this.currentLessonTime,
     this.currentLessonDate,
-  }) : super(key: key);
+  });
 
   @override
   State<PostponePage> createState() => _PostponePageState();

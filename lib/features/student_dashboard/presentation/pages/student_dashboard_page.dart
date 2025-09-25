@@ -977,8 +977,6 @@ class _DashboardContentState extends State<_DashboardContent> {
         Expanded(
           child: ElevatedButton(
             onPressed: canPostpone ? _openPostponePage : null,
-            child: const Text('تأجيل الحصة',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
               backgroundColor: canPostpone ? Colors.white : Colors.grey[300],
               foregroundColor:
@@ -988,6 +986,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                   borderRadius: BorderRadius.circular(12)),
               elevation: canPostpone ? 2 : 0,
             ),
+            child: const Text('تأجيل الحصة',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
         ),
         const SizedBox(width: 12),
