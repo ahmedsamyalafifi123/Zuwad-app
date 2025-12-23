@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:livekit_client/livekit_client.dart';
@@ -41,14 +42,22 @@ class _MeetingPageState extends State<MeetingPage> {
 
   @override
   void initState() {
-    print('MeetingPage: initState started');
+    if (kDebugMode) {
+      print('MeetingPage: initState started');
+    }
     super.initState();
-    print('MeetingPage: Creating LiveKitService');
+    if (kDebugMode) {
+      print('MeetingPage: Creating LiveKitService');
+    }
     _liveKitService = LiveKitService();
-    print('MeetingPage: LiveKitService created');
-    print('MeetingPage: Requesting permissions');
+    if (kDebugMode) {
+      print('MeetingPage: LiveKitService created');
+      print('MeetingPage: Requesting permissions');
+    }
     _requestPermissions();
-    print('MeetingPage: initState completed');
+    if (kDebugMode) {
+      print('MeetingPage: initState completed');
+    }
   }
 
   @override
@@ -58,7 +67,9 @@ class _MeetingPageState extends State<MeetingPage> {
   }
 
   Future<void> _requestPermissions() async {
-    print('MeetingPage: _requestPermissions started');
+    if (kDebugMode) {
+      print('MeetingPage: _requestPermissions started');
+    }
     final permissions = <Permission>[
       Permission.camera,
       Permission.microphone,
@@ -66,18 +77,29 @@ class _MeetingPageState extends State<MeetingPage> {
       Permission.bluetoothConnect,
     ];
 
-    print('MeetingPage: Requesting permissions');
+    if (kDebugMode) {
+      print('MeetingPage: Requesting permissions');
+    }
     Map<Permission, PermissionStatus> statuses = await permissions.request();
-    print('MeetingPage: Permissions statuses: $statuses');
+    if (kDebugMode) {
+      print('MeetingPage: Permissions statuses: $statuses');
+    }
 
-    bool essentialGranted = statuses[Permission.camera]!.isGranted && statuses[Permission.microphone]!.isGranted;
+    bool essentialGranted = statuses[Permission.camera]!.isGranted &&
+        statuses[Permission.microphone]!.isGranted;
 
     if (essentialGranted) {
-      print('MeetingPage: Essential permissions granted');
+      if (kDebugMode) {
+        print('MeetingPage: Essential permissions granted');
+      }
       await _connectToRoom();
-      print('MeetingPage: _connectToRoom completed');
+      if (kDebugMode) {
+        print('MeetingPage: _connectToRoom completed');
+      }
     } else {
-      print('MeetingPage: Essential permissions not granted');
+      if (kDebugMode) {
+        print('MeetingPage: Essential permissions not granted');
+      }
       setState(() {
         _isConnecting = false;
         _errorMessage = 'يجب منح الصلاحيات للكاميرا والميكروفون للانضمام للدرس';
@@ -86,39 +108,55 @@ class _MeetingPageState extends State<MeetingPage> {
   }
 
   Future<void> _connectToRoom() async {
-    print('MeetingPage: _connectToRoom started');
+    if (kDebugMode) {
+      print('MeetingPage: _connectToRoom started');
+    }
     try {
-      print('MeetingPage: Calling LiveKitService.connectToRoom');
+      if (kDebugMode) {
+        print('MeetingPage: Calling LiveKitService.connectToRoom');
+      }
       final success = await _liveKitService.connectToRoom(
         roomName: widget.roomName,
         participantName: widget.participantName,
         participantId: widget.participantId,
       );
-      print('MeetingPage: connectToRoom succeeded: $success');
+      if (kDebugMode) {
+        print('MeetingPage: connectToRoom succeeded: $success');
+      }
 
       if (success && _liveKitService.room != null) {
-        print('MeetingPage: Success and room not null, setup listeners');
+        if (kDebugMode) {
+          print('MeetingPage: Success and room not null, setup listeners');
+        }
         _setupRoomListeners();
         setState(() {
           _isConnecting = false;
           _isConnected = true;
         });
-        print('MeetingPage: State set to connected');
+        if (kDebugMode) {
+          print('MeetingPage: State set to connected');
+        }
       } else {
-        print('MeetingPage: Connection not successful');
+        if (kDebugMode) {
+          print('MeetingPage: Connection not successful');
+        }
         setState(() {
           _isConnecting = false;
           _errorMessage = 'فشل في الاتصال بالدرس. يرجى المحاولة مرة أخرى.';
         });
       }
     } catch (e) {
-      print('MeetingPage: connectToRoom failed: $e');
+      if (kDebugMode) {
+        print('MeetingPage: connectToRoom failed: $e');
+      }
       setState(() {
         _isConnecting = false;
         _errorMessage = 'حدث خطأ أثناء الاتصال: ${e.toString()}';
       });
     }
-    print('MeetingPage: _connectToRoom ended');
+    if (kDebugMode) {
+      print('MeetingPage: _connectToRoom ended');
+    }
   }
 
   void _setupRoomListeners() {
@@ -145,13 +183,15 @@ class _MeetingPageState extends State<MeetingPage> {
         _screenShareParticipant = _findScreenShareParticipant();
 
         // Debug: Log participant and track information
-        print('Room update: ${_participants.length} remote participants');
-        for (final participant in _participants) {
-          print(
-              'Participant ${participant.identity}: ${participant.audioTrackPublications.length} audio tracks, ${participant.videoTrackPublications.length} video tracks');
-          for (final pub in participant.audioTrackPublications) {
+        if (kDebugMode) {
+          print('Room update: ${_participants.length} remote participants');
+          for (final participant in _participants) {
             print(
-                '  Audio track: subscribed=${pub.subscribed}, muted=${pub.muted}, source=${pub.source}');
+                'Participant ${participant.identity}: ${participant.audioTrackPublications.length} audio tracks, ${participant.videoTrackPublications.length} video tracks');
+            for (final pub in participant.audioTrackPublications) {
+              print(
+                  '  Audio track: subscribed=${pub.subscribed}, muted=${pub.muted}, source=${pub.source}');
+            }
           }
         }
       });

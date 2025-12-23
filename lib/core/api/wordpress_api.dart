@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+import '../config/env_config.dart';
+import '../services/secure_storage_service.dart';
 
 class WordPressApi {
   final Dio _dio = Dio();
+  final SecureStorageService _secureStorage = SecureStorageService();
   late final String _baseUrl;
 
   // Singleton pattern
@@ -14,8 +17,8 @@ class WordPressApi {
   }
 
   WordPressApi._internal() {
-    // Initialize with your WordPress site URL
-    _baseUrl = 'https://system.zuwad-academy.com/wp-json';
+    // Use centralized environment configuration
+    _baseUrl = EnvConfig.apiBaseUrl;
 
     // Configure Dio
     _dio.options.connectTimeout = const Duration(seconds: 10);
@@ -25,19 +28,31 @@ class WordPressApi {
       'Accept': 'application/json',
     };
 
-    // Add interceptors for logging, etc.
-    _dio.interceptors.add(LogInterceptor(
-      requestBody: true,
-      responseBody: true,
-      error: true,
-    ));
+    // Add interceptors for logging only in debug mode
+    if (kDebugMode) {
+      _dio.interceptors.add(LogInterceptor(
+        requestBody: true,
+        responseBody: true,
+        error: true,
+      ));
+    }
+  }
+
+  // Helper to get token from secure storage
+  Future<String?> _getToken() async {
+    return await _secureStorage.getToken();
+  }
+
+  // Helper to get user ID from secure storage
+  Future<int?> _getUserId() async {
+    return await _secureStorage.getUserIdAsInt();
   }
 
   // Student login with phone and password
   Future<Map<String, dynamic>> loginWithPhone(
       String phone, String password) async {
     try {
-      // Custom endpoint for phone login (you'll need to create this in WordPress)
+      // Custom endpoint for phone login
       final response = await _dio.post(
         '$_baseUrl/custom/v1/student-login',
         data: jsonEncode({
@@ -47,11 +62,9 @@ class WordPressApi {
       );
 
       if (response.statusCode == 200) {
-        // Save token to shared preferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_token', response.data['token']);
-        await prefs.setInt(
-            'user_id', int.parse(response.data['user_id'].toString()));
+        // Save token to secure storage
+        await _secureStorage.saveToken(response.data['token']);
+        await _secureStorage.saveUserId(response.data['user_id'].toString());
 
         return response.data;
       } else {
@@ -65,15 +78,14 @@ class WordPressApi {
   // Get student profile data
   Future<Map<String, dynamic>> getStudentProfile(int? userId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await _getToken();
 
       if (token == null) {
         throw Exception('Not authenticated');
       }
 
       if (userId == null) {
-        userId = prefs.getInt('user_id');
+        userId = await _getUserId();
         if (userId == null) {
           throw Exception('User ID not found');
         }
@@ -96,15 +108,14 @@ class WordPressApi {
   // Get user meta data
   Future<Map<String, dynamic>> getUserMeta(int? userId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await _getToken();
 
       if (token == null) {
         throw Exception('Not authenticated');
       }
 
       if (userId == null) {
-        userId = prefs.getInt('user_id');
+        userId = await _getUserId();
         if (userId == null) {
           throw Exception('User ID not found');
         }
@@ -112,7 +123,7 @@ class WordPressApi {
 
       _dio.options.headers['Authorization'] = 'Bearer $token';
 
-      // Custom endpoint to get user meta (you'll need to create this in WordPress)
+      // Custom endpoint to get user meta
       final response = await _dio.get('$_baseUrl/custom/v1/user-meta/$userId');
 
       if (response.statusCode == 200) {
@@ -128,8 +139,7 @@ class WordPressApi {
   // Get teacher data
   Future<Map<String, dynamic>> getTeacherData(int? teacherId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await _getToken();
 
       if (token == null) {
         throw Exception('Not authenticated');
@@ -164,8 +174,7 @@ class WordPressApi {
     required String dayOfWeek,
   }) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await _getToken();
 
       if (token == null) {
         throw Exception('Not authenticated');
@@ -224,8 +233,7 @@ class WordPressApi {
     int? isPostponed,
   }) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await _getToken();
 
       if (token == null) {
         throw Exception('Not authenticated');
@@ -256,9 +264,11 @@ class WordPressApi {
         }),
       );
 
-      print('Create student report response status: ${response.statusCode}');
-      print('Create student report response headers: ${response.headers}');
-      print('Create student report response body: ${response.data}');
+      if (kDebugMode) {
+        print('Create student report response status: ${response.statusCode}');
+        print('Create student report response headers: ${response.headers}');
+        print('Create student report response body: ${response.data}');
+      }
 
       if (response.statusCode == 200) {
         final data = response.data;
@@ -273,15 +283,15 @@ class WordPressApi {
             errorData['message'] ?? 'Failed to create student report');
       }
     } catch (e) {
-      print('Create student report error: $e');
+      if (kDebugMode) {
+        print('Create student report error: $e');
+      }
       throw Exception('Create student report failed: ${e.toString()}');
     }
   }
 
   // Logout
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-    await prefs.remove('user_id');
+    await _secureStorage.clearAll();
   }
 }

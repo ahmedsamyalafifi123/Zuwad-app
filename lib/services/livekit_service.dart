@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:livekit_client/livekit_client.dart';
 import '../core/config/livekit_config.dart';
 
@@ -60,18 +61,24 @@ class LiveKitService {
     required String participantName,
     required String participantId,
   }) async {
-    print('LiveKitService: connectToRoom started');
+    if (kDebugMode) {
+      print('LiveKitService: connectToRoom started');
+    }
     try {
-      print('LiveKitService: Generating token');
+      if (kDebugMode) {
+        print('LiveKitService: Generating token');
+      }
       // Generate token
       final token = generateToken(
         roomName: roomName,
         participantName: participantName,
         participantId: participantId,
       );
-      print('LiveKitService: Token generated');
+      if (kDebugMode) {
+        print('LiveKitService: Token generated');
+        print('LiveKitService: Creating Room');
+      }
 
-      print('LiveKitService: Creating Room');
       // Create room instance with audio-specific configurations
       _room = Room(
         roomOptions: RoomOptions(
@@ -91,10 +98,14 @@ class LiveKitService {
           ),
         ),
       );
-      print('LiveKitService: Room created');
+      if (kDebugMode) {
+        print('LiveKitService: Room created');
+      }
 
       try {
-        print('LiveKitService: Connecting to room');
+        if (kDebugMode) {
+          print('LiveKitService: Connecting to room');
+        }
         // Connect to room with audio-focused options
         await _room!.connect(
           LiveKitConfig.livekitUrl,
@@ -103,12 +114,16 @@ class LiveKitService {
             autoSubscribe: true,
           ),
         );
-        print('LiveKitService: Connected successfully');
+        if (kDebugMode) {
+          print('LiveKitService: Connected successfully');
+        }
 
         _isConnected = true;
       } catch (connectError) {
-        print('LiveKit connection error: $connectError');
-        print('LiveKitService: Attempting fallback connection');
+        if (kDebugMode) {
+          print('LiveKit connection error: $connectError');
+          print('LiveKitService: Attempting fallback connection');
+        }
         // Try with simpler options if the first attempt fails
         try {
           await _room!.connect(
@@ -116,21 +131,28 @@ class LiveKitService {
             token,
             connectOptions: const ConnectOptions(
               autoSubscribe: true,
-              // Disable advanced features that might cause issues in release mode
               protocolVersion: ProtocolVersion.v8,
             ),
           );
-          print('LiveKitService: Fallback connection successful');
+          if (kDebugMode) {
+            print('LiveKitService: Fallback connection successful');
+          }
           _isConnected = true;
         } catch (fallbackError) {
-          print('LiveKit fallback connection error: $fallbackError');
+          if (kDebugMode) {
+            print('LiveKit fallback connection error: $fallbackError');
+          }
           rethrow;
         }
       }
-      print('LiveKitService: connectToRoom completed successfully');
+      if (kDebugMode) {
+        print('LiveKitService: connectToRoom completed successfully');
+      }
       return true;
     } catch (e) {
-      print('Error connecting to LiveKit room: $e');
+      if (kDebugMode) {
+        print('Error connecting to LiveKit room: $e');
+      }
       _isConnected = false;
       return false;
     }
@@ -143,7 +165,9 @@ class LiveKitService {
       await _room!.localParticipant?.setCameraEnabled(true);
       return true;
     } catch (e) {
-      print('Error enabling camera: $e');
+      if (kDebugMode) {
+        print('Error enabling camera: $e');
+      }
       return false;
     }
   }
@@ -155,7 +179,9 @@ class LiveKitService {
       await _room!.localParticipant?.setCameraEnabled(false);
       return true;
     } catch (e) {
-      print('Error disabling camera: $e');
+      if (kDebugMode) {
+        print('Error disabling camera: $e');
+      }
       return false;
     }
   }
@@ -167,7 +193,9 @@ class LiveKitService {
       await _room!.localParticipant?.setMicrophoneEnabled(true);
       return true;
     } catch (e) {
-      print('Error enabling microphone: $e');
+      if (kDebugMode) {
+        print('Error enabling microphone: $e');
+      }
       return false;
     }
   }
@@ -179,7 +207,9 @@ class LiveKitService {
       await _room!.localParticipant?.setMicrophoneEnabled(false);
       return true;
     } catch (e) {
-      print('Error disabling microphone: $e');
+      if (kDebugMode) {
+        print('Error disabling microphone: $e');
+      }
       return false;
     }
   }
@@ -196,7 +226,9 @@ class LiveKitService {
 
       return true;
     } catch (e) {
-      print('Error switching camera: $e');
+      if (kDebugMode) {
+        print('Error switching camera: $e');
+      }
       return false;
     }
   }
@@ -208,7 +240,9 @@ class LiveKitService {
       _room = null;
       _isConnected = false;
     } catch (e) {
-      print('Error disconnecting from room: $e');
+      if (kDebugMode) {
+        print('Error disconnecting from room: $e');
+      }
     }
   }
 

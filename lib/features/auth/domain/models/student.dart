@@ -11,7 +11,7 @@ class Student {
   final String? notes;
   final String? mId;
   final String? lessonsName;
-  
+
   Student({
     required this.id,
     required this.name,
@@ -26,8 +26,9 @@ class Student {
     this.mId,
     this.lessonsName,
   });
-  
-  factory Student.fromJson(Map<String, dynamic> json, Map<String, dynamic> userMeta) {
+
+  factory Student.fromJson(
+      Map<String, dynamic> json, Map<String, dynamic> userMeta) {
     // Get the user ID from SharedPreferences
     return Student(
       id: json['id'] ?? 0, // Provide a default value if id is null
@@ -37,14 +38,15 @@ class Student {
       teacherName: userMeta['teacher_name']?.toString() ?? '',
       supervisorId: int.tryParse(userMeta['supervisor_id']?.toString() ?? '0'),
       supervisorName: userMeta['supervisor_name']?.toString() ?? '',
-      lessonsNumber: int.tryParse(userMeta['lessons_number']?.toString() ?? '0'),
+      lessonsNumber:
+          int.tryParse(userMeta['lessons_number']?.toString() ?? '0'),
       lessonDuration: userMeta['lesson_duration']?.toString() ?? '',
       notes: userMeta['notes']?.toString() ?? '',
       mId: userMeta['m_id']?.toString() ?? '',
       lessonsName: userMeta['lessons_name']?.toString() ?? '',
     );
   }
-  
+
   Student copyWith({
     int? id,
     String? name,
@@ -74,11 +76,29 @@ class Student {
       lessonsName: lessonsName ?? this.lessonsName,
     );
   }
-  
+
   String toDebugString() {
     return 'Student{id: $id, name: $name, phone: $phone, teacherId: $teacherId, '
         'teacherName: $teacherName, lessonsNumber: $lessonsNumber, '
         'lessonDuration: $lessonDuration, notes: $notes, mId: $mId, '
         'lessonsName: $lessonsName}';
+  }
+
+  /// Convert to JSON for serialization/caching
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'phone': phone,
+      'teacher_id': teacherId,
+      'teacher_name': teacherName,
+      'supervisor_id': supervisorId,
+      'supervisor_name': supervisorName,
+      'lessons_number': lessonsNumber,
+      'lesson_duration': lessonDuration,
+      'notes': notes,
+      'm_id': mId,
+      'lessons_name': lessonsName,
+    };
   }
 }

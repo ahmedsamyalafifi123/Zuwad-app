@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 
 class ChatMessage {
@@ -20,7 +21,9 @@ class ChatMessage {
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
-    print('Parsing message JSON: $json');
+    if (kDebugMode) {
+      print('Parsing message JSON: $json');
+    }
 
     // Handle different field names and formats from WordPress API
     final String messageId = json['id'].toString();

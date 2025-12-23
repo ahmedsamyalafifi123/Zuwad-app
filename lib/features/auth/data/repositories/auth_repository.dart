@@ -1,9 +1,10 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/services/secure_storage_service.dart';
 import '../../../../core/api/wordpress_api.dart';
 import '../../domain/models/student.dart';
 
 class AuthRepository {
   final WordPressApi _api = WordPressApi();
+  final SecureStorageService _secureStorage = SecureStorageService();
 
   // Login with phone and password
   Future<bool> login(String phone, String password) async {
@@ -17,14 +18,13 @@ class AuthRepository {
 
   // Check if user is logged in
   Future<bool> isLoggedIn() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.containsKey('auth_token');
+    final token = await _secureStorage.getToken();
+    return token != null && token.isNotEmpty;
   }
 
   // Get current user ID
   Future<int?> getCurrentUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('user_id');
+    return await _secureStorage.getUserIdAsInt();
   }
 
   // Get student profile with all required data

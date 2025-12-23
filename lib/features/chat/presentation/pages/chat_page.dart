@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
@@ -8,8 +9,6 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../data/repositories/chat_repository.dart';
-
-// For input handling
 
 class ChatPage extends StatefulWidget {
   final String recipientId;
@@ -30,13 +29,11 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  final List<types.Message> _messages = [];
   late final ChatRepository _chatRepository;
   late final core.InMemoryChatController _chatController;
   bool _isLoading = false;
   int _currentPage = 1;
   Timer? _refreshTimer;
-  String? _lastMessageId;
   final Set<String> _sentMessageIds = {}; // Track successfully sent messages
 
   @override
@@ -48,14 +45,18 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _refreshMessages() async {
     try {
-      print('Refreshing messages...');
+      if (kDebugMode) {
+        print('Refreshing messages...');
+      }
       final messages = await _chatRepository.getMessages(
         studentId: widget.studentId,
         recipientId: widget.recipientId,
         page: 1, // Always get latest messages
       );
 
-      print('Received ${messages.length} messages during refresh');
+      if (kDebugMode) {
+        print('Received ${messages.length} messages during refresh');
+      }
 
       if (mounted && messages.isNotEmpty) {
         // Get existing messages from controller
@@ -81,7 +82,9 @@ class _ChatPageState extends State<ChatPage> {
             .toList();
 
         if (newMessages.isNotEmpty) {
-          print('Adding ${newMessages.length} new messages');
+          if (kDebugMode) {
+            print('Adding ${newMessages.length} new messages');
+          }
           setState(() {
             // Create a set of server message IDs for tracking sent messages
             final serverMessageIds =
@@ -114,7 +117,9 @@ class _ChatPageState extends State<ChatPage> {
 
             // Update controller with messages
             _chatController.setMessages(allMessages);
-            print('Updated UI with ${newMessages.length} new messages');
+            if (kDebugMode) {
+              print('Updated UI with ${newMessages.length} new messages');
+            }
           });
         } else {
           // No new messages, just update status of existing sent messages
@@ -151,16 +156,16 @@ class _ChatPageState extends State<ChatPage> {
         }
       }
     } catch (e) {
-      print('Error refreshing messages: $e');
+      if (kDebugMode) {
+        print('Error refreshing messages: $e');
+      }
     }
   }
 
   @override
   void initState() {
     super.initState();
-    _chatRepository = ChatRepository(
-      baseUrl: 'https://system.zuwad-academy.com',
-    );
+    _chatRepository = ChatRepository();
 
     // Initialize InMemoryChatController
     _chatController = core.InMemoryChatController();
@@ -196,16 +201,19 @@ class _ChatPageState extends State<ChatPage> {
         page: _currentPage,
       );
 
-      print('Received ${serverMessages.length} server messages');
-      for (var msg in serverMessages) {
-        print(
-            'Server message: ${msg.id} from ${msg.senderId} content: ${msg.content}');
+      if (kDebugMode) {
+        print('Received ${serverMessages.length} server messages');
+        for (var msg in serverMessages) {
+          print(
+              'Server message: ${msg.id} from ${msg.senderId} content: ${msg.content}');
+        }
       }
 
-      // Store the last message ID to avoid duplicates during refresh
+      // Update UI with server messages
       if (serverMessages.isNotEmpty) {
-        _lastMessageId = serverMessages.first.id;
-        print('Setting last message ID to: $_lastMessageId');
+        if (kDebugMode) {
+          print('Setting messages in controller');
+        }
 
         // Update UI with server messages
         setState(() {
@@ -234,7 +242,9 @@ class _ChatPageState extends State<ChatPage> {
         });
       }
     } catch (e) {
-      print('Error loading messages: $e');
+      if (kDebugMode) {
+        print('Error loading messages: $e');
+      }
       setState(() {
         _isLoading = false;
       });
@@ -310,7 +320,9 @@ class _ChatPageState extends State<ChatPage> {
           _chatController.setMessages(updatedMessages);
         });
 
-        print('Message sent successfully: ${sentMessage.id}');
+        if (kDebugMode) {
+          print('Message sent successfully: ${sentMessage.id}');
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -344,7 +356,9 @@ class _ChatPageState extends State<ChatPage> {
           ),
         );
 
-        print('Failed to send message: $e');
+        if (kDebugMode) {
+          print('Failed to send message: $e');
+        }
       }
     }
   }
@@ -362,7 +376,9 @@ class _ChatPageState extends State<ChatPage> {
               CircleAvatar(
                 backgroundColor: const Color(0xFFf6c302),
                 child: Text(
-                  widget.recipientName[0].toUpperCase(),
+                  widget.recipientName.isNotEmpty
+                      ? widget.recipientName[0].toUpperCase()
+                      : '?',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -400,7 +416,6 @@ class _ChatPageState extends State<ChatPage> {
               icon: const Icon(Icons.refresh),
               onPressed: () {
                 setState(() {
-                  _messages.clear();
                   _currentPage = 1;
                 });
                 _loadMessages();

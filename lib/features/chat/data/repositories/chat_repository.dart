@@ -1,26 +1,26 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-// Removed chat database import as we're not using local database anymore
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import '../../../../core/config/env_config.dart';
+import '../../../../core/services/secure_storage_service.dart';
 import '../models/chat_message.dart';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
-
 class ChatRepository {
-  final String baseUrl;
-  // Removed database instance as we're not using local database anymore
+  final Dio _dio = Dio();
+  final SecureStorageService _secureStorage = SecureStorageService();
   final Connectivity _connectivity = Connectivity();
+  final String baseUrl;
 
   ChatRepository({
-    required this.baseUrl,
-  }) {
-    // Listen for connectivity changes
-    _connectivity.onConnectivityChanged.listen((result) async {
-      if (result != ConnectivityResult.none) {
-        // When connection is restored, retry sending pending messages
-        await retrySendingPendingMessages();
-      }
-    });
+    String? baseUrl,
+  }) : baseUrl = baseUrl ?? EnvConfig.baseUrl {
+    // Configure Dio
+    _dio.options.connectTimeout = const Duration(seconds: 10);
+    _dio.options.receiveTimeout = const Duration(seconds: 10);
+    _dio.options.headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
   }
 
   ChatMessage _createPendingMessage({
@@ -32,22 +32,14 @@ class ChatRepository {
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       content: message,
       senderId: studentId,
-      senderName: '', // We'll need to get this from somewhere
+      senderName: '',
       timestamp: DateTime.now(),
       isPending: true,
     );
   }
 
   Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
-  }
-
-  // This method is no longer needed as we're not using local database for messages
-  Future<List<ChatMessage>> loadLocalMessages(
-      String userId1, String userId2) async {
-    // Return empty list as we're not using local database anymore
-    return [];
+    return await _secureStorage.getToken();
   }
 
   Future<List<ChatMessage>> getMessages({
@@ -59,47 +51,53 @@ class ChatRepository {
       final token = await _getToken();
       if (token == null) throw Exception('Not authenticated');
 
-      final url = Uri.parse('$baseUrl/wp-json/zuwad/v1/chat/messages');
-      print(
-          'Fetching messages from $url with studentId=$studentId, recipientId=$recipientId, page=$page');
+      final url = '$baseUrl/wp-json/zuwad/v1/chat/messages';
+      if (kDebugMode) {
+        print(
+            'Fetching messages from $url with studentId=$studentId, recipientId=$recipientId, page=$page');
+      }
 
-      final response = await http.post(
+      final response = await _dio.post(
         url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
+        data: {
           'student_id': studentId,
           'recipient_id': recipientId,
           'page': page,
-        }),
+        },
       );
 
-      print('API response status: ${response.statusCode}');
-      print('API response body: ${response.body}');
+      if (kDebugMode) {
+        print('API response status: ${response.statusCode}');
+        print('API response body: ${response.data}');
+      }
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        print('Received ${data.length} messages from server');
-        for (var msg in data) {
-          print(
-              'Message: ${msg['id']} from ${msg['sender_id']} to ${msg['recipient_id']}, content: ${msg['content'] ?? msg['message']}');
+        final List<dynamic> data = response.data;
+        if (kDebugMode) {
+          print('Received ${data.length} messages from server');
+          for (var msg in data) {
+            print(
+                'Message: ${msg['id']} from ${msg['sender_id']} to ${msg['recipient_id']}, content: ${msg['content'] ?? msg['message']}');
+          }
         }
 
         final messages =
             data.map((json) => ChatMessage.fromJson(json)).toList();
-
-        // Return the server messages directly
         return messages;
       } else {
-        print(
-            'Failed to load messages: ${response.statusCode} - ${response.body}');
+        if (kDebugMode) {
+          print(
+              'Failed to load messages: ${response.statusCode} - ${response.data}');
+        }
         throw Exception('Failed to load messages: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error fetching messages: $e');
-      // Return empty list
+      if (kDebugMode) {
+        print('Error fetching messages: $e');
+      }
       return [];
     }
   }
@@ -109,9 +107,10 @@ class ChatRepository {
     required String recipientId,
     required String message,
   }) async {
-    // Check connectivity first
-    final connectivityResult = await _connectivity.checkConnectivity();
-    final bool isOnline = connectivityResult != ConnectivityResult.none;
+    // Check connectivity - handle List<ConnectivityResult> from newer API
+    final connectivityResults = await _connectivity.checkConnectivity();
+    final bool isOnline =
+        !connectivityResults.contains(ConnectivityResult.none);
 
     // Create a pending message
     final pendingMessage = _createPendingMessage(
@@ -120,7 +119,7 @@ class ChatRepository {
       message: message,
     );
 
-    // If offline, return pending message but don't store locally
+    // If offline, return pending message
     if (!isOnline) {
       return pendingMessage;
     }
@@ -132,46 +131,38 @@ class ChatRepository {
         return pendingMessage;
       }
 
-      final url = Uri.parse('$baseUrl/wp-json/zuwad/v1/chat/send');
-      final response = await http.post(
+      final url = '$baseUrl/wp-json/zuwad/v1/chat/send';
+      final response = await _dio.post(
         url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
+        data: {
           'student_id': studentId,
           'recipient_id': recipientId,
           'message': message,
-        }),
+        },
       );
 
-      print('Send message response: ${response.statusCode} - ${response.body}');
+      if (kDebugMode) {
+        print(
+            'Send message response: ${response.statusCode} - ${response.data}');
+      }
 
       if (response.statusCode == 201 || response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        final serverMessage = ChatMessage.fromJson(json);
+        final serverMessage = ChatMessage.fromJson(response.data);
         return serverMessage;
       } else {
-        Map<String, dynamic>? errorJson;
-        try {
-          errorJson = jsonDecode(response.body);
-        } catch (_) {}
-
         throw Exception(
             'Failed to send message. Status: ${response.statusCode}. '
-            'Error: ${errorJson?['message'] ?? response.body}');
+            'Error: ${response.data?['message'] ?? response.data}');
       }
     } catch (e) {
-      print('Error sending message: $e');
+      if (kDebugMode) {
+        print('Error sending message: $e');
+      }
       return pendingMessage;
     }
-  }
-
-  // This method is no longer needed as we're not storing messages locally
-  Future<void> retrySendingPendingMessages() async {
-    // No-op as we're not using local database for messages anymore
-    return;
   }
 
   Future<void> markAsRead({
@@ -180,22 +171,17 @@ class ChatRepository {
     final token = await _getToken();
     if (token == null) throw Exception('Not authenticated');
 
-    final url = Uri.parse('$baseUrl/wp-json/zuwad/v1/chat/mark-read');
-    final response = await http.post(
+    final url = '$baseUrl/wp-json/zuwad/v1/chat/mark-read';
+    final response = await _dio.post(
       url,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'message_id': messageId,
-      }),
+      options: Options(
+        headers: {'Authorization': 'Bearer $token'},
+      ),
+      data: {'message_id': messageId},
     );
 
     if (response.statusCode != 200) {
       throw Exception('Failed to mark message as read');
     }
-
-    // No need to update local database as we're not using it anymore
   }
 }
