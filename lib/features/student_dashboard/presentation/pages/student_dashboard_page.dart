@@ -26,16 +26,35 @@ class StudentDashboardPage extends StatefulWidget {
 }
 
 class _StudentDashboardPageState extends State<StudentDashboardPage> {
-  int _currentIndex = 2; // Start with the middle tab (dashboard)
+  int _currentIndex = 0; // Start with الرئيسة (home/dashboard)
 
   late final List<Widget> _pages;
+
+  // Navigation items configuration for cleaner code
+  static const List<Map<String, dynamic>> _navItems = [
+    {'icon': Icons.home_rounded, 'label': 'الرئيسة'},
+    {'icon': Icons.emoji_events_rounded, 'label': 'الانجازات'},
+    {'icon': Icons.calendar_month_rounded, 'label': 'جدول الحصص'},
+    {'icon': Icons.chat_bubble_rounded, 'label': 'المراسلة'},
+    {'icon': Icons.sports_esports_rounded, 'label': 'العاب'},
+    {'icon': Icons.settings_rounded, 'label': 'الاعدادات'},
+  ];
 
   @override
   void initState() {
     super.initState();
-    // Initialize pages
+    // Initialize pages - 6 pages for the 6 nav items
     _pages = [
+      // 0: الرئيسة (Dashboard/Main page)
+      _DashboardContent(),
+      // 1: الانجازات (Achievements)
       const HomePage(),
+      // 2: جدول الحصص (Schedule)
+      const PlaceholderPage(
+        title: 'جدول الحصص',
+        icon: Icons.calendar_month_rounded,
+      ),
+      // 3: المراسلة (Messages)
       BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           if (state is AuthAuthenticated && state.student != null) {
@@ -51,14 +70,15 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
           return const Center(child: CircularProgressIndicator());
         },
       ),
-      _DashboardContent(),
+      // 4: العاب (Games)
       const PlaceholderPage(
-        title: 'الملف الشخصي',
-        icon: Icons.person_outline,
+        title: 'العاب',
+        icon: Icons.sports_esports_rounded,
       ),
+      // 5: الاعدادات (Settings)
       const PlaceholderPage(
-        title: 'الإعدادات',
-        icon: Icons.settings_outlined,
+        title: 'الاعدادات',
+        icon: Icons.settings_rounded,
       ),
     ];
 
@@ -102,220 +122,134 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
         ],
       ),
       body: _pages[_currentIndex],
-      extendBody:
-          true, // This will make the body extend behind the bottom navigation bar
-      bottomNavigationBar: _buildCustomBottomNavBar(),
+      extendBody: true,
+      bottomNavigationBar: _buildIslamicModernNavBar(),
     );
   }
 
-  Widget _buildCustomBottomNavBar() {
+  Widget _buildIslamicModernNavBar() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Stack(
         alignment: Alignment.topCenter,
         clipBehavior: Clip.none,
         children: [
+          // Main nav bar container with Islamic modern design
           Container(
-            height: 60,
-            margin: const EdgeInsets.only(top: 15),
+            height: 70,
+            margin: const EdgeInsets.only(top: 25),
             decoration: BoxDecoration(
-              color: Colors.white,
+              // Gradient background for premium look
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFFFFDF5), // Warm cream white
+                  Color(0xFFF8F4E8), // Subtle gold tint
+                ],
+              ),
               border: Border.all(
-                color: const Color(0xFFD4AF37),
-                width: 2,
+                color: const Color(0xFFD4AF37), // Gold border
+                width: 1.5,
               ),
               boxShadow: const [
                 BoxShadow(
-                  color: Color(0x4D000000), // 0.3 opacity grey
+                  color: Color(0x268B0628), // 15% opacity
+                  blurRadius: 20,
+                  offset: Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Color(0x1AD4AF37), // 10% opacity
                   blurRadius: 10,
-                  offset: Offset(0, -2),
+                  spreadRadius: 1,
                 ),
               ],
-              borderRadius: BorderRadius.circular(15), // 25% of 60px height
+              borderRadius: BorderRadius.circular(20),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                // Home tab
-                Expanded(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => setState(() => _currentIndex = 0),
-                      customBorder: const CircleBorder(),
-                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
-                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.assignment,
-                            size: 22,
-                            color: _currentIndex == 0
-                                ? const Color.fromARGB(255, 187, 153, 32)
-                                : const Color(0xFF8b0628),
-                          ),
-                          Text(
-                            'الإنجازات',
-                            style: TextStyle(
-                              color: _currentIndex == 0
-                                  ? const Color.fromARGB(255, 187, 153, 32)
-                                  : const Color(0xFF8b0628),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Stack(
+                children: [
+                  // Subtle Islamic geometric pattern overlay
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _IslamicPatternPainter(),
                     ),
                   ),
-                ),
-
-                // Notifications tab
-                Expanded(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => setState(() => _currentIndex = 1),
-                      customBorder: const CircleBorder(),
-                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
-                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.chat_outlined,
-                            size: 22,
-                            color: _currentIndex == 1
-                                ? const Color.fromARGB(255, 187, 153, 32)
-                                : const Color(0xFF8b0628),
-                          ),
-                          Text(
-                            'مراسلة',
-                            style: TextStyle(
-                              color: _currentIndex == 1
-                                  ? const Color.fromARGB(255, 187, 153, 32)
-                                  : const Color(0xFF8b0628),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
+                  // Navigation items
+                  Row(
+                    children: [
+                      // Left side: 3 nav items
+                      Expanded(
+                        flex: 3,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildNavItem(0),
+                            _buildNavItem(1),
+                            _buildNavItem(2),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-
-                // Middle spacer for the logo
-                const Expanded(child: SizedBox()),
-
-                // Profile tab
-                Expanded(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => setState(() => _currentIndex = 3),
-                      customBorder: const CircleBorder(),
-                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
-                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.person_outline,
-                            size: 22,
-                            color: _currentIndex == 3
-                                ? const Color.fromARGB(255, 187, 153, 32)
-                                : const Color(0xFF8b0628),
-                          ),
-                          Text(
-                            'الملف',
-                            style: TextStyle(
-                              color: _currentIndex == 3
-                                  ? const Color.fromARGB(255, 187, 153, 32)
-                                  : const Color(0xFF8b0628),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Settings tab
-                Expanded(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => setState(() => _currentIndex = 4),
-                      customBorder: const CircleBorder(),
-                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
-                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.settings_outlined,
-                            size: 22,
-                            color: _currentIndex == 4
-                                ? const Color.fromARGB(255, 187, 153, 32)
-                                : const Color(0xFF8b0628),
-                          ),
-                          Text(
-                            'الإعدادات',
-                            style: TextStyle(
-                              color: _currentIndex == 4
-                                  ? const Color.fromARGB(255, 187, 153, 32)
-                                  : const Color(0xFF8b0628),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Center floating logo button that's half outside the navbar
-          Positioned(
-            top: -20,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => setState(() => _currentIndex = 2),
-                customBorder: const CircleBorder(),
-                splashColor: const Color(0x338B0628), // 0.2 opacity
-                highlightColor: const Color(0x1A8B0628), // 0.1 opacity
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: _currentIndex == 2
-                        ? const Color(0xFF8b0628)
-                        : Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color.fromARGB(255, 255, 255, 255),
-                      width: 2,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x4D000000), // 0.3 opacity grey
-                        blurRadius: 10,
-                        spreadRadius: 2,
-                        offset: Offset(0, 0),
+                      // Center spacer for logo
+                      const SizedBox(width: 70),
+                      // Right side: 3 nav items
+                      Expanded(
+                        flex: 3,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildNavItem(3),
+                            _buildNavItem(4),
+                            _buildNavItem(5),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Image.asset(
-                      'assets/images/zuwad.png',
-                      fit: BoxFit.contain,
-                    ),
+                ],
+              ),
+            ),
+          ),
+
+          // Decorative centered logo (non-clickable)
+          Positioned(
+            top: -5,
+            child: Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFF8F4E8), // Light cream
+                    Color(0xFFFFFFFF), // White
+                  ],
+                ),
+                border: Border.all(
+                  color: const Color(0xFFD4AF37), // Gold border
+                  width: 2.5,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x66D4AF37), // 40% opacity
+                    blurRadius: 15,
+                    spreadRadius: 2,
                   ),
+                  BoxShadow(
+                    color: Color(0x1A8B0628), // 10% opacity
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Image.asset(
+                  'assets/images/zuwad.png',
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
@@ -324,6 +258,96 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
       ),
     );
   }
+
+  Widget _buildNavItem(int index) {
+    final isSelected = _currentIndex == index;
+    final item = _navItems[index];
+
+    return GestureDetector(
+      onTap: () => setState(() => _currentIndex = index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+        decoration: isSelected
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: const Color.fromARGB(
+                    10, 0, 0, 0), // 20% opacity - more visible
+              )
+            : null,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                item['icon'] as IconData,
+                size: isSelected ? 22 : 20,
+                color: isSelected
+                    ? const Color(0xFFD4AF37) // Gold when selected
+                    : const Color(0xFF8B0628), // Burgundy when not selected
+              ),
+            ),
+            const SizedBox(height: 2),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                fontSize: isSelected ? 9 : 8,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected
+                    ? const Color(0xFFD4AF37) // Gold when selected
+                    : const Color(0xFF8B0628), // Burgundy when not selected
+              ),
+              child: Text(item['label'] as String),
+            ),
+            // Selection indicator
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(top: 2),
+              height: 2,
+              width: isSelected ? 16 : 0,
+              decoration: BoxDecoration(
+                color: const Color(0xFFD4AF37),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Custom painter for subtle Islamic geometric pattern
+class _IslamicPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0x0AD4AF37) // 4% opacity
+      ..strokeWidth = 0.5
+      ..style = PaintingStyle.stroke;
+
+    // Draw subtle geometric lines
+    const spacing = 20.0;
+    for (double x = 0; x < size.width; x += spacing) {
+      for (double y = 0; y < size.height; y += spacing) {
+        // Draw small diamond shapes
+        final path = Path()
+          ..moveTo(x, y - 5)
+          ..lineTo(x + 5, y)
+          ..lineTo(x, y + 5)
+          ..lineTo(x - 5, y)
+          ..close();
+        canvas.drawPath(path, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _DashboardContent extends StatefulWidget {
