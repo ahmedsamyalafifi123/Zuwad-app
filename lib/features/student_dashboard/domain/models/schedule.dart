@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 class Schedule {
   final String day;
@@ -17,7 +18,9 @@ class Schedule {
 
   factory Schedule.fromJson(Map<String, dynamic> json) {
     // Debug the raw JSON
-    print('Parsing schedule from: $json');
+    if (kDebugMode) {
+      print('Parsing schedule from: $json');
+    }
 
     // Ensure day and hour are strings
     String day = '';
@@ -94,25 +97,29 @@ class StudentSchedule {
 
   factory StudentSchedule.fromJson(Map<String, dynamic> json) {
     // Debug the raw JSON
-    print('-----------------------------------');
-    print('Parsing student schedule from JSON:');
-    print(json);
-    print('-----------------------------------');
+    if (kDebugMode) {
+      print('-----------------------------------');
+      print('Parsing student schedule from JSON:');
+      print(json);
+      print('-----------------------------------');
+    }
 
     List<Schedule> schedulesList = [];
 
     // Special case: Look for direct schedule items in the JSON
-    // This handles the case where schedules are directly in the JSON like:
-    // {"id": 123, "schedules": [{...}, {...}]}
-    // OR
-    // In your case: "schedules": [{day: الأحد, hour: 11:45 AM, original: null}, ...]
     if (json.containsKey('day') && json.containsKey('hour')) {
-      print('Found schedule data directly in the JSON');
+      if (kDebugMode) {
+        print('Found schedule data directly in the JSON');
+      }
       try {
         schedulesList.add(Schedule.fromJson(json));
-        print('Added direct schedule: ${json['day']} at ${json['hour']}');
+        if (kDebugMode) {
+          print('Added direct schedule: ${json['day']} at ${json['hour']}');
+        }
       } catch (e) {
-        print('Error adding direct schedule: $e');
+        if (kDebugMode) {
+          print('Error adding direct schedule: $e');
+        }
       }
     }
 
@@ -120,14 +127,20 @@ class StudentSchedule {
     var rawSchedules = json['schedules'];
 
     if (rawSchedules == null) {
-      print('No "schedules" field found, checking for "schedule" field');
+      if (kDebugMode) {
+        print('No "schedules" field found, checking for "schedule" field');
+      }
       rawSchedules = json['schedule'];
 
       if (rawSchedules == null) {
-        print('Neither "schedules" nor "schedule" field found in JSON');
+        if (kDebugMode) {
+          print('Neither "schedules" nor "schedule" field found in JSON');
+        }
       }
     } else {
-      print('Found "schedules" field type: ${rawSchedules.runtimeType}');
+      if (kDebugMode) {
+        print('Found "schedules" field type: ${rawSchedules.runtimeType}');
+      }
     }
 
     // Process the schedules if we found them
@@ -140,13 +153,19 @@ class StudentSchedule {
           var decoded = jsonDecode(rawSchedules);
           if (decoded is List) {
             scheduleItems = decoded;
-            print(
-                'Successfully decoded schedules string to list with ${scheduleItems.length} items');
+            if (kDebugMode) {
+              print(
+                  'Successfully decoded schedules string to list with ${scheduleItems.length} items');
+            }
           } else {
-            print('Decoded schedules string is not a list: $decoded');
+            if (kDebugMode) {
+              print('Decoded schedules string is not a list: $decoded');
+            }
           }
         } catch (e) {
-          print('Error decoding schedules string: $e');
+          if (kDebugMode) {
+            print('Error decoding schedules string: $e');
+          }
 
           // Try cleaning up the string
           String cleanedString = rawSchedules
@@ -158,19 +177,31 @@ class StudentSchedule {
             var decoded = jsonDecode(cleanedString);
             if (decoded is List) {
               scheduleItems = decoded;
-              print('Successfully decoded cleaned schedules string to list');
+              if (kDebugMode) {
+                print('Successfully decoded cleaned schedules string to list');
+              }
             } else {
-              print('Cleaned decoded schedules string is not a list');
+              if (kDebugMode) {
+                print('Cleaned decoded schedules string is not a list');
+              }
             }
           } catch (e) {
-            print('Still failed to decode cleaned string: $e');
+            if (kDebugMode) {
+              print('Still failed to decode cleaned string: $e');
+            }
           }
         }
       } else if (rawSchedules is List) {
         scheduleItems = rawSchedules;
-        print('Schedules is already a list with ${scheduleItems.length} items');
+        if (kDebugMode) {
+          print(
+              'Schedules is already a list with ${scheduleItems.length} items');
+        }
       } else {
-        print('Schedules is not a string or list: ${rawSchedules.runtimeType}');
+        if (kDebugMode) {
+          print(
+              'Schedules is not a string or list: ${rawSchedules.runtimeType}');
+        }
         // Try to extract a list from a potentially nested map
         try {
           if (rawSchedules is Map) {
@@ -178,56 +209,79 @@ class StudentSchedule {
             for (var key in ['data', 'items', 'schedules', 'list']) {
               if (rawSchedules.containsKey(key) && rawSchedules[key] is List) {
                 scheduleItems = rawSchedules[key];
-                print(
-                    'Found nested list under key "$key" with ${scheduleItems.length} items');
+                if (kDebugMode) {
+                  print(
+                      'Found nested list under key "$key" with ${scheduleItems.length} items');
+                }
                 break;
               }
             }
           }
         } catch (e) {
-          print('Error trying to extract nested list: $e');
+          if (kDebugMode) {
+            print('Error trying to extract nested list: $e');
+          }
         }
       }
 
       // Process each schedule item
       for (var item in scheduleItems) {
         try {
-          print(
-              'Processing schedule item type: ${item.runtimeType}, value: $item');
+          if (kDebugMode) {
+            print(
+                'Processing schedule item type: ${item.runtimeType}, value: $item');
+          }
           Map<String, dynamic> scheduleJson;
 
           if (item is String) {
             try {
               scheduleJson = jsonDecode(item);
-              print('Decoded schedule item string to JSON');
+              if (kDebugMode) {
+                print('Decoded schedule item string to JSON');
+              }
             } catch (e) {
-              print('Error decoding schedule item string: $e');
+              if (kDebugMode) {
+                print('Error decoding schedule item string: $e');
+              }
               continue;
             }
           } else if (item is Map) {
             scheduleJson = Map<String, dynamic>.from(item);
-            print(
-                'Schedule item is a Map with keys: ${scheduleJson.keys.toList()}');
+            if (kDebugMode) {
+              print(
+                  'Schedule item is a Map with keys: ${scheduleJson.keys.toList()}');
+            }
           } else {
-            print('Schedule item is not a string or map: ${item.runtimeType}');
+            if (kDebugMode) {
+              print(
+                  'Schedule item is not a string or map: ${item.runtimeType}');
+            }
             continue;
           }
 
           if (scheduleJson.containsKey('day') &&
               scheduleJson.containsKey('hour')) {
             schedulesList.add(Schedule.fromJson(scheduleJson));
-            print(
-                'Added schedule: ${scheduleJson['day']} at ${scheduleJson['hour']}');
+            if (kDebugMode) {
+              print(
+                  'Added schedule: ${scheduleJson['day']} at ${scheduleJson['hour']}');
+            }
           } else {
-            print('Schedule JSON missing required fields: $scheduleJson');
+            if (kDebugMode) {
+              print('Schedule JSON missing required fields: $scheduleJson');
+            }
           }
         } catch (e) {
-          print('Error processing schedule item: $e');
+          if (kDebugMode) {
+            print('Error processing schedule item: $e');
+          }
         }
       }
     }
 
-    print('Final schedules list has ${schedulesList.length} items');
+    if (kDebugMode) {
+      print('Final schedules list has ${schedulesList.length} items');
+    }
 
     // Parse student_id and teacher_id safely
     int studentId = 0;
@@ -236,7 +290,9 @@ class StudentSchedule {
         try {
           studentId = int.parse(json['student_id']);
         } catch (e) {
-          print('Error parsing student_id: $e');
+          if (kDebugMode) {
+            print('Error parsing student_id: $e');
+          }
         }
       } else if (json['student_id'] is int) {
         studentId = json['student_id'];
@@ -249,7 +305,9 @@ class StudentSchedule {
         try {
           teacherId = int.parse(json['teacher_id']);
         } catch (e) {
-          print('Error parsing teacher_id: $e');
+          if (kDebugMode) {
+            print('Error parsing teacher_id: $e');
+          }
         }
       } else if (json['teacher_id'] is int) {
         teacherId = json['teacher_id'];
@@ -267,7 +325,9 @@ class StudentSchedule {
         try {
           isPostponed = int.parse(json['is_postponed']);
         } catch (e) {
-          print('Error parsing is_postponed: $e');
+          if (kDebugMode) {
+            print('Error parsing is_postponed: $e');
+          }
         }
       } else if (json['is_postponed'] is int) {
         isPostponed = json['is_postponed'];

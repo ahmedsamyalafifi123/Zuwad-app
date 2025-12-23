@@ -191,8 +191,10 @@ class _ChatPageState extends State<ChatPage> {
     });
 
     try {
-      print(
-          'Loading messages for conversation between ${widget.studentId} and ${widget.recipientId}');
+      if (kDebugMode) {
+        print(
+            'Loading messages for conversation between ${widget.studentId} and ${widget.recipientId}');
+      }
 
       // Only fetch from server - no local messages
       final serverMessages = await _chatRepository.getMessages(
@@ -250,7 +252,7 @@ class _ChatPageState extends State<ChatPage> {
       });
 
       // Only show error if we have no messages to display
-      if (_chatController.messages.isEmpty) {
+      if (_chatController.messages.isEmpty && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading messages: $e')),
         );
@@ -425,13 +427,13 @@ class _ChatPageState extends State<ChatPage> {
           ],
         ),
         body: Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             // WhatsApp-like background pattern
             image: DecorationImage(
-              image: const AssetImage('assets/images/chat_bg.png'),
+              image: AssetImage('assets/images/chat_bg.png'),
               fit: BoxFit.cover,
               colorFilter: ColorFilter.mode(
-                AppTheme.primaryColor.withOpacity(0.05),
+                Color(0x0D8B0628), // 0.05 opacity primary
                 BlendMode.dstATop,
               ),
             ),

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/api_constants.dart';
@@ -13,14 +14,18 @@ class ScheduleRepository {
   Future<List<StudentSchedule>> getStudentSchedules(int studentId,
       {bool forceRefresh = false}) async {
     try {
-      print(
-          'Getting schedules for student $studentId (forceRefresh: $forceRefresh)');
+      if (kDebugMode) {
+        print(
+            'Getting schedules for student $studentId (forceRefresh: $forceRefresh)');
+      }
 
       // Check if we should use cached data
       if (!forceRefresh) {
         final cachedData = await _getCachedSchedules(studentId);
         if (cachedData != null) {
-          print('Using cached data for student $studentId');
+          if (kDebugMode) {
+            print('Using cached data for student $studentId');
+          }
           return cachedData;
         }
       }
@@ -36,7 +41,9 @@ class ScheduleRepository {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final url =
           '${ApiConstants.baseUrl}/wp-json/zuwad/v1/student-schedules?student_id=$studentId&_t=$timestamp';
-      print('Making API request to: $url');
+      if (kDebugMode) {
+        print('Making API request to: $url');
+      }
 
       final response = await http.get(
         Uri.parse(url),
@@ -49,31 +56,43 @@ class ScheduleRepository {
         },
       );
 
-      print('API Response status: ${response.statusCode}');
-      print('API Response body: ${response.body}');
+      if (kDebugMode) {
+        print('API Response status: ${response.statusCode}');
+        print('API Response body: ${response.body}');
+      }
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        print('Decoded response data: $data');
+        if (kDebugMode) {
+          print('Decoded response data: $data');
+        }
 
         final schedules =
             data.map((json) => StudentSchedule.fromJson(json)).toList();
-        print('Parsed schedules: ${schedules.length} items');
+        if (kDebugMode) {
+          print('Parsed schedules: ${schedules.length} items');
+        }
 
         // Cache the new data
         await _cacheSchedules(studentId, schedules);
-        print('Cached new schedules for student $studentId');
+        if (kDebugMode) {
+          print('Cached new schedules for student $studentId');
+        }
 
         return schedules;
       } else {
         throw Exception('Failed to load schedules: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error fetching schedules: $e');
+      if (kDebugMode) {
+        print('Error fetching schedules: $e');
+      }
       // If there's an error, try to return cached data if available
       final cachedData = await _getCachedSchedules(studentId);
       if (cachedData != null) {
-        print('Falling back to cached data due to error');
+        if (kDebugMode) {
+          print('Falling back to cached data due to error');
+        }
         return cachedData;
       }
       throw Exception('Error fetching schedules: $e');
@@ -91,7 +110,9 @@ class ScheduleRepository {
 
       final url =
           '${ApiConstants.baseUrl}/wp-json/zuwad/v1/teacher-free-slots?teacher_id=$teacherId&_t=${DateTime.now().millisecondsSinceEpoch}';
-      print('Fetching teacher free slots from: $url');
+      if (kDebugMode) {
+        print('Fetching teacher free slots from: $url');
+      }
 
       final response = await http.get(
         Uri.parse(url),
@@ -108,7 +129,9 @@ class ScheduleRepository {
         throw Exception('Failed to load free slots: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error fetching free slots: $e');
+      if (kDebugMode) {
+        print('Error fetching free slots: $e');
+      }
       return [];
     }
   }
@@ -157,26 +180,36 @@ class ScheduleRepository {
   Future<void> _cacheSchedules(
       int studentId, List<StudentSchedule> schedules) async {
     try {
-      print('Caching schedules for student $studentId');
+      if (kDebugMode) {
+        print('Caching schedules for student $studentId');
+      }
       final prefs = await SharedPreferences.getInstance();
       final cacheKey = '$_cacheKey$studentId';
 
       final jsonData = schedules.map((s) => s.toJson()).toList();
-      print('Caching JSON data: $jsonData');
+      if (kDebugMode) {
+        print('Caching JSON data: $jsonData');
+      }
 
       await prefs.setString(cacheKey, json.encode(jsonData));
       await prefs.setInt('$_cacheTimestampKey$studentId',
           DateTime.now().millisecondsSinceEpoch);
-      print('Successfully cached schedules for student $studentId');
+      if (kDebugMode) {
+        print('Successfully cached schedules for student $studentId');
+      }
     } catch (e) {
-      print('Error caching schedules: $e');
+      if (kDebugMode) {
+        print('Error caching schedules: $e');
+      }
       // Silently fail caching
     }
   }
 
   Future<List<StudentSchedule>?> _getCachedSchedules(int studentId) async {
     try {
-      print('Checking cache for student $studentId');
+      if (kDebugMode) {
+        print('Checking cache for student $studentId');
+      }
       final prefs = await SharedPreferences.getInstance();
       final cacheKey = '$_cacheKey$studentId';
       final timestampKey = '$_cacheTimestampKey$studentId';
@@ -186,45 +219,33 @@ class ScheduleRepository {
 
       if (cachedData != null && timestamp != null) {
         final cacheAge = DateTime.now().millisecondsSinceEpoch - timestamp;
-        print('Cache age: ${cacheAge / 1000} seconds');
+        if (kDebugMode) {
+          print('Cache age: ${cacheAge / 1000} seconds');
+        }
 
         if (cacheAge < _cacheDuration.inMilliseconds) {
-          print('Using valid cached data');
+          if (kDebugMode) {
+            print('Using valid cached data');
+          }
           final List<dynamic> data = json.decode(cachedData);
           return data.map((json) => StudentSchedule.fromJson(json)).toList();
         } else {
-          print('Cache expired');
+          if (kDebugMode) {
+            print('Cache expired');
+          }
         }
       } else {
-        print('No cached data found');
+        if (kDebugMode) {
+          print('No cached data found');
+        }
       }
 
       return null;
     } catch (e) {
-      print('Error getting cached schedules: $e');
+      if (kDebugMode) {
+        print('Error getting cached schedules: $e');
+      }
       return null;
-    }
-  }
-
-  String _getDayNameInArabic(int weekday) {
-    // Convert weekday (1-7, Monday-Sunday) to Arabic day name
-    switch (weekday) {
-      case DateTime.sunday:
-        return 'الأحد';
-      case DateTime.monday:
-        return 'الاثنين';
-      case DateTime.tuesday:
-        return 'الثلاثاء';
-      case DateTime.wednesday:
-        return 'الأربعاء';
-      case DateTime.thursday:
-        return 'الخميس';
-      case DateTime.friday:
-        return 'الجمعة';
-      case DateTime.saturday:
-        return 'السبت';
-      default:
-        return '';
     }
   }
 
@@ -233,13 +254,17 @@ class ScheduleRepository {
       // Parse time string like "2:00 PM"
       final parts = timeString.trim().split(' ');
       if (parts.length != 2) {
-        print('Invalid time format: parts length is not 2');
+        if (kDebugMode) {
+          print('Invalid time format: parts length is not 2');
+        }
         return null;
       }
 
       final timeParts = parts[0].split(':');
       if (timeParts.length != 2) {
-        print('Invalid time format: time parts length is not 2');
+        if (kDebugMode) {
+          print('Invalid time format: time parts length is not 2');
+        }
         return null;
       }
 
@@ -257,7 +282,9 @@ class ScheduleRepository {
       final now = DateTime.now();
       return DateTime(now.year, now.month, now.day, hour, minute);
     } catch (e) {
-      print('Error parsing time string: $e');
+      if (kDebugMode) {
+        print('Error parsing time string: $e');
+      }
       return null;
     }
   }
@@ -282,7 +309,9 @@ class ScheduleRepository {
             );
           }
         } catch (e) {
-          print('Error parsing postponed date: $e');
+          if (kDebugMode) {
+            print('Error parsing postponed date: $e');
+          }
           return null;
         }
       } else {
@@ -299,13 +328,17 @@ class ScheduleRepository {
 
         final scheduledDay = dayMap[schedule.day];
         if (scheduledDay == null) {
-          print('Unknown day: ${schedule.day}');
+          if (kDebugMode) {
+            print('Unknown day: ${schedule.day}');
+          }
           return null;
         }
 
         final scheduledTime = _parseTimeString(schedule.hour);
         if (scheduledTime == null) {
-          print('Failed to parse time: ${schedule.hour}');
+          if (kDebugMode) {
+            print('Failed to parse time: ${schedule.hour}');
+          }
           return null;
         }
 
@@ -337,7 +370,9 @@ class ScheduleRepository {
         return null;
       }
     } catch (e) {
-      print('Error calculating time until next lesson: $e');
+      if (kDebugMode) {
+        print('Error calculating time until next lesson: $e');
+      }
       return null;
     }
   }

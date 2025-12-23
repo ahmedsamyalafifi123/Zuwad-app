@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/models/free_slot.dart';
@@ -114,7 +115,9 @@ class _PostponePageState extends State<PostponePage> {
         return DateTime(2024, 1, 1, hour, minute);
       }
     } catch (e) {
-      print('Error parsing time: $timeString');
+      if (kDebugMode) {
+        print('Error parsing time: $timeString');
+      }
     }
     return null;
   }
@@ -138,7 +141,7 @@ class _PostponePageState extends State<PostponePage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    color: const Color(0x1A8B0628), // 0.1 opacity primary
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -320,11 +323,14 @@ class _PostponePageState extends State<PostponePage> {
 
       // Create student report for the CURRENT lesson being postponed
       if (widget.currentLessonDate != null) {
-        print('DEBUG: Creating postponement report for student ${student.id}');
-        print('DEBUG: Teacher ID: ${widget.teacherId}');
-        print('DEBUG: Date: ${widget.currentLessonDate}');
-        print('DEBUG: Time: ${widget.currentLessonTime}');
-        print('DEBUG: Attendance: تأجيل ولي أمر');
+        if (kDebugMode) {
+          print(
+              'DEBUG: Creating postponement report for student ${student.id}');
+          print('DEBUG: Teacher ID: ${widget.teacherId}');
+          print('DEBUG: Date: ${widget.currentLessonDate}');
+          print('DEBUG: Time: ${widget.currentLessonTime}');
+          print('DEBUG: Attendance: تأجيل ولي أمر');
+        }
 
         final reportResult = await _api.createStudentReport(
           studentId: student.id,
@@ -338,7 +344,9 @@ class _PostponePageState extends State<PostponePage> {
           isPostponed: 1,
         );
 
-        print('DEBUG: Report creation result: $reportResult');
+        if (kDebugMode) {
+          print('DEBUG: Report creation result: $reportResult');
+        }
       }
 
       _showSuccessDialog();
@@ -432,11 +440,11 @@ class _PostponePageState extends State<PostponePage> {
                 color: const Color(0xFFD4AF37),
                 width: 2,
               ),
-              boxShadow: [
+              boxShadow: const [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.3),
+                  color: Color(0x4D000000), // 0.3 opacity grey
                   blurRadius: 10,
-                  offset: const Offset(0, -2),
+                  offset: Offset(0, -2),
                 ),
               ],
               borderRadius: BorderRadius.circular(15), // 25% of 60px height
@@ -451,20 +459,20 @@ class _PostponePageState extends State<PostponePage> {
                     child: InkWell(
                       onTap: () {},
                       customBorder: const CircleBorder(),
-                      splashColor: const Color(0xFF8b0628).withOpacity(0.1),
-                      highlightColor: const Color(0xFF8b0628).withOpacity(0.05),
-                      child: Column(
+                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
+                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
+                      child: const Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.assignment,
                             size: 22,
-                            color: const Color(0xFF8b0628),
+                            color: Color(0xFF8b0628),
                           ),
                           Text(
                             'الإنجازات',
                             style: TextStyle(
-                              color: const Color(0xFF8b0628),
+                              color: Color(0xFF8b0628),
                               fontSize: 10,
                             ),
                           ),
@@ -481,20 +489,20 @@ class _PostponePageState extends State<PostponePage> {
                     child: InkWell(
                       onTap: () {},
                       customBorder: const CircleBorder(),
-                      splashColor: const Color(0xFF8b0628).withOpacity(0.1),
-                      highlightColor: const Color(0xFF8b0628).withOpacity(0.05),
-                      child: Column(
+                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
+                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
+                      child: const Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.chat_outlined,
                             size: 22,
-                            color: const Color(0xFF8b0628),
+                            color: Color(0xFF8b0628),
                           ),
                           Text(
                             'مراسلة',
                             style: TextStyle(
-                              color: const Color(0xFF8b0628),
+                              color: Color(0xFF8b0628),
                               fontSize: 10,
                             ),
                           ),
@@ -514,20 +522,20 @@ class _PostponePageState extends State<PostponePage> {
                     child: InkWell(
                       onTap: () {},
                       customBorder: const CircleBorder(),
-                      splashColor: const Color(0xFF8b0628).withOpacity(0.1),
-                      highlightColor: const Color(0xFF8b0628).withOpacity(0.05),
-                      child: Column(
+                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
+                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
+                      child: const Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.person_outline,
                             size: 22,
-                            color: const Color(0xFF8b0628),
+                            color: Color(0xFF8b0628),
                           ),
                           Text(
                             'الملف',
                             style: TextStyle(
-                              color: const Color(0xFF8b0628),
+                              color: Color(0xFF8b0628),
                               fontSize: 10,
                             ),
                           ),
@@ -544,20 +552,20 @@ class _PostponePageState extends State<PostponePage> {
                     child: InkWell(
                       onTap: () {},
                       customBorder: const CircleBorder(),
-                      splashColor: const Color(0xFF8b0628).withOpacity(0.1),
-                      highlightColor: const Color(0xFF8b0628).withOpacity(0.05),
-                      child: Column(
+                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
+                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
+                      child: const Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.settings_outlined,
                             size: 22,
-                            color: const Color(0xFF8b0628),
+                            color: Color(0xFF8b0628),
                           ),
                           Text(
                             'الإعدادات',
                             style: TextStyle(
-                              color: const Color(0xFF8b0628),
+                              color: Color(0xFF8b0628),
                               fontSize: 10,
                             ),
                           ),
@@ -578,8 +586,8 @@ class _PostponePageState extends State<PostponePage> {
               child: InkWell(
                 onTap: () => Navigator.of(context).pop(),
                 customBorder: const CircleBorder(),
-                splashColor: const Color(0xFF8b0628).withOpacity(0.2),
-                highlightColor: const Color(0xFF8b0628).withOpacity(0.1),
+                splashColor: const Color(0x338B0628), // 0.2 opacity
+                highlightColor: const Color(0x1A8B0628), // 0.1 opacity
                 child: Container(
                   width: 60,
                   height: 60,
@@ -590,12 +598,12 @@ class _PostponePageState extends State<PostponePage> {
                       color: const Color.fromARGB(255, 255, 255, 255),
                       width: 2,
                     ),
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.3),
+                        color: Color(0x4D000000), // 0.3 opacity grey
                         blurRadius: 10,
                         spreadRadius: 2,
-                        offset: const Offset(0, 0),
+                        offset: Offset(0, 0),
                       ),
                     ],
                   ),

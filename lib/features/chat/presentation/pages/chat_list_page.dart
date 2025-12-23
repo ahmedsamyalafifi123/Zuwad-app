@@ -80,11 +80,11 @@ class ChatListPage extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Color(0x1A000000), // 0.1 opacity grey
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -100,7 +100,7 @@ class ChatListPage extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    color: const Color(0x1A8B0628), // 0.1 opacity primary
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(

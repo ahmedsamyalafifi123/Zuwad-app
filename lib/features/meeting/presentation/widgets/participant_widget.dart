@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:livekit_client/livekit_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -18,7 +19,6 @@ class ParticipantWidget extends StatefulWidget {
 
 class _ParticipantWidgetState extends State<ParticipantWidget> {
   VideoTrack? _videoTrack;
-  // Keeping audio track reference is unnecessary for playback in LiveKit
   bool _isVideoEnabled = true;
   bool _isAudioEnabled = true;
   bool _isScreenSharing = false;
@@ -38,7 +38,6 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
 
   void _setupParticipant() {
     // Get video track - prioritize screen share over camera
-    // Try different possible screen share source names
     final screenSharePublication = widget.participant.videoTrackPublications
         .where((pub) => pub.source.toString().toLowerCase().contains('screen'))
         .firstOrNull;
@@ -53,16 +52,20 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
     if (videoPublication?.track != null) {
       _videoTrack = videoPublication!.track as VideoTrack;
       _isScreenSharing = screenSharePublication != null;
-      print(
-          'Video track found for ${widget.participant.identity}: source=${videoPublication.source}, isScreenShare=$_isScreenSharing');
+      if (kDebugMode) {
+        print(
+            'Video track found for ${widget.participant.identity}: source=${videoPublication.source}, isScreenShare=$_isScreenSharing');
+      }
     } else {
       _isScreenSharing = false;
-      print('No video track found for ${widget.participant.identity}');
-      print(
-          'Available video publications: ${widget.participant.videoTrackPublications.length}');
-      for (final pub in widget.participant.videoTrackPublications) {
+      if (kDebugMode) {
+        print('No video track found for ${widget.participant.identity}');
         print(
-            '  Video track: source=${pub.source}, subscribed=${pub.subscribed}, muted=${pub.muted}');
+            'Available video publications: ${widget.participant.videoTrackPublications.length}');
+        for (final pub in widget.participant.videoTrackPublications) {
+          print(
+              '  Video track: source=${pub.source}, subscribed=${pub.subscribed}, muted=${pub.muted}');
+        }
       }
     }
 
@@ -71,13 +74,15 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
         .where((pub) => pub.source == TrackSource.microphone)
         .firstOrNull;
 
-    if (audioPublication?.track != null) {
-      print(
-          'Audio track found for ${widget.participant.identity}: subscribed=${audioPublication!.subscribed}, muted=${audioPublication.muted}');
-    } else {
-      print('No audio track found for ${widget.participant.identity}');
-      print(
-          'Available audio publications: ${widget.participant.audioTrackPublications.length}');
+    if (kDebugMode) {
+      if (audioPublication?.track != null) {
+        print(
+            'Audio track found for ${widget.participant.identity}: subscribed=${audioPublication!.subscribed}, muted=${audioPublication.muted}');
+      } else {
+        print('No audio track found for ${widget.participant.identity}');
+        print(
+            'Available audio publications: ${widget.participant.audioTrackPublications.length}');
+      }
     }
 
     // Check audio/video status
@@ -94,7 +99,6 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
 
   void _updateMediaStatus() {
     // Check for screen share first, then camera
-    // Try different possible screen share source names
     final screenSharePublication = widget.participant.videoTrackPublications
         .where((pub) => pub.source.toString().toLowerCase().contains('screen'))
         .firstOrNull;
@@ -196,8 +200,6 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
 
   Widget _buildAudioTrack() {
     // In LiveKit Flutter, audio tracks are automatically played when subscribed
-    // We don't need a visual renderer for audio tracks, they play automatically
-    // This method is kept for future audio-related UI elements if needed
     return const SizedBox.shrink();
   }
 
@@ -209,7 +211,7 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.7),
+          color: const Color(0xB3000000), // 0.7 opacity black
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -254,7 +256,7 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.8),
+                color: const Color(0xCCFF9800), // 0.8 opacity orange
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Icon(
@@ -270,8 +272,8 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: _isAudioEnabled
-                  ? Colors.green.withOpacity(0.8)
-                  : Colors.red.withOpacity(0.8),
+                  ? const Color(0xCC4CAF50) // 0.8 opacity green
+                  : const Color(0xCCF44336), // 0.8 opacity red
               borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(
@@ -286,8 +288,8 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: _isVideoEnabled
-                  ? Colors.green.withOpacity(0.8)
-                  : Colors.red.withOpacity(0.8),
+                  ? const Color(0xCC4CAF50) // 0.8 opacity green
+                  : const Color(0xCCF44336), // 0.8 opacity red
               borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(

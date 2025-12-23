@@ -75,7 +75,7 @@ class ReportDetailsPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withOpacity(0.1),
+        color: const Color(0x1A8B0628), // 0.1 opacity primary
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -115,12 +115,12 @@ class ReportDetailsPage extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Color(0x1A000000), // 0.1 opacity grey
             spreadRadius: 1,
             blurRadius: 4,
-            offset: const Offset(0, 2),
+            offset: Offset(0, 2),
           ),
         ],
       ),
@@ -183,12 +183,12 @@ class ReportDetailsPage extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Color(0x1A000000), // 0.1 opacity grey
             spreadRadius: 1,
             blurRadius: 4,
-            offset: const Offset(0, 2),
+            offset: Offset(0, 2),
           ),
         ],
       ),

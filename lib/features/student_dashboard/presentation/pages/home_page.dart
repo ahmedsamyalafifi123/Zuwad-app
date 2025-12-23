@@ -4,9 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
-import '../../data/repositories/schedule_repository.dart';
 import '../../data/repositories/report_repository.dart';
-import '../../domain/models/schedule.dart';
 import '../../domain/models/student_report.dart';
 import 'report_details_page.dart';
 
@@ -18,14 +16,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final ScheduleRepository _scheduleRepository = ScheduleRepository();
   final ReportRepository _reportRepository = ReportRepository();
-  StudentSchedule? _nextSchedule;
-  Schedule? _nextLesson;
-  final String _teacherName = '';
-  final String _lessonName = '';
-  final bool _isLoading = true;
-  Duration? _timeUntilNextLesson;
   Timer? _countdownTimer;
   List<StudentReport> _reports = [];
   bool _isLoadingReports = false;
@@ -64,13 +55,15 @@ class _HomePageState extends State<HomePage> {
           _reports = [];
         });
 
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('فشل في تحميل التقارير: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        // Check if mounted before showing snackbar
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('فشل في تحميل التقارير: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       } finally {
         setState(() {
           _isLoadingReports = false;
@@ -89,16 +82,16 @@ class _HomePageState extends State<HomePage> {
           // Decorative border
           Container(
             height: 2,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [
                   Colors.transparent,
-                  const Color(0xFFf6c302).withOpacity(0.5),
-                  const Color(0xFFf6c302),
-                  const Color(0xFFf6c302).withOpacity(0.5),
+                  Color(0x80F6C302), // 0.5 opacity
+                  Color(0xFFF6C302),
+                  Color(0x80F6C302), // 0.5 opacity
                   Colors.transparent,
                 ],
-                stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
+                stops: [0.0, 0.2, 0.5, 0.8, 1.0],
               ),
             ),
           ),
@@ -109,17 +102,17 @@ class _HomePageState extends State<HomePage> {
               // Left decoration
               Container(
                 padding: const EdgeInsets.only(right: 8),
-                child: Row(
+                child: const Row(
                   children: [
                     Icon(
                       Icons.star,
-                      color: const Color(0xFFf6c302).withOpacity(0.7),
+                      color: Color(0xB3F6C302), // 0.7 opacity
                       size: 16,
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4),
                     Icon(
                       Icons.star,
-                      color: const Color(0xFFf6c302).withOpacity(0.5),
+                      color: Color(0x80F6C302), // 0.5 opacity
                       size: 12,
                     ),
                   ],
@@ -137,7 +130,7 @@ class _HomePageState extends State<HomePage> {
                   child: Text(
                     text,
                     style: const TextStyle(
-                      fontSize: 20, // Slightly reduced font size
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
@@ -149,17 +142,17 @@ class _HomePageState extends State<HomePage> {
               // Right decoration
               Container(
                 padding: const EdgeInsets.only(left: 8),
-                child: Row(
+                child: const Row(
                   children: [
                     Icon(
                       Icons.star,
-                      color: const Color(0xFFf6c302).withOpacity(0.5),
+                      color: Color(0x80F6C302), // 0.5 opacity
                       size: 12,
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4),
                     Icon(
                       Icons.star,
-                      color: const Color(0xFFf6c302).withOpacity(0.7),
+                      color: Color(0xB3F6C302), // 0.7 opacity
                       size: 16,
                     ),
                   ],
@@ -222,12 +215,12 @@ class _HomePageState extends State<HomePage> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Color(0x1A000000), // 0.1 opacity grey
               spreadRadius: 1,
               blurRadius: 4,
-              offset: const Offset(0, 2),
+              offset: Offset(0, 2),
             ),
           ],
         ),
@@ -296,7 +289,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
               const SizedBox(height: 12),
-              Row(
+              const Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
@@ -307,7 +300,7 @@ class _HomePageState extends State<HomePage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const Icon(
+                  Icon(
                     Icons.arrow_forward_ios,
                     size: 14,
                     color: AppTheme.secondaryColor,
@@ -358,8 +351,8 @@ class _HomePageState extends State<HomePage> {
 
               const SizedBox(height: 24),
 
-              // Add extra padding at the bottom to ensure content is visible above the nav bar
-              SizedBox(height: 80),
+              // Add extra padding at the bottom
+              const SizedBox(height: 80),
             ],
           ),
         ),

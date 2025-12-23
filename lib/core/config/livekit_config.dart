@@ -6,7 +6,7 @@ import '../config/env_config.dart';
 /// > In production, tokens should be generated server-side and fetched via authenticated API.
 /// > The current implementation generates tokens client-side for development convenience only.
 ///
-/// TODO: Implement server-side token generation:
+/// Implement server-side token generation:
 /// 1. Create a backend endpoint that generates LiveKit tokens
 /// 2. Have the app request tokens from the backend
 /// 3. Remove API key and secret from client code

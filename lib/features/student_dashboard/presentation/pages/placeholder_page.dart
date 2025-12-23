@@ -22,7 +22,7 @@ class PlaceholderPage extends StatelessWidget {
             Icon(
               icon,
               size: 80,
-              color: AppTheme.primaryColor.withOpacity(0.7),
+              color: const Color(0xB38B0628), // 0.7 opacity primary
             ),
             const SizedBox(height: 16),
             Text(

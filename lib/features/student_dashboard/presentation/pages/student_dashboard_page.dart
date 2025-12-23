@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
@@ -123,11 +124,11 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                 color: const Color(0xFFD4AF37),
                 width: 2,
               ),
-              boxShadow: [
+              boxShadow: const [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.3),
+                  color: Color(0x4D000000), // 0.3 opacity grey
                   blurRadius: 10,
-                  offset: const Offset(0, -2),
+                  offset: Offset(0, -2),
                 ),
               ],
               borderRadius: BorderRadius.circular(15), // 25% of 60px height
@@ -142,8 +143,8 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                     child: InkWell(
                       onTap: () => setState(() => _currentIndex = 0),
                       customBorder: const CircleBorder(),
-                      splashColor: const Color(0xFF8b0628).withOpacity(0.1),
-                      highlightColor: const Color(0xFF8b0628).withOpacity(0.05),
+                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
+                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -176,8 +177,8 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                     child: InkWell(
                       onTap: () => setState(() => _currentIndex = 1),
                       customBorder: const CircleBorder(),
-                      splashColor: const Color(0xFF8b0628).withOpacity(0.1),
-                      highlightColor: const Color(0xFF8b0628).withOpacity(0.05),
+                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
+                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -213,8 +214,8 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                     child: InkWell(
                       onTap: () => setState(() => _currentIndex = 3),
                       customBorder: const CircleBorder(),
-                      splashColor: const Color(0xFF8b0628).withOpacity(0.1),
-                      highlightColor: const Color(0xFF8b0628).withOpacity(0.05),
+                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
+                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -247,8 +248,8 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                     child: InkWell(
                       onTap: () => setState(() => _currentIndex = 4),
                       customBorder: const CircleBorder(),
-                      splashColor: const Color(0xFF8b0628).withOpacity(0.1),
-                      highlightColor: const Color(0xFF8b0628).withOpacity(0.05),
+                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
+                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -285,8 +286,8 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
               child: InkWell(
                 onTap: () => setState(() => _currentIndex = 2),
                 customBorder: const CircleBorder(),
-                splashColor: const Color(0xFF8b0628).withOpacity(0.2),
-                highlightColor: const Color(0xFF8b0628).withOpacity(0.1),
+                splashColor: const Color(0x338B0628), // 0.2 opacity
+                highlightColor: const Color(0x1A8B0628), // 0.1 opacity
                 child: Container(
                   width: 60,
                   height: 60,
@@ -299,12 +300,12 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                       color: const Color.fromARGB(255, 255, 255, 255),
                       width: 2,
                     ),
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.3),
+                        color: Color(0x4D000000), // 0.3 opacity grey
                         blurRadius: 10,
                         spreadRadius: 2,
-                        offset: const Offset(0, 0),
+                        offset: Offset(0, 0),
                       ),
                     ],
                   ),
@@ -422,18 +423,26 @@ class _DashboardContentState extends State<_DashboardContent> {
       DateTime? lessonDateTime;
 
       // Debug each schedule
-      print(
-          'Checking schedule: day=${schedule.day}, hour=${schedule.hour}, isPostponed=${schedule.isPostponed}, postponedDate=${schedule.postponedDate}');
+      if (kDebugMode) {
+        print(
+            'Checking schedule: day=${schedule.day}, hour=${schedule.hour}, isPostponed=${schedule.isPostponed}, postponedDate=${schedule.postponedDate}');
+      }
 
       if (schedule.isPostponed && schedule.postponedDate != null) {
         // Handle postponed schedules with specific dates
         try {
-          print(
-              'Processing postponed schedule: ${schedule.day} at ${schedule.hour}, postponed_date: ${schedule.postponedDate}');
+          if (kDebugMode) {
+            print(
+                'Processing postponed schedule: ${schedule.day} at ${schedule.hour}, postponed_date: ${schedule.postponedDate}');
+          }
           final postponedDate = DateTime.parse(schedule.postponedDate!);
-          print('Parsed postponed date: $postponedDate');
+          if (kDebugMode) {
+            print('Parsed postponed date: $postponedDate');
+          }
           final lessonTime = _parseTimeString(schedule.hour);
-          print('Parsed lesson time: $lessonTime');
+          if (kDebugMode) {
+            print('Parsed lesson time: $lessonTime');
+          }
           if (lessonTime != null) {
             lessonDateTime = DateTime(
               postponedDate.year,
@@ -442,15 +451,21 @@ class _DashboardContentState extends State<_DashboardContent> {
               lessonTime.hour,
               lessonTime.minute,
             );
-            print('Created postponed lesson DateTime: $lessonDateTime');
-            print('Current time: $now');
-            print(
-                'Is postponed lesson in future? ${lessonDateTime.isAfter(now)}');
+            if (kDebugMode) {
+              print('Created postponed lesson DateTime: $lessonDateTime');
+              print('Current time: $now');
+              print(
+                  'Is postponed lesson in future? ${lessonDateTime.isAfter(now)}');
+            }
           } else {
-            print('Failed to parse lesson time for postponed schedule');
+            if (kDebugMode) {
+              print('Failed to parse lesson time for postponed schedule');
+            }
           }
         } catch (e) {
-          print('Error parsing postponed date: $e');
+          if (kDebugMode) {
+            print('Error parsing postponed date: $e');
+          }
           continue;
         }
       } else {
@@ -495,38 +510,51 @@ class _DashboardContentState extends State<_DashboardContent> {
 
       // Only include future lessons
       if (lessonDateTime != null && lessonDateTime.isAfter(now)) {
-        print(
-            'Adding upcoming lesson: ${schedule.day} at ${schedule.hour}, dateTime: $lessonDateTime, isPostponed: ${schedule.isPostponed}');
+        if (kDebugMode) {
+          print(
+              'Adding upcoming lesson: ${schedule.day} at ${schedule.hour}, dateTime: $lessonDateTime, isPostponed: ${schedule.isPostponed}');
+        }
         upcomingLessons.add({
           'schedule': schedule,
           'dateTime': lessonDateTime,
         });
       } else if (lessonDateTime != null) {
-        print(
-            'Skipping past lesson: ${schedule.day} at ${schedule.hour}, dateTime: $lessonDateTime');
+        if (kDebugMode) {
+          print(
+              'Skipping past lesson: ${schedule.day} at ${schedule.hour}, dateTime: $lessonDateTime');
+        }
       }
     }
 
     // Sort by date/time and get the earliest one
     if (upcomingLessons.isNotEmpty) {
-      print('Found ${upcomingLessons.length} upcoming lessons before sorting');
+      if (kDebugMode) {
+        print(
+            'Found ${upcomingLessons.length} upcoming lessons before sorting');
+      }
       upcomingLessons.sort((a, b) =>
           (a['dateTime'] as DateTime).compareTo(b['dateTime'] as DateTime));
 
-      print('Sorted upcoming lessons:');
-      for (int i = 0; i < upcomingLessons.length; i++) {
-        final lesson = upcomingLessons[i];
-        final schedule = lesson['schedule'] as Schedule;
-        final dateTime = lesson['dateTime'] as DateTime;
-        print(
-            '  $i: ${schedule.day} at ${schedule.hour}, dateTime: $dateTime, isPostponed: ${schedule.isPostponed}');
+      if (kDebugMode) {
+        print('Sorted upcoming lessons:');
+        for (int i = 0; i < upcomingLessons.length; i++) {
+          final lesson = upcomingLessons[i];
+          final schedule = lesson['schedule'] as Schedule;
+          final dateTime = lesson['dateTime'] as DateTime;
+          print(
+              '  $i: ${schedule.day} at ${schedule.hour}, dateTime: $dateTime, isPostponed: ${schedule.isPostponed}');
+        }
       }
 
       _nextLesson = upcomingLessons.first['schedule'] as Schedule;
-      print(
-          'Selected next lesson: ${_nextLesson!.day} at ${_nextLesson!.hour}, isPostponed: ${_nextLesson!.isPostponed}');
+      if (kDebugMode) {
+        print(
+            'Selected next lesson: ${_nextLesson!.day} at ${_nextLesson!.hour}, isPostponed: ${_nextLesson!.isPostponed}');
+      }
     } else {
-      print('No upcoming lessons found');
+      if (kDebugMode) {
+        print('No upcoming lessons found');
+      }
       _nextLesson = null;
     }
   }
@@ -543,27 +571,6 @@ class _DashboardContentState extends State<_DashboardContent> {
           _timeUntilNextLesson = newDuration;
         });
       }
-    }
-  }
-
-  String _getDayNameInArabic(int weekday) {
-    switch (weekday) {
-      case DateTime.sunday:
-        return 'الأحد';
-      case DateTime.monday:
-        return 'الاثنين';
-      case DateTime.tuesday:
-        return 'الثلاثاء';
-      case DateTime.wednesday:
-        return 'الأربعاء';
-      case DateTime.thursday:
-        return 'الخميس';
-      case DateTime.friday:
-        return 'الجمعة';
-      case DateTime.saturday:
-        return 'السبت';
-      default:
-        return '';
     }
   }
 
@@ -612,7 +619,7 @@ class _DashboardContentState extends State<_DashboardContent> {
       return Center(
         child: CircularProgressIndicator(
           color: const Color(0xFFf6c302), // Gold color for better visibility
-          backgroundColor: Colors.white.withOpacity(0.2),
+          backgroundColor: const Color(0x33FFFFFF), // 0.2 opacity white
         ),
       );
     }
@@ -624,11 +631,11 @@ class _DashboardContentState extends State<_DashboardContent> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Color(0x1A000000), // 0.1 opacity black
               blurRadius: 10,
-              offset: const Offset(0, 4),
+              offset: Offset(0, 4),
             ),
           ],
         ),
@@ -675,11 +682,11 @@ class _DashboardContentState extends State<_DashboardContent> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Color(0x1A000000), // 0.1 opacity black
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -734,10 +741,10 @@ class _DashboardContentState extends State<_DashboardContent> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.05),
+              color: const Color(0x0D8B0628), // 0.05 opacity primary
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppTheme.primaryColor.withOpacity(0.2),
+                color: const Color(0x338B0628), // 0.2 opacity primary
                 width: 1,
               ),
             ),
@@ -857,7 +864,7 @@ class _DashboardContentState extends State<_DashboardContent> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.secondaryColor.withOpacity(0.1),
+                color: const Color(0x1AF6C302), // 0.1 opacity secondary
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -1074,7 +1081,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         int daysUntilLesson = (lessonDayValue - currentDayValue) % 7;
         if (daysUntilLesson == 0) {
           // Check if lesson is today but in the future
-          final lessonTime = _parseTimeString(currentLessonTime ?? '');
+          final lessonTime = _parseTimeString(currentLessonTime);
           if (lessonTime != null &&
               (lessonTime.hour < now.hour ||
                   (lessonTime.hour == now.hour &&
@@ -1088,6 +1095,7 @@ class _DashboardContentState extends State<_DashboardContent> {
             '${lessonDate.year}-${lessonDate.month.toString().padLeft(2, '0')}-${lessonDate.day.toString().padLeft(2, '0')}';
       }
 
+      if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -1102,7 +1110,10 @@ class _DashboardContentState extends State<_DashboardContent> {
         ),
       );
     } catch (e) {
-      print('Error opening postpone page: $e');
+      if (kDebugMode) {
+        print('Error opening postpone page: $e');
+      }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('خطأ أثناء جلب الأوقات الحرة')));
     }
@@ -1111,19 +1122,28 @@ class _DashboardContentState extends State<_DashboardContent> {
   void _joinLesson() {
     if (_nextLesson == null) return;
 
-    print('JoinLesson: Starting join process');
+    if (kDebugMode) {
+      print('JoinLesson: Starting join process');
+    }
     try {
-      print('JoinLesson: Generating room name');
+      if (kDebugMode) {
+        print('JoinLesson: Generating room name');
+      }
       final roomName = _generateRoomName();
-      print('JoinLesson: Room name generated: $roomName');
-      print('JoinLesson: Getting participant name');
+      if (kDebugMode) {
+        print('JoinLesson: Room name generated: $roomName');
+        print('JoinLesson: Getting participant name');
+      }
       final participantName = _getParticipantName();
-      print('JoinLesson: Participant name: $participantName');
-      print('JoinLesson: Getting participant ID');
+      if (kDebugMode) {
+        print('JoinLesson: Participant name: $participantName');
+        print('JoinLesson: Getting participant ID');
+      }
       final participantId = _getParticipantId();
-      print('JoinLesson: Participant ID: $participantId');
-
-      print('JoinLesson: Pushing MeetingPage');
+      if (kDebugMode) {
+        print('JoinLesson: Participant ID: $participantId');
+        print('JoinLesson: Pushing MeetingPage');
+      }
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -1136,9 +1156,13 @@ class _DashboardContentState extends State<_DashboardContent> {
           ),
         ),
       );
-      print('JoinLesson: Navigation pushed successfully');
+      if (kDebugMode) {
+        print('JoinLesson: Navigation pushed successfully');
+      }
     } catch (e) {
-      print('JoinLesson Error: $e');
+      if (kDebugMode) {
+        print('JoinLesson Error: $e');
+      }
       // Show error dialog
       showDialog(
         context: context,
@@ -1191,7 +1215,9 @@ class _DashboardContentState extends State<_DashboardContent> {
           scheduledTime.minute,
         );
       } catch (e) {
-        print('Error parsing postponed date: $e');
+        if (kDebugMode) {
+          print('Error parsing postponed date: $e');
+        }
         // Fall back to regular schedule logic
       }
     }
@@ -1276,7 +1302,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                         children: [
                           CircleAvatar(
                               radius: 30,
-                              backgroundColor: Colors.white.withOpacity(0.2),
+                              backgroundColor:
+                                  const Color(0x33FFFFFF), // 0.2 opacity white
                               child: const Icon(
                                 Icons.person,
                                 size: 40,
@@ -1299,7 +1326,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                                   'نتمنى لك يوماً موفقاً',
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: Colors.white.withOpacity(0.8),
+                                    color: const Color(
+                                        0xCCFFFFFF), // 0.8 opacity white
                                   ),
                                 ),
                               ],
@@ -1497,12 +1525,12 @@ class _DashboardContentState extends State<_DashboardContent> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Color(0x1A000000), // 0.1 opacity grey
             blurRadius: 10,
             spreadRadius: 0,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -1587,7 +1615,7 @@ class _DashboardContentState extends State<_DashboardContent> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
+                color: const Color(0x1A8B0628), // 0.1 opacity primary
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(

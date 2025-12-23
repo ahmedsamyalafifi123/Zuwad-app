@@ -69,12 +69,12 @@ class _LoginPageState extends State<LoginPage> {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
+                                boxShadow: const [
                                   BoxShadow(
-                                    color:
-                                        AppTheme.primaryColor.withOpacity(0.3),
+                                    color: Color(
+                                        0x4D8B0628), // 0.3 opacity primary
                                     blurRadius: 15,
-                                    offset: const Offset(0, 5),
+                                    offset: Offset(0, 5),
                                   ),
                                 ],
                               ),

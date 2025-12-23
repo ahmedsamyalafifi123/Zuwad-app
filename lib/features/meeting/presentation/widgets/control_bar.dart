@@ -23,14 +23,14 @@ class ControlBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
             Colors.transparent,
-            Colors.black.withOpacity(0.8),
-            Colors.black.withOpacity(0.9),
+            Color(0xCC000000), // 0.8 opacity black
+            Color(0xE6000000), // 0.9 opacity black
           ],
         ),
       ),
@@ -46,7 +46,7 @@ class ControlBar extends StatelessWidget {
               onPressed: onToggleCamera,
               tooltip: isCameraEnabled ? 'إيقاف الكاميرا' : 'تشغيل الكاميرا',
             ),
-            
+
             // Microphone toggle
             _buildControlButton(
               icon: isMicrophoneEnabled ? Icons.mic : Icons.mic_off,
@@ -54,7 +54,7 @@ class ControlBar extends StatelessWidget {
               onPressed: onToggleMicrophone,
               tooltip: isMicrophoneEnabled ? 'كتم الصوت' : 'إلغاء كتم الصوت',
             ),
-            
+
             // Switch camera
             _buildControlButton(
               icon: Icons.flip_camera_ios,
@@ -63,7 +63,7 @@ class ControlBar extends StatelessWidget {
               tooltip: 'تبديل الكاميرا',
               backgroundColor: Colors.grey[700],
             ),
-            
+
             // Leave meeting
             _buildControlButton(
               icon: Icons.call_end,
@@ -87,20 +87,20 @@ class ControlBar extends StatelessWidget {
     Color? backgroundColor,
     Color? iconColor,
   }) {
-    final bgColor = backgroundColor ?? 
+    final bgColor = backgroundColor ??
         (isEnabled ? AppTheme.primaryColor : Colors.grey[600]!);
     final iColor = iconColor ?? Colors.white;
 
     return Tooltip(
       message: tooltip,
       child: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Color(0x4D000000), // 0.3 opacity black
               blurRadius: 8,
-              offset: const Offset(0, 2),
+              offset: Offset(0, 2),
             ),
           ],
         ),
