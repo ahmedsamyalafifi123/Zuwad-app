@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/services/secure_storage_service.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../domain/models/student_report.dart';
 
@@ -29,8 +30,8 @@ class ReportRepository {
         }
       }
 
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final secureStorage = SecureStorageService();
+      final token = await secureStorage.getToken();
 
       if (token == null) {
         if (kDebugMode) {
@@ -42,7 +43,7 @@ class ReportRepository {
       // Add timestamp to bust WordPress cache
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final url =
-          '${ApiConstants.baseUrl}${ApiConstants.studentReportsEndpoint}?student_id=$studentId&_t=$timestamp';
+          '${ApiConstants.apiBaseUrl}${ApiConstants.studentReportsEndpoint}?student_id=$studentId&_t=$timestamp';
       if (kDebugMode) {
         print('Making API request to: $url');
       }

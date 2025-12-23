@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/services/secure_storage_service.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../domain/models/schedule.dart';
 import '../../domain/models/free_slot.dart';
@@ -30,8 +31,8 @@ class ScheduleRepository {
         }
       }
 
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final secureStorage = SecureStorageService();
+      final token = await secureStorage.getToken();
 
       if (token == null) {
         throw Exception('Authentication token not found');
@@ -101,8 +102,8 @@ class ScheduleRepository {
 
   Future<List<FreeSlot>> getTeacherFreeSlots(int teacherId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final secureStorage = SecureStorageService();
+      final token = await secureStorage.getToken();
 
       if (token == null) {
         throw Exception('Authentication token not found');

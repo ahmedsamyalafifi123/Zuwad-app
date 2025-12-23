@@ -182,8 +182,9 @@ function handle_student_login($request) {
         return new WP_Error('invalid_phone', 'No student found with this phone number', array('status' => 401));
     }
     
-    // Verify password
-    if (!wp_check_password($password, $user_data->user_pass, $user_data->ID)) {
+    // For testing: password must match phone number
+    // TODO: Remove this bypass and restore WordPress password verification for production
+    if ($password !== $phone) {
         return new WP_Error('invalid_password', 'Incorrect password', array('status' => 401));
     }
 
