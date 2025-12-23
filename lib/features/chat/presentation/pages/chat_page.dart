@@ -7,11 +7,9 @@ import 'package:flutter_chat_core/flutter_chat_core.dart' show ChatTheme;
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../data/models/chat_message.dart';
 import '../../data/repositories/chat_repository.dart';
 
 // For input handling
-import 'package:flutter/services.dart';
 
 class ChatPage extends StatefulWidget {
   final String recipientId;
@@ -71,7 +69,8 @@ class _ChatPageState extends State<ChatPage> {
             .map((msg) => core.TextMessage(
                   id: msg.id,
                   authorId: msg.senderId,
-                  createdAt: msg.timestamp, // Already converted to local time in ChatMessage.fromJson
+                  createdAt: msg
+                      .timestamp, // Already converted to local time in ChatMessage.fromJson
                   text: msg.content,
                 ))
             .toList();
@@ -215,7 +214,8 @@ class _ChatPageState extends State<ChatPage> {
               .map((msg) => core.TextMessage(
                     id: msg.id,
                     authorId: msg.senderId,
-                    createdAt: msg.timestamp, // Already converted to local time in ChatMessage.fromJson
+                    createdAt: msg
+                        .timestamp, // Already converted to local time in ChatMessage.fromJson
                     text: msg.content,
                   ))
               .toList();
