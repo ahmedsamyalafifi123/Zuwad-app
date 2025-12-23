@@ -47,27 +47,34 @@ class _HomePageState extends State<HomePage> {
           forceRefresh: forceRefresh,
         );
 
+        // Check if widget is still mounted before calling setState
+        if (!mounted) return;
+
         setState(() {
           _reports = reports;
         });
       } catch (e) {
+        // Check if widget is still mounted before calling setState
+        if (!mounted) return;
+
         setState(() {
           _reports = [];
         });
 
         // Check if mounted before showing snackbar
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('فشل في تحميل التقارير: ${e.toString()}'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل في تحميل التقارير: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       } finally {
-        setState(() {
-          _isLoadingReports = false;
-        });
+        // Check if widget is still mounted before calling setState
+        if (mounted) {
+          setState(() {
+            _isLoadingReports = false;
+          });
+        }
       }
     }
   }
