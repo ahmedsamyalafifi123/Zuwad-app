@@ -1,16 +1,18 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../core/services/secure_storage_service.dart';
-import '../../../../core/constants/api_constants.dart';
+import '../../../../core/api/wordpress_api.dart';
 import '../../domain/models/student_report.dart';
 
+/// Repository for fetching student reports using API v2.
 class ReportRepository {
   static const String _cacheKey = 'student_reports_cache';
   static const String _cacheTimestampKey = 'student_reports_timestamp';
   static const Duration _cacheDuration = Duration(minutes: 5);
 
+  final WordPressApi _api = WordPressApi();
+
+  /// Get all reports for a student.
   Future<List<StudentReport>> getStudentReports(int studentId,
       {bool forceRefresh = false}) async {
     try {
@@ -30,71 +32,31 @@ class ReportRepository {
         }
       }
 
-      final secureStorage = SecureStorageService();
-      final token = await secureStorage.getToken();
-
-      if (token == null) {
-        if (kDebugMode) {
-          print('Error: Authentication token not found');
-        }
-        throw Exception('Authentication token not found');
-      }
-
-      // Add timestamp to bust WordPress cache
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final url =
-          '${ApiConstants.apiBaseUrl}${ApiConstants.studentReportsEndpoint}?student_id=$studentId&_t=$timestamp';
-      if (kDebugMode) {
-        print('Making API request to: $url');
-      }
-
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-        },
-      );
+      // Fetch from API v2
+      final data = await _api.getStudentReports(studentId);
 
       if (kDebugMode) {
-        print('API Response status: ${response.statusCode}');
-        print('API Response body: ${response.body}');
+        print('Received ${data.length} reports from API');
       }
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+      final reports = data.map((json) {
         if (kDebugMode) {
-          print('Decoded response data: $data');
+          print('Processing report: $json');
         }
+        return StudentReport.fromJson(json as Map<String, dynamic>);
+      }).toList();
 
-        final reports = data.map((json) {
-          if (kDebugMode) {
-            print('Processing report: $json');
-          }
-          return StudentReport.fromJson(json);
-        }).toList();
-
-        if (kDebugMode) {
-          print('Created ${reports.length} StudentReport objects');
-        }
-
-        // Cache the new data
-        await _cacheReports(studentId, reports);
-        if (kDebugMode) {
-          print('Cached new reports for student $studentId');
-        }
-
-        return reports;
-      } else {
-        if (kDebugMode) {
-          print(
-              'Error: Failed to load reports with status ${response.statusCode}');
-        }
-        throw Exception('Failed to load reports: ${response.statusCode}');
+      if (kDebugMode) {
+        print('Created ${reports.length} StudentReport objects');
       }
+
+      // Cache the new data
+      await _cacheReports(studentId, reports);
+      if (kDebugMode) {
+        print('Cached new reports for student $studentId');
+      }
+
+      return reports;
     } catch (e, stackTrace) {
       if (kDebugMode) {
         print('Error fetching reports: $e');
@@ -112,6 +74,7 @@ class ReportRepository {
     }
   }
 
+  /// Get details for a specific report by session number.
   Future<StudentReport?> getReportDetails(int studentId, String sessionNumber,
       {bool forceRefresh = false}) async {
     try {
@@ -127,6 +90,7 @@ class ReportRepository {
     }
   }
 
+  /// Cache reports to SharedPreferences.
   Future<void> _cacheReports(int studentId, List<StudentReport> reports) async {
     try {
       if (kDebugMode) {
@@ -154,6 +118,7 @@ class ReportRepository {
     }
   }
 
+  /// Get cached reports if valid.
   Future<List<StudentReport>?> _getCachedReports(int studentId) async {
     try {
       if (kDebugMode) {
@@ -195,6 +160,19 @@ class ReportRepository {
         print('Error getting cached reports: $e');
       }
       return null;
+    }
+  }
+
+  /// Clear cached reports for a student.
+  Future<void> clearCache(int studentId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('$_cacheKey$studentId');
+      await prefs.remove('$_cacheTimestampKey$studentId');
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error clearing cache: $e');
+      }
     }
   }
 }

@@ -1,28 +1,16 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import '../../../../core/config/env_config.dart';
-import '../../../../core/services/secure_storage_service.dart';
+import '../../../../core/api/wordpress_api.dart';
 import '../models/chat_message.dart';
 
+/// Repository for chat operations using API v2.
+///
+/// The v2 API uses conversation-based endpoints rather than direct student/recipient.
 class ChatRepository {
-  final Dio _dio = Dio();
-  final SecureStorageService _secureStorage = SecureStorageService();
+  final WordPressApi _api = WordPressApi();
   final Connectivity _connectivity = Connectivity();
-  final String baseUrl;
 
-  ChatRepository({
-    String? baseUrl,
-  }) : baseUrl = baseUrl ?? EnvConfig.baseUrl {
-    // Configure Dio
-    _dio.options.connectTimeout = const Duration(seconds: 10);
-    _dio.options.receiveTimeout = const Duration(seconds: 10);
-    _dio.options.headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-  }
-
+  /// Create a pending message for optimistic UI updates.
   ChatMessage _createPendingMessage({
     required String studentId,
     required String recipientId,
@@ -38,62 +26,38 @@ class ChatRepository {
     );
   }
 
-  Future<String?> _getToken() async {
-    return await _secureStorage.getToken();
-  }
-
+  /// Get messages for a conversation.
+  ///
+  /// In v2 API, this uses conversation ID instead of student/recipient IDs.
   Future<List<ChatMessage>> getMessages({
     required String studentId,
     required String recipientId,
     int page = 1,
   }) async {
     try {
-      final token = await _getToken();
-      if (token == null) throw Exception('Not authenticated');
+      // For v2 API, we use conversation ID which could be derived from student/recipient
+      // For now, we'll use a simple format: smaller_id-larger_id
+      final conversationId = _getConversationId(studentId, recipientId);
 
-      final url = '$baseUrl/wp-json/zuwad/v1/chat/messages';
       if (kDebugMode) {
         print(
-            'Fetching messages from $url with studentId=$studentId, recipientId=$recipientId, page=$page');
+            'Fetching messages for conversation: $conversationId, page: $page');
       }
 
-      final response = await _dio.post(
-        url,
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
-        data: {
-          'student_id': studentId,
-          'recipient_id': recipientId,
-          'page': page,
-        },
-      );
+      final data = await _api.getChatMessages(conversationId, page: page);
 
       if (kDebugMode) {
-        print('API response status: ${response.statusCode}');
-        print('API response body: ${response.data}');
-      }
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = response.data;
-        if (kDebugMode) {
-          print('Received ${data.length} messages from server');
-          for (var msg in data) {
-            print(
-                'Message: ${msg['id']} from ${msg['sender_id']} to ${msg['recipient_id']}, content: ${msg['content'] ?? msg['message']}');
-          }
-        }
-
-        final messages =
-            data.map((json) => ChatMessage.fromJson(json)).toList();
-        return messages;
-      } else {
-        if (kDebugMode) {
+        print('Received ${data.length} messages from server');
+        for (var msg in data) {
           print(
-              'Failed to load messages: ${response.statusCode} - ${response.data}');
+              'Message: ${msg['id']} from ${msg['sender_id']}, content: ${msg['content'] ?? msg['message']}');
         }
-        throw Exception('Failed to load messages: ${response.statusCode}');
       }
+
+      final messages = data
+          .map((json) => ChatMessage.fromJson(json as Map<String, dynamic>))
+          .toList();
+      return messages;
     } catch (e) {
       if (kDebugMode) {
         print('Error fetching messages: $e');
@@ -102,17 +66,18 @@ class ChatRepository {
     }
   }
 
+  /// Send a message in a conversation.
   Future<ChatMessage> sendMessage({
     required String studentId,
     required String recipientId,
     required String message,
   }) async {
-    // Check connectivity - handle List<ConnectivityResult> from newer API
+    // Check connectivity
     final connectivityResults = await _connectivity.checkConnectivity();
     final bool isOnline =
         !connectivityResults.contains(ConnectivityResult.none);
 
-    // Create a pending message
+    // Create a pending message for optimistic UI
     final pendingMessage = _createPendingMessage(
       studentId: studentId,
       recipientId: recipientId,
@@ -121,67 +86,91 @@ class ChatRepository {
 
     // If offline, return pending message
     if (!isOnline) {
+      if (kDebugMode) {
+        print('Offline - returning pending message');
+      }
       return pendingMessage;
     }
 
     // Try to send immediately if online
     try {
-      final token = await _getToken();
-      if (token == null) {
-        return pendingMessage;
-      }
+      final conversationId = _getConversationId(studentId, recipientId);
 
-      final url = '$baseUrl/wp-json/zuwad/v1/chat/send';
-      final response = await _dio.post(
-        url,
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
-        data: {
-          'student_id': studentId,
-          'recipient_id': recipientId,
-          'message': message,
-        },
-      );
+      final data = await _api.sendChatMessage(conversationId, message);
 
       if (kDebugMode) {
-        print(
-            'Send message response: ${response.statusCode} - ${response.data}');
+        print('Send message response: $data');
       }
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        final serverMessage = ChatMessage.fromJson(response.data);
-        return serverMessage;
-      } else {
-        throw Exception(
-            'Failed to send message. Status: ${response.statusCode}. '
-            'Error: ${response.data?['message'] ?? response.data}');
-      }
+      return ChatMessage.fromJson(data);
     } catch (e) {
       if (kDebugMode) {
         print('Error sending message: $e');
       }
+      // Return pending message on error for retry
       return pendingMessage;
     }
   }
 
-  Future<void> markAsRead({
-    required String messageId,
+  /// Create a new conversation.
+  Future<String?> createConversation({
+    required int recipientId,
+    required String message,
   }) async {
-    final token = await _getToken();
-    if (token == null) throw Exception('Not authenticated');
+    try {
+      final data = await _api.createConversation(recipientId, message);
 
-    final url = '$baseUrl/wp-json/zuwad/v1/chat/mark-read';
-    final response = await _dio.post(
-      url,
-      options: Options(
-        headers: {'Authorization': 'Bearer $token'},
-      ),
-      data: {'message_id': messageId},
-    );
+      // Return the conversation ID
+      return data['id']?.toString();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error creating conversation: $e');
+      }
+      return null;
+    }
+  }
 
-    if (response.statusCode != 200) {
-      throw Exception('Failed to mark message as read');
+  /// Mark a conversation as read.
+  Future<void> markAsRead({
+    required String conversationId,
+  }) async {
+    try {
+      await _api.markConversationAsRead(conversationId);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error marking as read: $e');
+      }
+    }
+  }
+
+  /// Get unread message count.
+  Future<int> getUnreadCount() async {
+    return await _api.getUnreadCount();
+  }
+
+  /// Get list of conversations.
+  Future<List<Map<String, dynamic>>> getConversations({int page = 1}) async {
+    try {
+      final data = await _api.getConversations(page: page);
+      return data.map((item) => item as Map<String, dynamic>).toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting conversations: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Generate a conversation ID from two user IDs.
+  /// Uses smaller ID first for consistency.
+  String _getConversationId(String userId1, String userId2) {
+    final id1 = int.tryParse(userId1) ?? 0;
+    final id2 = int.tryParse(userId2) ?? 0;
+
+    if (id1 < id2) {
+      return '$userId1-$userId2';
+    } else {
+      return '$userId2-$userId1';
     }
   }
 }

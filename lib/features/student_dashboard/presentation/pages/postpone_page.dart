@@ -311,14 +311,16 @@ class _PostponePageState extends State<PostponePage> {
       final eventDate = now
           .add(Duration(days: daysUntilSelected == 0 ? 7 : daysUntilSelected));
 
+      final eventDateStr =
+          '${eventDate.year}-${eventDate.month.toString().padLeft(2, '0')}-${eventDate.day.toString().padLeft(2, '0')}';
+
       await _api.createPostponedEvent(
         studentId: student.id,
-        studentName: student.name,
         teacherId: widget.teacherId,
-        eventDate:
-            '${eventDate.year}-${eventDate.month.toString().padLeft(2, '0')}-${eventDate.day.toString().padLeft(2, '0')}',
-        eventTime: _selectedStartTime!,
-        dayOfWeek: _dayLabel(_selectedDayOfWeek!),
+        originalDate: widget.currentLessonDate ??
+            eventDateStr, // Use current lesson date as original
+        newDate: eventDateStr,
+        time: _selectedStartTime!,
       );
 
       // Create student report for the CURRENT lesson being postponed

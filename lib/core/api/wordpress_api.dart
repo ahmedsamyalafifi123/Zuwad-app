@@ -1,13 +1,20 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import '../config/env_config.dart';
+import '../constants/api_constants.dart';
 import '../services/secure_storage_service.dart';
+import 'api_response.dart';
 
+/// WordPress API client for Zuwad REST API v2.
+///
+/// Features:
+/// - JWT authentication with refresh token support
+/// - Automatic token refresh on expiry
+/// - Standardized error handling
+/// - Request/response logging in debug mode
 class WordPressApi {
   final Dio _dio = Dio();
   final SecureStorageService _secureStorage = SecureStorageService();
-  late final String _baseUrl;
 
   // Singleton pattern
   static final WordPressApi _instance = WordPressApi._internal();
@@ -17,18 +24,53 @@ class WordPressApi {
   }
 
   WordPressApi._internal() {
-    // Use centralized environment configuration
-    _baseUrl = EnvConfig.apiBaseUrl;
-
     // Configure Dio
-    _dio.options.connectTimeout = const Duration(seconds: 10);
-    _dio.options.receiveTimeout = const Duration(seconds: 10);
+    _dio.options.connectTimeout = const Duration(seconds: 15);
+    _dio.options.receiveTimeout = const Duration(seconds: 15);
     _dio.options.headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
 
-    // Add interceptors for logging only in debug mode
+    // Add interceptors
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        // Auto-attach token if available
+        final token = await _secureStorage.getToken();
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        return handler.next(options);
+      },
+      onError: (error, handler) async {
+        // Auto-refresh token on 401 errors
+        if (error.response?.statusCode == 401) {
+          // Skip if this is already a refresh request (prevent loop)
+          if (error.requestOptions.path.contains('/auth/refresh')) {
+            return handler.next(error);
+          }
+
+          try {
+            final refreshed = await refreshToken();
+            if (refreshed) {
+              // Retry the original request with new token
+              final newToken = await _secureStorage.getToken();
+              error.requestOptions.headers['Authorization'] =
+                  'Bearer $newToken';
+              final response = await _dio.fetch(error.requestOptions);
+              return handler.resolve(response);
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('Token refresh failed: $e');
+            }
+          }
+        }
+        return handler.next(error);
+      },
+    ));
+
+    // Add logging interceptor only in debug mode
     if (kDebugMode) {
       _dio.interceptors.add(LogInterceptor(
         requestBody: true,
@@ -38,189 +80,319 @@ class WordPressApi {
     }
   }
 
-  // Helper to get token from secure storage
-  Future<String?> _getToken() async {
-    return await _secureStorage.getToken();
-  }
+  // ============================================
+  // Authentication Methods
+  // ============================================
 
-  // Helper to get user ID from secure storage
-  Future<int?> _getUserId() async {
-    return await _secureStorage.getUserIdAsInt();
-  }
-
-  // Student login with phone and password
+  /// Login with phone number and password.
+  /// Returns the full user data on success.
+  ///
+  /// Note: For this system, users login with their phone number as the password.
   Future<Map<String, dynamic>> loginWithPhone(
-      String phone, String password) async {
+    String phone,
+    String password, {
+    String? role,
+  }) async {
     try {
-      // Custom endpoint for phone login
       final response = await _dio.post(
-        '$_baseUrl/custom/v1/student-login',
+        ApiConstants.loginEndpoint,
         data: jsonEncode({
           'phone': phone,
           'password': password,
+          if (role != null) 'role': role,
         }),
       );
 
       if (response.statusCode == 200) {
-        // Save token to secure storage
-        await _secureStorage.saveToken(response.data['token']);
-        await _secureStorage.saveUserId(response.data['user_id'].toString());
+        final jsonData = response.data;
 
-        return response.data;
+        if (jsonData['success'] == true) {
+          final data = jsonData['data'];
+
+          // Save all auth data
+          await _secureStorage.saveAuthData(
+            token: data['token'],
+            refreshToken: data['refresh_token'],
+            expiresIn: data['expires_in'] ?? 604800,
+            userId: data['user']['id'].toString(),
+            userName: data['user']['name'],
+            userRole: data['user']['role'],
+            userMId: data['user']['m_id'],
+          );
+
+          return data;
+        } else {
+          throw Exception(jsonData['error']?['message'] ?? 'Login failed');
+        }
       } else {
-        throw Exception('Failed to login');
+        throw Exception('Failed to login: ${response.statusCode}');
       }
+    } on DioException catch (e) {
+      final errorMessage =
+          e.response?.data?['error']?['message'] ?? e.message ?? 'Login failed';
+      throw Exception(errorMessage);
     } catch (e) {
       throw Exception('Login failed: ${e.toString()}');
     }
   }
 
-  // Get student profile data
-  Future<Map<String, dynamic>> getStudentProfile(int? userId) async {
+  /// Refresh the access token using the refresh token.
+  /// Returns true if refresh was successful.
+  Future<bool> refreshToken() async {
     try {
-      final token = await _getToken();
-
-      if (token == null) {
-        throw Exception('Not authenticated');
+      final refreshToken = await _secureStorage.getRefreshToken();
+      if (refreshToken == null) {
+        return false;
       }
 
-      if (userId == null) {
-        userId = await _getUserId();
-        if (userId == null) {
-          throw Exception('User ID not found');
-        }
-      }
-
-      _dio.options.headers['Authorization'] = 'Bearer $token';
-
-      final response = await _dio.get('$_baseUrl/custom/v1/user-meta/$userId');
+      final response = await _dio.post(
+        ApiConstants.refreshTokenEndpoint,
+        data: jsonEncode({
+          'refresh_token': refreshToken,
+        }),
+        options: Options(
+          headers: {'Authorization': null}, // Don't use old token
+        ),
+      );
 
       if (response.statusCode == 200) {
-        return response.data;
-      } else {
-        throw Exception('Failed to get profile');
+        final jsonData = response.data;
+
+        if (jsonData['success'] == true) {
+          final data = jsonData['data'];
+          await _secureStorage.saveToken(data['token']);
+          await _secureStorage.saveRefreshToken(data['refresh_token']);
+          await _secureStorage.saveTokenExpiry(data['expires_in'] ?? 604800);
+          return true;
+        }
       }
+      return false;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Refresh token error: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Verify if the current token is valid.
+  Future<bool> verifyToken() async {
+    try {
+      final response = await _dio.get(ApiConstants.verifyTokenEndpoint);
+      return response.statusCode == 200 && response.data?['success'] == true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Logout the current user.
+  Future<void> logout() async {
+    try {
+      // Call logout endpoint to invalidate token on server
+      await _dio.post(ApiConstants.logoutEndpoint);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Logout API call failed: $e');
+      }
+    } finally {
+      // Always clear local storage
+      await _secureStorage.clearAll();
+    }
+  }
+
+  /// Change the user's password.
+  Future<bool> changePassword(
+      String currentPassword, String newPassword) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.changePasswordEndpoint,
+        data: jsonEncode({
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        }),
+      );
+
+      return response.statusCode == 200 && response.data?['success'] == true;
+    } catch (e) {
+      throw Exception('Failed to change password: ${e.toString()}');
+    }
+  }
+
+  // ============================================
+  // Student Methods
+  // ============================================
+
+  /// Get student profile data.
+  Future<Map<String, dynamic>> getStudentProfile(int? userId) async {
+    try {
+      userId ??= await _secureStorage.getUserIdAsInt();
+      if (userId == null) {
+        throw Exception('User ID not found');
+      }
+
+      final response = await _dio.get(
+        ApiConstants.studentByIdEndpoint(userId),
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'];
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to get profile');
+      }
+      throw Exception('Failed to get profile: ${response.statusCode}');
     } catch (e) {
       throw Exception('Get profile failed: ${e.toString()}');
     }
   }
 
-  // Get user meta data
-  Future<Map<String, dynamic>> getUserMeta(int? userId) async {
+  /// Get student reports.
+  Future<List<dynamic>> getStudentReports(int studentId,
+      {int page = 1, int perPage = 50}) async {
     try {
-      final token = await _getToken();
-
-      if (token == null) {
-        throw Exception('Not authenticated');
-      }
-
-      if (userId == null) {
-        userId = await _getUserId();
-        if (userId == null) {
-          throw Exception('User ID not found');
-        }
-      }
-
-      _dio.options.headers['Authorization'] = 'Bearer $token';
-
-      // Custom endpoint to get user meta
-      final response = await _dio.get('$_baseUrl/custom/v1/user-meta/$userId');
+      final response = await _dio.get(
+        ApiConstants.studentReportsEndpoint(studentId),
+        queryParameters: {
+          'page': page,
+          'per_page': perPage,
+        },
+      );
 
       if (response.statusCode == 200) {
-        return response.data;
-      } else {
-        throw Exception('Failed to get user meta');
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'] as List<dynamic>;
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to get reports');
       }
+      throw Exception('Failed to get reports: ${response.statusCode}');
     } catch (e) {
-      throw Exception('Get user meta failed: ${e.toString()}');
+      throw Exception('Get reports failed: ${e.toString()}');
     }
   }
 
-  // Get teacher data
-  Future<Map<String, dynamic>> getTeacherData(int? teacherId) async {
+  /// Get student schedules.
+  Future<List<dynamic>> getStudentSchedules(int studentId) async {
     try {
-      final token = await _getToken();
-
-      if (token == null) {
-        throw Exception('Not authenticated');
-      }
-
-      if (teacherId == null) {
-        throw Exception('Teacher ID is null');
-      }
-
-      _dio.options.headers['Authorization'] = 'Bearer $token';
-
-      final response =
-          await _dio.get('$_baseUrl/custom/v1/user-meta/$teacherId');
+      final response = await _dio.get(
+        ApiConstants.studentSchedulesEndpoint(studentId),
+      );
 
       if (response.statusCode == 200) {
-        return response.data;
-      } else {
-        throw Exception('Failed to get teacher data');
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'] as List<dynamic>;
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to get schedules');
       }
+      throw Exception('Failed to get schedules: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Get schedules failed: ${e.toString()}');
+    }
+  }
+
+  // ============================================
+  // Teacher Methods
+  // ============================================
+
+  /// Get teacher data.
+  Future<Map<String, dynamic>> getTeacherData(int teacherId) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.teacherByIdEndpoint(teacherId),
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'];
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to get teacher data');
+      }
+      throw Exception('Failed to get teacher data: ${response.statusCode}');
     } catch (e) {
       throw Exception('Get teacher data failed: ${e.toString()}');
     }
   }
 
-  // Create postponed event
-  Future<Map<String, dynamic>> createPostponedEvent({
-    required int studentId,
-    required String studentName,
-    required int teacherId,
-    required String eventDate,
-    required String eventTime,
-    required String dayOfWeek,
-  }) async {
+  /// Get teacher free slots.
+  Future<List<dynamic>> getTeacherFreeSlots(int teacherId) async {
     try {
-      final token = await _getToken();
-
-      if (token == null) {
-        throw Exception('Not authenticated');
-      }
-
-      _dio.options.headers['Authorization'] = 'Bearer $token';
-
-      final response = await _dio.post(
-        '$_baseUrl/zuwad/v1/create-postponed-event',
-        data: jsonEncode({
-          'studentId': studentId,
-          'studentName': studentName,
-          'teacherId': teacherId,
-          'eventDate': eventDate,
-          'eventTime': eventTime,
-          'dayOfWeek': dayOfWeek,
-        }),
+      final response = await _dio.get(
+        ApiConstants.teacherFreeSlotsEndpoint(teacherId),
       );
 
       if (response.statusCode == 200) {
-        final data = response.data;
-        if (data['success'] == true) {
-          return data;
-        } else {
-          throw Exception(
-              data['message'] ?? 'Failed to create postponed event');
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'] as List<dynamic>;
         }
-      } else {
-        final errorData = response.data;
         throw Exception(
-            errorData['message'] ?? 'Failed to create postponed event');
+            jsonData['error']?['message'] ?? 'Failed to get free slots');
       }
+      throw Exception('Failed to get free slots: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Get free slots failed: ${e.toString()}');
+    }
+  }
+
+  // ============================================
+  // Schedule Methods
+  // ============================================
+
+  /// Create a postponed event.
+  Future<Map<String, dynamic>> createPostponedEvent({
+    required int studentId,
+    required int teacherId,
+    required String originalDate,
+    required String newDate,
+    required String time,
+  }) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.schedulePostponeEndpoint,
+        data: jsonEncode({
+          'student_id': studentId,
+          'teacher_id': teacherId,
+          'original_date': originalDate,
+          'new_date': newDate,
+          'time': time,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'];
+        }
+        throw Exception(jsonData['error']?['message'] ??
+            'Failed to create postponed event');
+      }
+      throw Exception(
+          'Failed to create postponed event: ${response.statusCode}');
     } catch (e) {
       throw Exception('Create postponed event failed: ${e.toString()}');
     }
   }
 
-  // Create student report
+  // ============================================
+  // Report Methods
+  // ============================================
+
+  /// Create a student report.
   Future<Map<String, dynamic>> createStudentReport({
     required int studentId,
     required int teacherId,
     required String attendance,
-    String? sessionNumber,
     required String date,
-    String? time,
     required int lessonDuration,
+    String? sessionNumber,
+    String? time,
     String? evaluation,
     int? grade,
     String? tasmii,
@@ -233,65 +405,233 @@ class WordPressApi {
     int? isPostponed,
   }) async {
     try {
-      final token = await _getToken();
-
-      if (token == null) {
-        throw Exception('Not authenticated');
-      }
-
-      _dio.options.headers['Authorization'] = 'Bearer $token';
-
       final response = await _dio.post(
-        '$_baseUrl/zuwad/v1/create-student-report',
+        ApiConstants.reportsEndpoint,
         data: jsonEncode({
-          'studentId': studentId,
-          'teacherId': teacherId,
+          'student_id': studentId,
+          'teacher_id': teacherId,
           'attendance': attendance,
-          'sessionNumber': sessionNumber ?? '',
           'date': date,
-          'time': time ?? '',
-          'lessonDuration': lessonDuration,
-          'evaluation': evaluation ?? '',
-          'grade': grade ?? 0,
-          'tasmii': tasmii ?? '',
-          'tahfiz': tahfiz ?? '',
-          'mourajah': mourajah ?? '',
-          'nextTasmii': nextTasmii ?? '',
-          'nextMourajah': nextMourajah ?? '',
-          'notes': notes ?? '',
-          'zoomImageUrl': zoomImageUrl ?? '',
-          'isPostponed': isPostponed ?? 0,
+          'lesson_duration': lessonDuration,
+          if (sessionNumber != null) 'session_number': sessionNumber,
+          if (time != null) 'time': time,
+          if (evaluation != null) 'evaluation': evaluation,
+          if (grade != null) 'grade': grade,
+          if (tasmii != null) 'tasmii': tasmii,
+          if (tahfiz != null) 'tahfiz': tahfiz,
+          if (mourajah != null) 'mourajah': mourajah,
+          if (nextTasmii != null) 'next_tasmii': nextTasmii,
+          if (nextMourajah != null) 'next_mourajah': nextMourajah,
+          if (notes != null) 'notes': notes,
+          if (zoomImageUrl != null) 'zoom_image_url': zoomImageUrl,
+          if (isPostponed != null) 'is_postponed': isPostponed,
         }),
       );
 
-      if (kDebugMode) {
-        print('Create student report response status: ${response.statusCode}');
-        print('Create student report response headers: ${response.headers}');
-        print('Create student report response body: ${response.data}');
-      }
-
-      if (response.statusCode == 200) {
-        final data = response.data;
-        if (data['success'] == true) {
-          return data;
-        } else {
-          throw Exception(data['message'] ?? 'Failed to create student report');
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'];
         }
-      } else {
-        final errorData = response.data;
         throw Exception(
-            errorData['message'] ?? 'Failed to create student report');
+            jsonData['error']?['message'] ?? 'Failed to create report');
       }
+      throw Exception('Failed to create report: ${response.statusCode}');
     } catch (e) {
-      if (kDebugMode) {
-        print('Create student report error: $e');
-      }
-      throw Exception('Create student report failed: ${e.toString()}');
+      throw Exception('Create report failed: ${e.toString()}');
     }
   }
 
-  // Logout
-  Future<void> logout() async {
-    await _secureStorage.clearAll();
+  // ============================================
+  // Chat Methods
+  // ============================================
+
+  /// Get chat conversations.
+  Future<List<dynamic>> getConversations({int page = 1}) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.chatConversationsEndpoint,
+        queryParameters: {'page': page},
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'] as List<dynamic>;
+        }
+      }
+      return [];
+    } catch (e) {
+      if (kDebugMode) {
+        print('Get conversations failed: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Get messages for a conversation.
+  Future<List<dynamic>> getChatMessages(String conversationId,
+      {int page = 1}) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.chatMessagesEndpoint(conversationId),
+        queryParameters: {'page': page},
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'] as List<dynamic>;
+        }
+      }
+      return [];
+    } catch (e) {
+      if (kDebugMode) {
+        print('Get messages failed: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Send a chat message.
+  Future<Map<String, dynamic>> sendChatMessage(
+    String conversationId,
+    String message,
+  ) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.chatMessagesEndpoint(conversationId),
+        data: jsonEncode({'message': message}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'];
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to send message');
+      }
+      throw Exception('Failed to send message: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Send message failed: ${e.toString()}');
+    }
+  }
+
+  /// Create a new conversation.
+  Future<Map<String, dynamic>> createConversation(
+    int recipientId,
+    String message,
+  ) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.chatConversationsEndpoint,
+        data: jsonEncode({
+          'recipient_id': recipientId,
+          'message': message,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'];
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to create conversation');
+      }
+      throw Exception('Failed to create conversation: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Create conversation failed: ${e.toString()}');
+    }
+  }
+
+  /// Mark conversation as read.
+  Future<void> markConversationAsRead(String conversationId) async {
+    try {
+      await _dio.post(ApiConstants.chatReadEndpoint(conversationId));
+    } catch (e) {
+      if (kDebugMode) {
+        print('Mark as read failed: $e');
+      }
+    }
+  }
+
+  /// Get unread message count.
+  Future<int> getUnreadCount() async {
+    try {
+      final response = await _dio.get(ApiConstants.chatUnreadCountEndpoint);
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data']['count'] ?? 0;
+        }
+      }
+      return 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  // ============================================
+  // Utility Methods
+  // ============================================
+
+  /// Check API status.
+  Future<bool> checkApiStatus() async {
+    try {
+      final response = await _dio.get(ApiConstants.statusEndpoint);
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Generic GET request helper.
+  Future<ApiResponse<T>> get<T>(
+    String endpoint,
+    T Function(dynamic json) fromJsonT, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    try {
+      final response = await _dio.get(
+        endpoint,
+        queryParameters: queryParameters,
+      );
+      return ApiResponse.fromJson(response.data, fromJsonT);
+    } on DioException catch (e) {
+      return ApiResponse(
+        success: false,
+        error: ApiError(
+          code: 'request_failed',
+          message: e.message ?? 'Request failed',
+          status: e.response?.statusCode ?? 500,
+        ),
+      );
+    }
+  }
+
+  /// Generic POST request helper.
+  Future<ApiResponse<T>> post<T>(
+    String endpoint,
+    T Function(dynamic json) fromJsonT, {
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final response = await _dio.post(
+        endpoint,
+        data: data != null ? jsonEncode(data) : null,
+      );
+      return ApiResponse.fromJson(response.data, fromJsonT);
+    } on DioException catch (e) {
+      return ApiResponse(
+        success: false,
+        error: ApiError(
+          code: 'request_failed',
+          message: e.message ?? 'Request failed',
+          status: e.response?.statusCode ?? 500,
+        ),
+      );
+    }
   }
 }

@@ -1,17 +1,19 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../core/services/secure_storage_service.dart';
-import '../../../../core/constants/api_constants.dart';
+import '../../../../core/api/wordpress_api.dart';
 import '../../domain/models/schedule.dart';
 import '../../domain/models/free_slot.dart';
 
+/// Repository for fetching student schedules using API v2.
 class ScheduleRepository {
   static const String _cacheKey = 'student_schedules_cache';
   static const String _cacheTimestampKey = 'student_schedules_timestamp';
   static const Duration _cacheDuration = Duration(minutes: 5);
 
+  final WordPressApi _api = WordPressApi();
+
+  /// Get all schedules for a student.
   Future<List<StudentSchedule>> getStudentSchedules(int studentId,
       {bool forceRefresh = false}) async {
     try {
@@ -31,59 +33,27 @@ class ScheduleRepository {
         }
       }
 
-      final secureStorage = SecureStorageService();
-      final token = await secureStorage.getToken();
-
-      if (token == null) {
-        throw Exception('Authentication token not found');
-      }
-
-      // Add timestamp to bust WordPress cache
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final url =
-          '${ApiConstants.baseUrl}/wp-json/zuwad/v1/student-schedules?student_id=$studentId&_t=$timestamp';
-      if (kDebugMode) {
-        print('Making API request to: $url');
-      }
-
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-        },
-      );
+      // Fetch from API v2
+      final data = await _api.getStudentSchedules(studentId);
 
       if (kDebugMode) {
-        print('API Response status: ${response.statusCode}');
-        print('API Response body: ${response.body}');
+        print('Received ${data.length} schedules from API');
       }
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        if (kDebugMode) {
-          print('Decoded response data: $data');
-        }
-
-        final schedules =
-            data.map((json) => StudentSchedule.fromJson(json)).toList();
-        if (kDebugMode) {
-          print('Parsed schedules: ${schedules.length} items');
-        }
-
-        // Cache the new data
-        await _cacheSchedules(studentId, schedules);
-        if (kDebugMode) {
-          print('Cached new schedules for student $studentId');
-        }
-
-        return schedules;
-      } else {
-        throw Exception('Failed to load schedules: ${response.statusCode}');
+      final schedules = data
+          .map((json) => StudentSchedule.fromJson(json as Map<String, dynamic>))
+          .toList();
+      if (kDebugMode) {
+        print('Parsed schedules: ${schedules.length} items');
       }
+
+      // Cache the new data
+      await _cacheSchedules(studentId, schedules);
+      if (kDebugMode) {
+        print('Cached new schedules for student $studentId');
+      }
+
+      return schedules;
     } catch (e) {
       if (kDebugMode) {
         print('Error fetching schedules: $e');
@@ -100,35 +70,13 @@ class ScheduleRepository {
     }
   }
 
+  /// Get teacher's available free slots.
   Future<List<FreeSlot>> getTeacherFreeSlots(int teacherId) async {
     try {
-      final secureStorage = SecureStorageService();
-      final token = await secureStorage.getToken();
-
-      if (token == null) {
-        throw Exception('Authentication token not found');
-      }
-
-      final url =
-          '${ApiConstants.baseUrl}/wp-json/zuwad/v1/teacher-free-slots?teacher_id=$teacherId&_t=${DateTime.now().millisecondsSinceEpoch}';
-      if (kDebugMode) {
-        print('Fetching teacher free slots from: $url');
-      }
-
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.map((j) => FreeSlot.fromJson(j)).toList();
-      } else {
-        throw Exception('Failed to load free slots: ${response.statusCode}');
-      }
+      final data = await _api.getTeacherFreeSlots(teacherId);
+      return data
+          .map((j) => FreeSlot.fromJson(j as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       if (kDebugMode) {
         print('Error fetching free slots: $e');
@@ -137,6 +85,7 @@ class ScheduleRepository {
     }
   }
 
+  /// Get the next scheduled lesson for a student.
   Future<StudentSchedule?> getNextSchedule(int studentId,
       {bool forceRefresh = false}) async {
     try {
@@ -178,6 +127,7 @@ class ScheduleRepository {
     }
   }
 
+  /// Cache schedules to SharedPreferences.
   Future<void> _cacheSchedules(
       int studentId, List<StudentSchedule> schedules) async {
     try {
@@ -206,6 +156,7 @@ class ScheduleRepository {
     }
   }
 
+  /// Get cached schedules if valid.
   Future<List<StudentSchedule>?> _getCachedSchedules(int studentId) async {
     try {
       if (kDebugMode) {
@@ -250,6 +201,7 @@ class ScheduleRepository {
     }
   }
 
+  /// Parse time string like "2:00 PM" to DateTime.
   DateTime? _parseTimeString(String timeString) {
     try {
       // Parse time string like "2:00 PM"
@@ -290,6 +242,7 @@ class ScheduleRepository {
     }
   }
 
+  /// Calculate duration until the next lesson.
   Duration? getTimeUntilNextLesson(Schedule schedule) {
     try {
       final now = DateTime.now();
@@ -375,6 +328,19 @@ class ScheduleRepository {
         print('Error calculating time until next lesson: $e');
       }
       return null;
+    }
+  }
+
+  /// Clear cached schedules for a student.
+  Future<void> clearCache(int studentId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('$_cacheKey$studentId');
+      await prefs.remove('$_cacheTimestampKey$studentId');
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error clearing cache: $e');
+      }
     }
   }
 }
