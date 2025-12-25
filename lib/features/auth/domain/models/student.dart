@@ -61,10 +61,16 @@ class Student {
 
   /// Parse from v2 API response (single call with flat structure)
   factory Student.fromApiV2(Map<String, dynamic> json) {
+    // API returns display_name as the primary name field
+    String studentName = json['display_name']?.toString() ??
+        json['name']?.toString() ??
+        json['student_name']?.toString() ??
+        '';
+
     return Student(
       id: json['id'] ?? 0,
-      name: json['name'] ?? '',
-      phone: json['phone'] ?? '',
+      name: studentName,
+      phone: json['phone']?.toString() ?? '',
       email: json['email']?.toString(),
       teacherId: int.tryParse(json['teacher_id']?.toString() ?? '0'),
       teacherName: json['teacher_name']?.toString(),

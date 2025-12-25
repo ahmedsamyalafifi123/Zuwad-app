@@ -14,12 +14,25 @@ class FreeSlot {
   });
 
   factory FreeSlot.fromJson(Map<String, dynamic> json) {
+    // Helper function to safely parse int
+    int parseIntSafe(dynamic value, int defaultValue) {
+      if (value == null) return defaultValue;
+      if (value is int) return value;
+      if (value is String) {
+        return int.tryParse(value) ?? defaultValue;
+      }
+      return defaultValue;
+    }
+
+    // API returns teacher_id, not user_id
+    final userId = json['user_id'] ?? json['teacher_id'];
+
     return FreeSlot(
-      id: json['id'] is int ? json['id'] : int.parse(json['id'].toString()),
-      userId: json['user_id'] is int ? json['user_id'] : int.parse(json['user_id'].toString()),
-      dayOfWeek: json['day_of_week'] is int ? json['day_of_week'] : int.parse(json['day_of_week'].toString()),
-      startTime: json['start_time'].toString(),
-      endTime: json['end_time'].toString(),
+      id: parseIntSafe(json['id'], 0),
+      userId: parseIntSafe(userId, 0),
+      dayOfWeek: parseIntSafe(json['day_of_week'], 0),
+      startTime: json['start_time']?.toString() ?? '',
+      endTime: json['end_time']?.toString() ?? '',
     );
   }
 }

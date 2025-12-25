@@ -224,6 +224,12 @@ class StudentSchedule {
         }
       }
 
+      // Get parent-level postponed_date and is_postponed to pass to child schedules
+      final parentPostponedDate = json['postponed_date'];
+      final parentIsPostponed = json['is_postponed'] == true ||
+          json['is_postponed'] == 1 ||
+          json['is_postponed'] == '1';
+
       // Process each schedule item
       for (var item in scheduleItems) {
         try {
@@ -261,10 +267,21 @@ class StudentSchedule {
 
           if (scheduleJson.containsKey('day') &&
               scheduleJson.containsKey('hour')) {
+            // IMPORTANT: Propagate parent-level postponed_date to child schedules
+            // if the child doesn't have its own postponed_date
+            if (parentPostponedDate != null &&
+                scheduleJson['postponed_date'] == null) {
+              scheduleJson['postponed_date'] = parentPostponedDate;
+            }
+            if (parentIsPostponed && scheduleJson['is_postponed'] == null) {
+              scheduleJson['is_postponed'] = true;
+            }
+
             schedulesList.add(Schedule.fromJson(scheduleJson));
             if (kDebugMode) {
               print(
-                  'Added schedule: ${scheduleJson['day']} at ${scheduleJson['hour']}');
+                  'Added schedule: ${scheduleJson['day']} at ${scheduleJson['hour']}, '
+                  'isPostponed: ${scheduleJson['is_postponed']}, postponedDate: ${scheduleJson['postponed_date']}');
             }
           } else {
             if (kDebugMode) {

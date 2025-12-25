@@ -328,16 +328,39 @@ class WordPressApi {
       );
 
       if (response.statusCode == 200) {
+        // Check if response.data is already a Map (parsed JSON)
         final jsonData = response.data;
-        if (jsonData['success'] == true) {
-          return jsonData['data'] as List<dynamic>;
+        if (jsonData is Map<String, dynamic>) {
+          if (jsonData['success'] == true) {
+            final data = jsonData['data'];
+            if (data is List) {
+              return data;
+            }
+            return [];
+          }
+          throw Exception(
+              jsonData['error']?['message'] ?? 'Failed to get free slots');
+        } else {
+          // Response is not valid JSON
+          if (kDebugMode) {
+            print(
+                'Free slots API returned non-JSON response: ${response.data}');
+          }
+          return []; // Return empty list instead of crashing
         }
-        throw Exception(
-            jsonData['error']?['message'] ?? 'Failed to get free slots');
       }
       throw Exception('Failed to get free slots: ${response.statusCode}');
+    } on DioException catch (e) {
+      if (kDebugMode) {
+        print('DioException getting free slots: ${e.message}');
+        print('Response data: ${e.response?.data}');
+      }
+      return []; // Return empty list on network errors
     } catch (e) {
-      throw Exception('Get free slots failed: ${e.toString()}');
+      if (kDebugMode) {
+        print('Error getting free slots: $e');
+      }
+      return []; // Return empty list instead of throwing
     }
   }
 
@@ -350,8 +373,9 @@ class WordPressApi {
     required int studentId,
     required int teacherId,
     required String originalDate,
+    required String originalTime,
     required String newDate,
-    required String time,
+    required String newTime,
   }) async {
     try {
       final response = await _dio.post(
@@ -360,8 +384,9 @@ class WordPressApi {
           'student_id': studentId,
           'teacher_id': teacherId,
           'original_date': originalDate,
+          'original_time': originalTime,
           'new_date': newDate,
-          'time': time,
+          'new_time': newTime,
         }),
       );
 

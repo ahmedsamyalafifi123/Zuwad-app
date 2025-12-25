@@ -14,6 +14,8 @@ class PostponePage extends StatefulWidget {
   final String? currentLessonDay;
   final String? currentLessonTime;
   final String? currentLessonDate;
+  final ScrollController? scrollController;
+  final VoidCallback? onSuccess; // Called after successful postpone
 
   const PostponePage({
     super.key,
@@ -23,6 +25,8 @@ class PostponePage extends StatefulWidget {
     this.currentLessonDay,
     this.currentLessonTime,
     this.currentLessonDate,
+    this.scrollController,
+    this.onSuccess,
   });
 
   @override
@@ -126,141 +130,177 @@ class _PostponePageState extends State<PostponePage> {
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('تأجيل الحصة'),
-        ),
-        extendBody:
-            true, // This will make the body extend behind the bottom navigation bar
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (widget.studentLessonDuration > 0) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0x1A8B0628), // 0.1 opacity primary
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+      child: Column(
+        children: [
+          // Drag handle
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                const Expanded(
                   child: Text(
-                    'يتم عرض الأوقات المتاحة التي تزيد عن ${widget.studentLessonDuration} دقيقة فقط',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                    'تأجيل الحصة',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
                     ),
                     textAlign: TextAlign.center,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(width: 48), // Balance the close button
               ],
-              const Text('اختر اليوم',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              if (availableDays.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'لا توجد أوقات متاحة تناسب مدة الدرس المطلوبة',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                )
-              else
-                Wrap(
-                  spacing: 8,
-                  children: availableDays.map((d) {
-                    final label = _dayLabel(d);
-                    final selected = _selectedDayOfWeek == d;
-                    return ChoiceChip(
-                      label: Text(label),
-                      selected: selected,
-                      onSelected: (_) {
-                        setState(() {
-                          _selectedDayOfWeek = d;
-                          _selectedStartTime = null;
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
-              const SizedBox(height: 16),
-              const Text('اختر الساعة',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              if (_selectedDayOfWeek == null)
-                const Text('الرجاء اختيار اليوم أولاً')
-              else ...[
-                Wrap(
-                  spacing: 8,
-                  children: timesForDay(_selectedDayOfWeek!).map((t) {
-                    final selected = _selectedStartTime == t;
-                    return ChoiceChip(
-                      label: Text(t),
-                      selected: selected,
-                      onSelected: (_) {
-                        setState(() {
-                          _selectedStartTime = t;
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
-              ],
-              const SizedBox(height: 24),
-              // Confirm button directly below choices
-              ElevatedButton(
-                onPressed: (_selectedDayOfWeek != null &&
-                        _selectedStartTime != null &&
-                        !_isCreatingEvent)
-                    ? _createPostponedEvent
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _isCreatingEvent
-                    ? const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'جاري الإنشاء...',
+            ),
+          ),
+          const Divider(height: 1),
+          // Content
+          Expanded(
+            child: SingleChildScrollView(
+              controller: widget.scrollController,
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (widget.studentLessonDuration > 0) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0x1A8B0628), // 0.1 opacity primary
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'يتم عرض الأوقات المتاحة التي تزيد عن ${widget.studentLessonDuration} دقيقة فقط',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  const Text('اختر اليوم',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  if (availableDays.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'لا توجد أوقات متاحة تناسب مدة الدرس المطلوبة',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      children: availableDays.map((d) {
+                        final label = _dayLabel(d);
+                        final selected = _selectedDayOfWeek == d;
+                        return ChoiceChip(
+                          label: Text(label),
+                          selected: selected,
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedDayOfWeek = d;
+                              _selectedStartTime = null;
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  const SizedBox(height: 16),
+                  const Text('اختر الساعة',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  if (_selectedDayOfWeek == null)
+                    const Text('الرجاء اختيار اليوم أولاً')
+                  else ...[
+                    Wrap(
+                      spacing: 8,
+                      children: timesForDay(_selectedDayOfWeek!).map((t) {
+                        final selected = _selectedStartTime == t;
+                        return ChoiceChip(
+                          label: Text(t),
+                          selected: selected,
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedStartTime = t;
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  // Confirm button directly below choices
+                  ElevatedButton(
+                    onPressed: (_selectedDayOfWeek != null &&
+                            _selectedStartTime != null &&
+                            !_isCreatingEvent)
+                        ? _createPostponedEvent
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _isCreatingEvent
+                        ? const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'جاري الإنشاء...',
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          )
+                        : const Text(
+                            'تأكيد',
                             style: TextStyle(
                                 fontSize: 16, fontWeight: FontWeight.bold),
                           ),
-                        ],
-                      )
-                    : const Text(
-                        'تأكيد',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
+                  ),
+                  const SizedBox(height: 40), // Add space at bottom
+                ],
               ),
-              const SizedBox(
-                  height: 100), // Add space for bottom navigation bar
-            ],
+            ),
           ),
-        ),
-        bottomNavigationBar: _buildCustomBottomNavBar(),
+        ],
       ),
     );
   }
@@ -319,8 +359,9 @@ class _PostponePageState extends State<PostponePage> {
         teacherId: widget.teacherId,
         originalDate: widget.currentLessonDate ??
             eventDateStr, // Use current lesson date as original
+        originalTime: widget.currentLessonTime ?? _selectedStartTime!,
         newDate: eventDateStr,
-        time: _selectedStartTime!,
+        newTime: _selectedStartTime!,
       );
 
       // Create student report for the CURRENT lesson being postponed
@@ -381,7 +422,9 @@ class _PostponePageState extends State<PostponePage> {
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(); // Close dialog
-                Navigator.of(context).pop(); // Go back to dashboard
+                Navigator.of(context).pop(); // Close sheet
+                // Trigger refresh callback
+                widget.onSuccess?.call();
               },
               child: const Text(
                 'موافق',
@@ -423,205 +466,6 @@ class _PostponePageState extends State<PostponePage> {
           ],
         );
       },
-    );
-  }
-
-  Widget _buildCustomBottomNavBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: Stack(
-        alignment: Alignment.topCenter,
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            height: 60,
-            margin: const EdgeInsets.only(top: 15),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(
-                color: const Color(0xFFD4AF37),
-                width: 2,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x4D000000), // 0.3 opacity grey
-                  blurRadius: 10,
-                  offset: Offset(0, -2),
-                ),
-              ],
-              borderRadius: BorderRadius.circular(15), // 25% of 60px height
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                // Home tab
-                Expanded(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {},
-                      customBorder: const CircleBorder(),
-                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
-                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.assignment,
-                            size: 22,
-                            color: Color(0xFF8b0628),
-                          ),
-                          Text(
-                            'الإنجازات',
-                            style: TextStyle(
-                              color: Color(0xFF8b0628),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Notifications tab
-                Expanded(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {},
-                      customBorder: const CircleBorder(),
-                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
-                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.chat_outlined,
-                            size: 22,
-                            color: Color(0xFF8b0628),
-                          ),
-                          Text(
-                            'مراسلة',
-                            style: TextStyle(
-                              color: Color(0xFF8b0628),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Middle spacer for the logo
-                const Expanded(child: SizedBox()),
-
-                // Profile tab
-                Expanded(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {},
-                      customBorder: const CircleBorder(),
-                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
-                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.person_outline,
-                            size: 22,
-                            color: Color(0xFF8b0628),
-                          ),
-                          Text(
-                            'الملف',
-                            style: TextStyle(
-                              color: Color(0xFF8b0628),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Settings tab
-                Expanded(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {},
-                      customBorder: const CircleBorder(),
-                      splashColor: const Color(0x1A8B0628), // 0.1 opacity
-                      highlightColor: const Color(0x0D8B0628), // 0.05 opacity
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.settings_outlined,
-                            size: 22,
-                            color: Color(0xFF8b0628),
-                          ),
-                          Text(
-                            'الإعدادات',
-                            style: TextStyle(
-                              color: Color(0xFF8b0628),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Center floating logo button that's half outside the navbar
-          Positioned(
-            top: -20,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => Navigator.of(context).pop(),
-                customBorder: const CircleBorder(),
-                splashColor: const Color(0x338B0628), // 0.2 opacity
-                highlightColor: const Color(0x1A8B0628), // 0.1 opacity
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color.fromARGB(255, 255, 255, 255),
-                      width: 2,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x4D000000), // 0.3 opacity grey
-                        blurRadius: 10,
-                        spreadRadius: 2,
-                        offset: Offset(0, 0),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Image.asset(
-                      'assets/images/zuwad.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

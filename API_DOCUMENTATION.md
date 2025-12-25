@@ -193,9 +193,51 @@ GET /students/{id}/reports?page=1&per_page=20
 
 ### Get Student Schedules
 
+Returns both regular schedules and future postponed schedules for the student.
+
 ```http
 GET /students/{id}/schedules
 ```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "student_id": 123,
+      "teacher_id": 5,
+      "teacher_name": "Ahmed",
+      "lesson_duration": 60,
+      "is_postponed": false,
+      "is_recurring": true,
+      "postponed_date": null,
+      "postponed_time": null,
+      "schedules": [{ "day": "الأحد", "hour": "2:00 PM" }],
+      "real_student_id": null
+    },
+    {
+      "id": 2,
+      "student_id": 123,
+      "teacher_id": 5,
+      "teacher_name": "Ahmed",
+      "lesson_duration": 60,
+      "is_postponed": true,
+      "is_recurring": false,
+      "postponed_date": "2024-01-20",
+      "postponed_time": "14:00",
+      "schedules": [
+        { "day": "السبت", "hour": "2:00 PM", "is_postponed": true }
+      ],
+      "real_student_id": 123
+    }
+  ]
+}
+```
+
+> **Note:** Postponed schedules are only returned if they are in the future.
 
 ### Get Student's Family Wallet
 
@@ -239,9 +281,43 @@ GET /teachers/{id}/calendar?start_date=2024-01-01&end_date=2024-01-31
 
 ### Get Free Slots
 
+Returns available free slots, excluding times that have postponed lessons scheduled.
+
 ```http
 GET /teachers/{id}/free-slots
+GET /teachers/{id}/free-slots?student_id=123
 ```
+
+**Response (without student_id):**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "teacher_id": 5,
+      "day_of_week": 0,
+      "start_time": "14:00:00",
+      "end_time": "18:00:00"
+    }
+  ]
+}
+```
+
+**Response (with student_id):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "slots": [...],
+    "lesson_duration": 45
+  }
+}
+```
+
+> **Note:** `day_of_week` uses 0=Sunday, 1=Monday, ..., 6=Saturday. Slots are automatically split around any scheduled postponed lessons.
 
 ### Add Free Slot
 
@@ -251,9 +327,12 @@ Content-Type: application/json
 
 {
   "day": "الأحد",
-  "time": "14:00"
+  "time": "14:00",
+  "end_time": "18:00"
 }
 ```
+
+> **Note:** `day` can be an integer (0-6) or Arabic day name. `end_time` is optional (defaults to 1 hour after start).
 
 ### Delete Free Slot
 
@@ -309,6 +388,8 @@ Content-Type: application/json
 
 ### Create Postponed Event
 
+**Permission:** Any authenticated user (students can only postpone their own schedules)
+
 ```http
 POST /schedules/postpone
 Content-Type: application/json
@@ -317,10 +398,14 @@ Content-Type: application/json
   "student_id": 123,
   "teacher_id": 5,
   "original_date": "2024-01-15",
+  "original_time": "14:00",
   "new_date": "2024-01-17",
-  "time": "14:00"
+  "new_time": "14:00",
+  "lesson_duration": 60
 }
 ```
+
+> **Note:** Students can only create postponed events for their own lessons.
 
 ---
 
@@ -334,6 +419,8 @@ GET /reports?student_id=123&teacher_id=5&start_date=2024-01-01&end_date=2024-01-
 
 ### Create Report
 
+**Permission:** Any authenticated user (students can only create postponement reports for their own lessons)
+
 ```http
 POST /reports
 Content-Type: application/json
@@ -345,12 +432,28 @@ Content-Type: application/json
   "time": "14:00",
   "attendance": "حضور",
   "lesson_duration": 60,
-  "surah": "البقرة",
-  "from_verse": 1,
-  "to_verse": 20,
-  "notes": "أداء ممتاز"
+  "tasmii": "سورة البقرة",
+  "tahfiz": "الآيات 1-20",
+  "notes": "أداء ممتاز",
+  "is_postponed": false
 }
 ```
+
+**Student Postponement Report:**
+
+```json
+{
+  "student_id": 123,
+  "teacher_id": 5,
+  "date": "2024-01-15",
+  "time": "14:00",
+  "attendance": "تأجيل ولي أمر",
+  "lesson_duration": 60,
+  "is_postponed": true
+}
+```
+
+> **Note:** Students can only create reports with postponement attendance types: `تأجيل ولي أمر`, `تأجيل`, `تأجيل طالب`
 
 ### Upload Report Image
 
@@ -365,7 +468,7 @@ report_id: 123
 ### Calculate Session Number
 
 ```http
-GET /reports/session-number?student_id=123&date=2024-01-15
+GET /reports/session-number?student_id=123&attendance=حضور
 ```
 
 ---
@@ -963,5 +1066,13 @@ For API issues, contact the development team with:
 
 ---
 
-**API Version:** 2.0.0  
+**API Version:** 2.0.1  
 **Last Updated:** December 2024
+
+### Recent Changes (v2.0.1)
+
+- **Free Slots:** Now excludes/splits slots around scheduled postponed lessons
+- **Student Schedules:** Returns both regular and future postponed schedules
+- **Reports:** Students can create postponement reports for their own lessons
+- **Postpone:** Students can create postponed events for their own schedules
+- **Free Slots Response:** Added `day_of_week`, `start_time`, `end_time` format

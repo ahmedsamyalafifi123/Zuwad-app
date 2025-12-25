@@ -13,7 +13,9 @@ import '../../../auth/presentation/pages/login_page.dart';
 import '../../../chat/presentation/pages/chat_list_page.dart';
 import '../../../meeting/presentation/pages/meeting_page.dart';
 import '../../data/repositories/schedule_repository.dart';
+import '../../data/repositories/report_repository.dart';
 import '../../domain/models/schedule.dart';
+import '../../domain/models/student_report.dart';
 import 'postpone_page.dart';
 import 'placeholder_page.dart';
 import 'home_page.dart';
@@ -357,6 +359,7 @@ class _DashboardContent extends StatefulWidget {
 
 class _DashboardContentState extends State<_DashboardContent> {
   final ScheduleRepository _scheduleRepository = ScheduleRepository();
+  final ReportRepository _reportRepository = ReportRepository();
   StudentSchedule? _nextSchedule;
   Schedule? _nextLesson;
   String _teacherName = '';
@@ -390,6 +393,12 @@ class _DashboardContentState extends State<_DashboardContent> {
         _lessonName = student.lessonsName ?? 'درس';
         _teacherName = student.teacherName ?? 'المعلم';
 
+        // Get reports to check which schedules already have reports
+        final reports = await _reportRepository.getStudentReports(
+          student.id,
+          forceRefresh: forceRefresh,
+        );
+
         // Get next schedule with force refresh
         final nextSchedule = await _scheduleRepository.getNextSchedule(
           student.id,
@@ -400,7 +409,7 @@ class _DashboardContentState extends State<_DashboardContent> {
           setState(() {
             _nextSchedule = nextSchedule;
             if (nextSchedule.schedules.isNotEmpty) {
-              _findNextLesson(nextSchedule.schedules);
+              _findNextLesson(nextSchedule.schedules, reports);
               if (_nextLesson != null) {
                 _updateCountdown();
                 _countdownTimer?.cancel();
@@ -420,6 +429,9 @@ class _DashboardContentState extends State<_DashboardContent> {
           });
         }
       } catch (e) {
+        if (kDebugMode) {
+          print('Error loading next lesson: $e');
+        }
         setState(() {
           _nextLesson = null;
           _nextSchedule = null;
@@ -432,7 +444,7 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
   }
 
-  void _findNextLesson(List<Schedule> schedules) {
+  void _findNextLesson(List<Schedule> schedules, List<StudentReport> reports) {
     if (schedules.isEmpty) {
       _nextLesson = null;
       return;
@@ -440,11 +452,19 @@ class _DashboardContentState extends State<_DashboardContent> {
 
     final now = DateTime.now();
 
+    // Create a set of report dates for quick lookup
+    // Format: "YYYY-MM-DD" to match against schedule dates
+    final reportDates = reports.map((r) => r.date).toSet();
+    if (kDebugMode) {
+      print('Report dates to exclude: $reportDates');
+    }
+
     // Create a list of all upcoming lessons with their actual DateTime
     List<Map<String, dynamic>> upcomingLessons = [];
 
     for (var schedule in schedules) {
       DateTime? lessonDateTime;
+      String? lessonDateStr;
 
       // Debug each schedule
       if (kDebugMode) {
@@ -460,8 +480,11 @@ class _DashboardContentState extends State<_DashboardContent> {
                 'Processing postponed schedule: ${schedule.day} at ${schedule.hour}, postponed_date: ${schedule.postponedDate}');
           }
           final postponedDate = DateTime.parse(schedule.postponedDate!);
+          lessonDateStr =
+              '${postponedDate.year}-${postponedDate.month.toString().padLeft(2, '0')}-${postponedDate.day.toString().padLeft(2, '0')}';
           if (kDebugMode) {
-            print('Parsed postponed date: $postponedDate');
+            print(
+                'Parsed postponed date: $postponedDate, dateStr: $lessonDateStr');
           }
           final lessonTime = _parseTimeString(schedule.hour);
           if (kDebugMode) {
@@ -530,6 +553,21 @@ class _DashboardContentState extends State<_DashboardContent> {
           lessonTime.hour,
           lessonTime.minute,
         );
+
+        // Calculate the date string for comparison with reports
+        lessonDateStr =
+            '${lessonDateTime.year}-${lessonDateTime.month.toString().padLeft(2, '0')}-${lessonDateTime.day.toString().padLeft(2, '0')}';
+      }
+
+      // Check if this lesson date already has a report (lesson already happened or was postponed)
+      // IMPORTANT: Only check reports for regular schedules, NOT postponed schedules
+      // Postponed schedules are the NEW target dates - they don't have reports yet
+      if (!schedule.isPostponed && reportDates.contains(lessonDateStr)) {
+        if (kDebugMode) {
+          print(
+              'Skipping regular lesson on $lessonDateStr - report already exists');
+        }
+        continue; // Skip this regular schedule, a report already exists for this date
       }
 
       // Only include future lessons
@@ -1120,16 +1158,36 @@ class _DashboardContentState extends State<_DashboardContent> {
       }
 
       if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PostponePage(
-            teacherId: teacherId,
-            freeSlots: slots,
-            studentLessonDuration: lessonDuration,
-            currentLessonDay: currentLessonDay,
-            currentLessonTime: currentLessonTime,
-            currentLessonDate: currentLessonDate,
+
+      // Show as modal bottom sheet to keep nav bar visible
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) => DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (context, scrollController) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: PostponePage(
+              teacherId: teacherId,
+              freeSlots: slots,
+              studentLessonDuration: lessonDuration,
+              currentLessonDay: currentLessonDay,
+              currentLessonTime: currentLessonTime,
+              currentLessonDate: currentLessonDate,
+              scrollController: scrollController,
+              onSuccess: () {
+                // Refresh schedules after successful postpone
+                if (mounted) {
+                  _loadNextLesson(forceRefresh: true);
+                }
+              },
+            ),
           ),
         ),
       );

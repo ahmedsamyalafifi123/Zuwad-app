@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 
 class StudentReport {
   final int studentId;
@@ -41,23 +40,29 @@ class StudentReport {
   });
 
   factory StudentReport.fromJson(Map<String, dynamic> json) {
-    // Parse zoom image URL from array
+    // Parse zoom image URL from array - handle empty strings
     String imageUrl = '';
-    if (json['zoomImageUrl'] != null) {
+    final zoomData = json['zoomImageUrl'] ?? json['zoom_image_url'];
+    if (zoomData != null && zoomData.toString().isNotEmpty) {
       try {
-        if (json['zoomImageUrl'] is String) {
-          final List<dynamic> images = jsonDecode(json['zoomImageUrl']);
-          if (images.isNotEmpty) {
-            imageUrl = images[0].toString().replaceAll(r'\\', '');
+        if (zoomData is String) {
+          // Skip if empty string
+          if (zoomData.trim().isEmpty) {
+            imageUrl = '';
+          } else {
+            final List<dynamic> images = jsonDecode(zoomData);
+            if (images.isNotEmpty) {
+              imageUrl = images[0].toString().replaceAll(r'\\', '');
+            }
           }
-        } else if (json['zoomImageUrl'] is List) {
-          final List<dynamic> images = json['zoomImageUrl'];
-          if (images.isNotEmpty) {
-            imageUrl = images[0].toString().replaceAll(r'\\', '');
+        } else if (zoomData is List) {
+          if (zoomData.isNotEmpty) {
+            imageUrl = zoomData[0].toString().replaceAll(r'\\', '');
           }
         }
       } catch (e) {
-        debugPrint('Error parsing zoomImageUrl: $e');
+        // Silently handle parsing errors for zoomImageUrl
+        imageUrl = '';
       }
     }
 
@@ -70,30 +75,39 @@ class StudentReport {
           final parsed = int.tryParse(value);
           if (parsed != null) return parsed;
         }
-        debugPrint('Failed to parse $fieldName: $value');
         return 0;
       } catch (e) {
-        debugPrint('Error parsing $fieldName: $e');
         return 0;
       }
     }
 
+    // Support both camelCase (v1) and snake_case (v2) field names
     return StudentReport(
-      studentId: parseIntField(json['studentId'], 'studentId'),
-      teacherId: parseIntField(json['teacherId'], 'teacherId'),
-      teacherName: json['teacherName']?.toString() ?? '',
-      sessionNumber: parseIntField(json['sessionNumber'], 'sessionNumber'),
+      studentId:
+          parseIntField(json['studentId'] ?? json['student_id'], 'studentId'),
+      teacherId:
+          parseIntField(json['teacherId'] ?? json['teacher_id'], 'teacherId'),
+      teacherName: json['teacherName']?.toString() ??
+          json['teacher_name']?.toString() ??
+          '',
+      sessionNumber: parseIntField(
+          json['sessionNumber'] ?? json['session_number'], 'sessionNumber'),
       date: json['date']?.toString() ?? '',
       time: json['time']?.toString() ?? '',
       attendance: json['attendance']?.toString() ?? '',
       evaluation: json['evaluation']?.toString() ?? '',
       grade: parseIntField(json['grade'], 'grade'),
-      lessonDuration: parseIntField(json['lessonDuration'], 'lessonDuration'),
+      lessonDuration: parseIntField(
+          json['lessonDuration'] ?? json['lesson_duration'], 'lessonDuration'),
       tasmii: json['tasmii']?.toString() ?? '',
       tahfiz: json['tahfiz']?.toString() ?? '',
       mourajah: json['mourajah']?.toString() ?? '',
-      nextTasmii: json['nextTasmii']?.toString() ?? '',
-      nextMourajah: json['nextMourajah']?.toString() ?? '',
+      nextTasmii: json['nextTasmii']?.toString() ??
+          json['next_tasmii']?.toString() ??
+          '',
+      nextMourajah: json['nextMourajah']?.toString() ??
+          json['next_mourajah']?.toString() ??
+          '',
       notes: json['notes']?.toString() ?? '',
       zoomImageUrl: imageUrl,
     );
