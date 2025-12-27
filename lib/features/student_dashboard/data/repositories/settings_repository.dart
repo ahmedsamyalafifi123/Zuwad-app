@@ -43,7 +43,7 @@ class SettingsRepository {
     // Note: Backend uses 'display_name' for the student name field
     if (name != null && name.isNotEmpty) updateData['display_name'] = name;
     if (email != null) updateData['email'] = email;
-    if (birthday != null) updateData['birthday'] = birthday;
+    if (birthday != null) updateData['dob'] = birthday;
     if (country != null) updateData['country'] = country;
     if (lessonsName != null) updateData['lessons_name'] = lessonsName;
     if (lessonDuration != null) updateData['lesson_duration'] = lessonDuration;
@@ -59,13 +59,20 @@ class SettingsRepository {
       throw Exception('No data to update');
     }
 
-    final data = await _api.updateStudentProfile(userId, updateData);
+    final responseData = await _api.updateStudentProfile(userId, updateData);
 
     if (kDebugMode) {
-      print('SettingsRepository.updateProfile - response: $data');
+      print('SettingsRepository.updateProfile - response: $responseData');
     }
 
-    return Student.fromApiV2(data);
+    // Handle case where API returns {data: {...}} or just {...}
+    final studentData = responseData['data'] ?? responseData;
+
+    if (kDebugMode) {
+      print('SettingsRepository.updateProfile - studentData: $studentData');
+    }
+
+    return Student.fromApiV2(studentData);
   }
 
   /// Change user's password.

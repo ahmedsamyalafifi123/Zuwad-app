@@ -62,7 +62,7 @@ class Student {
       notes: userMeta['notes']?.toString() ?? '',
       mId: userMeta['m_id']?.toString() ?? '',
       lessonsName: userMeta['lessons_name']?.toString() ?? '',
-      birthday: userMeta['birthday']?.toString(),
+      birthday: userMeta['dob']?.toString(),
       country: userMeta['country']?.toString(),
       profileImageUrl: userMeta['profile_image_url']?.toString(),
     );
@@ -93,7 +93,7 @@ class Student {
       notes: json['notes']?.toString(),
       mId: json['m_id']?.toString(),
       lessonsName: json['lessons_name']?.toString(),
-      birthday: json['birthday']?.toString(),
+      birthday: json['dob']?.toString(),
       country: json['country']?.toString(),
       profileImageUrl: json['profile_image_url']?.toString(),
     );

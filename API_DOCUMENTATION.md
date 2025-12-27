@@ -209,6 +209,7 @@ Content-Type: application/json
 | `country`         | string  | Country                           |
 | `gender`          | string  | Gender (ذكر/أنثى)                 |
 | `age`             | integer | Age                               |
+| `dob`             | string  | Date of birth (YYYY-MM-DD format) |
 | `notes`           | string  | Notes                             |
 
 #### Balance Calculation (Automatic)

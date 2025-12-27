@@ -44,6 +44,34 @@ class _SettingsPageState extends State<SettingsPage> {
   static const List<int> _lessonsNumberOptions = [4, 8, 12, 16, 20, 24];
   static const List<int> _lessonDurationOptions = [30, 45, 60];
 
+  // Countries list (Arab countries first, then others)
+  static const List<String> _countryOptions = [
+    // Arab Countries
+    'مصر', 'السعودية', 'الجزائر', 'البحرين', 'جزر القمر', 'جيبوتي', 'العراق',
+    'الأردن', 'الكويت', 'لبنان', 'ليبيا', 'موريتانيا', 'المغرب', 'عمان',
+    'فلسطين', 'قطر', 'الصومال', 'السودان', 'سوريا', 'تونس', 'الإمارات', 'اليمن',
+    // Other Countries
+    'أفغانستان', 'ألبانيا', 'أرمينيا', 'أستراليا', 'النمسا', 'أذربيجان',
+    'بربادوس', 'بنغلاديش', 'بيلاروسيا', 'بلجيكا', 'بليز', 'بنين', 'بوتان',
+    'بوليفيا', 'البوسنة والهرسك', 'بوتسوانا', 'البرازيل', 'بروناي', 'بلغاريا',
+    'بوركينا فاسو', 'بوروندي', 'كمبوديا', 'الكاميرون', 'كندا', 'كيب فيردي',
+    'جمهورية أفريقيا الوسطى', 'تشاد', 'شيلي', 'الصين', 'كولومبيا', 'الكونغو',
+    'كونغو (جمهورية الكونغو الديمقراطية)', 'كوستاريكا', 'كرواتيا', 'كوبا',
+    'قبرص', 'جمهورية التشيك', 'الدنمارك', 'دومينيكا', 'جمهورية الدومينيكان',
+    'تيمور الشرقية', 'الإكوادور', 'إلسلفادور', 'غينيا الاستوائية', 'إريتريا',
+    'إستونيا', 'إثيوبيا', 'فيجي', 'فنلندا', 'فرنسا', 'غابون', 'غامبيا',
+    'جورجيا', 'ألمانيا', 'غانا', 'غرينادا', 'غواتيمالا', 'غينيا', 'غينيا بيساو',
+    'غواديلوب', 'جوادلوب', 'هايتي', 'هندوراس', 'هونغ كونغ', 'هنغاريا',
+    'أيسلندا', 'إندونيسيا', 'الهند', 'إيران', 'إيرلندا', 'إيطاليا', 'جامايكا',
+    'اليابان', 'كازاخستان', 'كينيا', 'كيريباتي', 'كوريا الجنوبية', 'كوت ديفوار',
+    'كوسوفو', 'كيوبيك', 'قيرغيزستان', 'لاوس', 'لاتفيا', 'ليسوتو', 'ليبيريا',
+    'لكسمبورغ', 'مقدونيا', 'مدغشقر', 'ملاوي', 'ماليزيا', 'مالطا', 'مارشال',
+    'موريشيوس', 'المكسيك', 'ميكرونيزيا', 'مولدوفا', 'منغوليا', 'مونتسيرات',
+    'موزمبيق', 'ميانمار', 'ناميبيا', 'ناورو', 'نيبال', 'هولندا', 'نيوزيلندا',
+    'نيكاراغوا', 'النيجر', 'نيجيريا', 'النرويج', 'أوكرانيا', 'أوغندا',
+    'أوروغواي', 'فانواتو', 'فنزويلا', 'فيتنام', 'واليس وفوتونا',
+  ];
+
   // Form controllers
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -75,11 +103,28 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       setState(() => _isLoading = true);
 
-      // Get student from auth state first
+      // First try to get from auth state for quick display
       final authState = context.read<AuthBloc>().state;
       if (authState is AuthAuthenticated && authState.student != null) {
         _student = authState.student;
         _populateControllers();
+      }
+
+      // Always fetch fresh profile to get latest data including dob
+      try {
+        final freshProfile = await _repository.getProfile();
+        if (mounted) {
+          _student = freshProfile;
+          _populateControllers();
+          if (kDebugMode) {
+            print(
+                'SettingsPage._loadData - Fresh profile loaded, dob: ${freshProfile.birthday}');
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('SettingsPage._loadData - Could not fetch fresh profile: $e');
+        }
       }
 
       // Load wallet info
@@ -106,6 +151,13 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _populateControllers() {
     if (_student != null) {
+      if (kDebugMode) {
+        print('SettingsPage._populateControllers - student: ${_student!.name}');
+        print(
+            'SettingsPage._populateControllers - birthday/dob: ${_student!.birthday}');
+        print(
+            'SettingsPage._populateControllers - country: ${_student!.country}');
+      }
       _nameController.text = _student!.name;
       _emailController.text = _student!.email ?? '';
       _birthdayController.text = _student!.birthday ?? '';
@@ -113,6 +165,47 @@ class _SettingsPageState extends State<SettingsPage> {
       _lessonsNameController.text = _student!.lessonsName ?? '';
       _lessonDurationController.text = _student!.lessonDuration ?? '';
       _lessonsNumberController.text = _student!.lessonsNumber?.toString() ?? '';
+    }
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    // Try to parse existing date
+    DateTime initialDate = DateTime.now();
+    if (_birthdayController.text.isNotEmpty) {
+      try {
+        initialDate = DateTime.parse(_birthdayController.text);
+      } catch (_) {
+        // If parsing fails, use current date
+      }
+    }
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(1940),
+      lastDate: DateTime.now(),
+      locale: const Locale('ar'),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppTheme.primaryColor,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        // Format as YYYY-MM-DD
+        _birthdayController.text =
+            '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+      });
     }
   }
 
@@ -643,19 +736,70 @@ class _SettingsPageState extends State<SettingsPage> {
 
         const SizedBox(height: 16),
 
-        _buildTextField(
-          controller: _birthdayController,
-          label: 'تاريخ الميلاد',
-          icon: Icons.cake_outlined,
-          hint: 'YYYY-MM-DD',
+        // Birthday date picker
+        InkWell(
+          onTap: () => _selectDate(context),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE0E0E0)),
+              color: Colors.grey[50],
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.cake_outlined, color: AppTheme.primaryColor),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'تاريخ الميلاد',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _birthdayController.text.isNotEmpty
+                            ? _birthdayController.text
+                            : 'اختر التاريخ',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: _birthdayController.text.isNotEmpty
+                              ? Colors.black87
+                              : Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.calendar_today_outlined,
+                    color: const Color(0xFFD4AF37), size: 20),
+              ],
+            ),
+          ),
         ),
 
         const SizedBox(height: 16),
 
-        _buildTextField(
-          controller: _countryController,
+        // Country dropdown
+        _buildDropdownField<String>(
           label: 'الدولة',
           icon: Icons.location_on_outlined,
+          value: _countryController.text.isNotEmpty &&
+                  _countryOptions.contains(_countryController.text)
+              ? _countryController.text
+              : null,
+          items: _countryOptions,
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _countryController.text = value);
+            }
+          },
         ),
 
         const SizedBox(height: 24),
