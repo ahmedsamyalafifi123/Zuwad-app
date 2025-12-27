@@ -30,6 +30,7 @@ class SettingsRepository {
     String? lessonsName,
     String? lessonDuration,
     int? lessonsNumber,
+    int? amount,
   }) async {
     final userId = await _secureStorage.getUserIdAsInt();
     if (userId == null) {
@@ -47,6 +48,7 @@ class SettingsRepository {
     if (lessonsName != null) updateData['lessons_name'] = lessonsName;
     if (lessonDuration != null) updateData['lesson_duration'] = lessonDuration;
     if (lessonsNumber != null) updateData['lessons_number'] = lessonsNumber;
+    if (amount != null) updateData['amount'] = amount;
 
     if (kDebugMode) {
       print('SettingsRepository.updateProfile - userId: $userId');

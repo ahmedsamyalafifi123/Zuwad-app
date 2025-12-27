@@ -170,15 +170,126 @@ Content-Type: application/json
 
 ### Update Student
 
+**Permission:** Authenticated users (students can update their own data)
+
+Students can update their own profile data via the API. This enables mobile apps to allow students to modify their information.
+
 ```http
 PUT /students/{id}
+Authorization: Bearer {token}
 Content-Type: application/json
 
 {
-  "name": "Updated Name",
-  "payment_status": "تم الدفع"
+  "display_name": "Updated Name",
+  "phone": "01234567890",
+  "payment_phone": "01234567890",
+  "lessons_number": 8,
+  "lesson_duration": 60,
+  "amount": 500,
+  "country": "مصر",
+  "gender": "ذكر",
+  "age": 12,
+  "notes": "ملاحظات"
 }
 ```
+
+#### Available Fields
+
+| Field             | Type    | Description                       |
+| ----------------- | ------- | --------------------------------- |
+| `display_name`    | string  | Student's display name            |
+| `phone`           | string  | Student's phone number            |
+| `payment_phone`   | string  | Payment contact phone             |
+| `email`           | string  | Email address                     |
+| `lessons_number`  | integer | Number of lessons in package      |
+| `lesson_duration` | integer | Duration of each lesson (minutes) |
+| `amount`          | float   | Package price                     |
+| `currency`        | string  | Currency (EGP, OMR, etc.)         |
+| `payment_status`  | string  | Payment status                    |
+| `country`         | string  | Country                           |
+| `gender`          | string  | Gender (ذكر/أنثى)                 |
+| `age`             | integer | Age                               |
+| `notes`           | string  | Notes                             |
+
+#### Balance Calculation (Automatic)
+
+When `lessons_number` or `lesson_duration` changes, the system **automatically calculates and adjusts** the family wallet's `pending_balance`:
+
+**Calculation Formula:**
+
+```
+1. Get remaining lessons = old_lessons_number - sessions_completed
+2. Calculate per-lesson price = old_amount / old_lessons_number
+3. Calculate total credit = remaining_lessons × per_lesson_price
+4. Calculate adjustment = total_credit - new_amount
+5. Apply adjustment to pending_balance
+```
+
+**Example:**
+
+```
+Current: 8 lessons, 500 EGP, 4 sessions completed
+New: 4 lessons, 250 EGP
+
+Calculation:
+- Remaining lessons = 8 - 4 = 4 lessons
+- Per-lesson price = 500 / 8 = 62.50 EGP
+- Total credit = 4 × 62.50 = 250 EGP
+- Adjustment = 250 - 250 = 0 EGP (no change needed)
+
+If new amount was 200 EGP:
+- Adjustment = 250 - 200 = +50 EGP (added to pending_balance)
+```
+
+#### Transaction Recording
+
+When a balance adjustment is made, a **transaction record** is created in the family wallet with:
+
+- **Transaction Type:** `pending_adjustment`
+- **Description:** `تعديل الرصيد المتبقي (API): إجمالي الحصص المتبقية (X) - سعر الباقة الجديدة (Y) = Z`
+- **Reference Type:** `lesson_change_adjustment`
+
+This transaction appears in **سجل المعاملات** (Transaction History) in the family wallet page.
+
+#### Response
+
+**Success Response (with balance adjustment):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "display_name": "Updated Name",
+    "lessons_number": 8,
+    "lesson_duration": 60,
+    "amount": 500,
+    ...
+  },
+  "meta": {
+    "updated_fields": ["display_name", "lessons_number", "pending_balance_adjusted"]
+  }
+}
+```
+
+**Success Response (no balance adjustment needed):**
+
+```json
+{
+  "success": true,
+  "data": { ... },
+  "meta": {
+    "updated_fields": ["display_name", "phone"]
+  }
+}
+```
+
+> **Important Notes:**
+>
+> - The `pending_balance_adjusted` field in `updated_fields` indicates a wallet adjustment was made
+> - Balance adjustments only happen when `lessons_number` or `lesson_duration` changes
+> - The adjustment affects only `pending_balance`, not the main `balance`
+> - A transaction record is created for audit purposes
 
 ### Delete Student
 
@@ -681,6 +792,8 @@ Content-Type: application/json
 
 ### Get Family Wallet
 
+**Permission:** Authenticated users (students can access their own family's wallet)
+
 ```http
 GET /wallet/family/{family_id}
 ```
@@ -692,6 +805,8 @@ GET /wallet/student/{student_id}
 ```
 
 ### Get Transactions
+
+**Permission:** Authenticated users (students can view their own family's transactions)
 
 ```http
 GET /wallet/family/{family_id}/transactions?page=1

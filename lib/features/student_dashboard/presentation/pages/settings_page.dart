@@ -29,6 +29,20 @@ class _SettingsPageState extends State<SettingsPage> {
   WalletInfo? _walletInfo;
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _packageEditMode = false;
+
+  // Dropdown options
+  static const List<String> _lessonsNameOptions = [
+    'قرآن',
+    'لغة عربية',
+    'تجويد',
+    'تربية اسلامية',
+    'تربية اسلامية لغير الناطقين',
+    'قرآن لغير الناطقين',
+    'لغة عربية لغير الناطقين',
+  ];
+  static const List<int> _lessonsNumberOptions = [4, 8, 12, 16, 20, 24];
+  static const List<int> _lessonDurationOptions = [30, 45, 60];
 
   // Form controllers
   final _nameController = TextEditingController();
@@ -162,6 +176,15 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       setState(() => _isSaving = true);
 
+      // Calculate new amount based on new lessons number with same per-lesson price
+      final oldLessonsNumber = _student?.lessonsNumber ?? 0;
+      final oldAmount = _student?.amount ?? 0;
+      final pricePerLesson =
+          oldLessonsNumber > 0 ? (oldAmount / oldLessonsNumber) : 0.0;
+      final newLessonsNumber =
+          int.tryParse(_lessonsNumberController.text) ?? oldLessonsNumber;
+      final newAmount = (newLessonsNumber * pricePerLesson).round();
+
       if (kDebugMode) {
         print(
             'SettingsPage._savePackageData - lessonsName: ${_lessonsNameController.text}');
@@ -169,12 +192,14 @@ class _SettingsPageState extends State<SettingsPage> {
             'SettingsPage._savePackageData - lessonDuration: ${_lessonDurationController.text}');
         print(
             'SettingsPage._savePackageData - lessonsNumber: ${_lessonsNumberController.text}');
+        print('SettingsPage._savePackageData - calculated amount: $newAmount');
       }
 
       final updatedStudent = await _repository.updateProfile(
         lessonsName: _lessonsNameController.text,
         lessonDuration: _lessonDurationController.text,
         lessonsNumber: int.tryParse(_lessonsNumberController.text),
+        amount: newAmount,
       );
 
       if (kDebugMode) {
@@ -186,6 +211,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) {
         setState(() {
           _student = updatedStudent;
+          _packageEditMode = false; // Exit edit mode after save
         });
 
         // Refresh profile in auth bloc
@@ -678,28 +704,159 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildPackageContent() {
+    // If not in edit mode, show compact view
+    if (!_packageEditMode) {
+      return Column(
+        children: [
+          // Compact info display - all 3 values in one beautiful card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFFFFF8E1),
+                  const Color(0xFFFFF3CD).withOpacity(0.5),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border:
+                  Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    // Lessons Name
+                    _buildPackageInfoItem(
+                      icon: Icons.book_rounded,
+                      label: 'نوع الحصة',
+                      value: _student?.lessonsName ?? '-',
+                    ),
+                    // Divider
+                    Container(
+                      height: 50,
+                      width: 1,
+                      color: const Color(0xFFD4AF37).withOpacity(0.3),
+                    ),
+                    // Lessons Number
+                    _buildPackageInfoItem(
+                      icon: Icons.format_list_numbered_rounded,
+                      label: 'عدد الحصص',
+                      value: '${_student?.lessonsNumber ?? 0}',
+                    ),
+                    // Divider
+                    Container(
+                      height: 50,
+                      width: 1,
+                      color: const Color(0xFFD4AF37).withOpacity(0.3),
+                    ),
+                    // Duration
+                    _buildPackageInfoItem(
+                      icon: Icons.timer_rounded,
+                      label: 'المدة',
+                      value: '${_student?.lessonDuration ?? 0} د',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Teacher info
+          if (_student?.teacherName != null) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.school_rounded,
+                      color: AppTheme.primaryColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'المعلم',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        Text(
+                          _student!.teacherName!,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Edit button
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _showPackageEditConfirmation,
+              icon: const Icon(Icons.edit_rounded),
+              label: const Text('تعديل بيانات الباقة'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primaryColor,
+                side: const BorderSide(color: AppTheme.primaryColor),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Edit mode with dropdowns
     return Column(
       children: [
-        // Package info card
+        // Warning banner
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFFFFF8E1),
-            borderRadius: BorderRadius.circular(12),
+            color: Colors.orange.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.orange.withOpacity(0.3)),
           ),
           child: Row(
             children: [
-              const Icon(
-                Icons.info_outline,
-                color: Color(0xFFD4AF37),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
+              const Icon(Icons.warning_rounded, color: Colors.orange, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
                 child: Text(
-                  'يمكنك تعديل تفاصيل الحصص الخاصة بك',
+                  'تغيير هذه البيانات قد يؤثر على المدفوعات والجدول',
                   style: TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontSize: 14,
+                    fontSize: 12,
+                    color: Colors.orange[800],
                   ),
                 ),
               ),
@@ -709,80 +866,474 @@ class _SettingsPageState extends State<SettingsPage> {
 
         const SizedBox(height: 20),
 
-        _buildTextField(
-          controller: _lessonsNameController,
-          label: 'اسم الحصة',
+        // Lessons Name Dropdown
+        _buildDropdownField(
+          label: 'نوع الحصة',
           icon: Icons.book_outlined,
+          value: _lessonsNameController.text.isNotEmpty &&
+                  _lessonsNameOptions.contains(_lessonsNameController.text)
+              ? _lessonsNameController.text
+              : null,
+          items: _lessonsNameOptions,
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _lessonsNameController.text = value);
+            }
+          },
         ),
 
         const SizedBox(height: 16),
 
-        _buildTextField(
-          controller: _lessonDurationController,
+        // Lessons Number Dropdown
+        _buildDropdownField(
+          label: 'عدد الحصص شهرياً',
+          icon: Icons.format_list_numbered,
+          value: int.tryParse(_lessonsNumberController.text),
+          items: _lessonsNumberOptions,
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _lessonsNumberController.text = value.toString());
+            }
+          },
+        ),
+
+        const SizedBox(height: 16),
+
+        // Lesson Duration Dropdown
+        _buildDropdownField(
           label: 'مدة الحصة (دقيقة)',
           icon: Icons.timer_outlined,
-          keyboardType: TextInputType.number,
+          value: int.tryParse(_lessonDurationController.text),
+          items: _lessonDurationOptions,
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _lessonDurationController.text = value.toString());
+            }
+          },
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
-        _buildTextField(
-          controller: _lessonsNumberController,
-          label: 'عدد الحصص',
-          icon: Icons.format_list_numbered,
-          keyboardType: TextInputType.number,
-        ),
-
-        const SizedBox(height: 16),
-
-        // Teacher info (read-only display)
-        if (_student?.teacherName != null) ...[
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
+        // Action buttons
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    _packageEditMode = false;
+                    _populateControllers(); // Reset to original values
+                  });
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.grey[700],
+                  side: BorderSide(color: Colors.grey[400]!),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Text('إلغاء'),
+              ),
             ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.school_outlined,
-                  color: AppTheme.primaryColor,
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton.icon(
+                onPressed: _isSaving ? null : _showPackageSaveConfirmation,
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.check_rounded),
+                label: const Text('تأكيد التعديل'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD4AF37),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  'المعلم: ${_student!.teacherName}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-              ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPackageInfoItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Column(
+      children: [
+        Icon(
+          icon,
+          color: const Color(0xFFD4AF37),
+          size: 28,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[600],
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownField<T>({
+    required String label,
+    required IconData icon,
+    required T? value,
+    required List<T> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+        color: Colors.grey[50],
+      ),
+      child: DropdownButtonFormField<T>(
+        value: value,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon, color: AppTheme.primaryColor),
+          border: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        items: items.map((item) {
+          return DropdownMenuItem<T>(
+            value: item,
+            child: Text(
+              item.toString(),
+              style: const TextStyle(fontSize: 16),
+            ),
+          );
+        }).toList(),
+        onChanged: onChanged,
+        icon: const Icon(Icons.keyboard_arrow_down_rounded,
+            color: Color(0xFFD4AF37)),
+        dropdownColor: Colors.white,
+        isExpanded: true,
+      ),
+    );
+  }
+
+  void _showPackageEditConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.warning_rounded, color: Colors.orange),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'تعديل الباقة',
+              style: TextStyle(color: AppTheme.primaryColor),
+            ),
+          ],
+        ),
+        content: const Text(
+          'تغيير بيانات الباقة (نوع الحصة، العدد، المدة) قد يؤثر على:\n\n'
+          '• المدفوعات والفواتير\n'
+          '• جدول الحصص\n'
+          '• الرصيد المعلق\n\n'
+          'هل تريد المتابعة؟',
+          style: TextStyle(fontSize: 14, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'إلغاء',
+              style: TextStyle(color: Colors.grey[600]),
             ),
           ),
-          const SizedBox(height: 16),
-        ],
-
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _isSaving ? null : _savePackageData,
-            icon: _isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.save_outlined),
-            label: const Text('حفظ التغييرات'),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => _packageEditMode = true);
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFD4AF37),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
             ),
+            child: const Text('متابعة التعديل'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPackageSaveConfirmation() {
+    if (_student == null) return;
+
+    // Get current and new values
+    final oldLessonsNumber = _student!.lessonsNumber ?? 0;
+    final oldDuration = int.tryParse(_student!.lessonDuration ?? '0') ?? 0;
+    final oldAmount = _student!.amount ?? 0;
+    final currency = _student!.currency ?? 'SAR';
+
+    final newLessonsNumber =
+        int.tryParse(_lessonsNumberController.text) ?? oldLessonsNumber;
+    final newDuration =
+        int.tryParse(_lessonDurationController.text) ?? oldDuration;
+    final newLessonsName = _lessonsNameController.text;
+
+    // Check if there are actual changes
+    final hasLessonsNumberChanged = newLessonsNumber != oldLessonsNumber;
+    final hasDurationChanged = newDuration != oldDuration;
+    final hasNameChanged = newLessonsName != (_student!.lessonsName ?? '');
+
+    // Formula from API docs:
+    // 1. remaining_lessons = old_lessons_number - sessions_completed
+    // 2. per_lesson_price = old_amount / old_lessons_number
+    // 3. total_credit = remaining_lessons × per_lesson_price
+    // 4. adjustment = total_credit - new_amount
+
+    // Note: sessions_completed is not available in client, server will calculate actual amount
+    // We show an estimate assuming all lessons are remaining
+
+    // Calculate price per lesson
+    final pricePerLesson =
+        oldLessonsNumber > 0 ? (oldAmount / oldLessonsNumber) : 0.0;
+
+    // Calculate new amount based on new lessons number with same per-lesson price
+    final newAmount = newLessonsNumber * pricePerLesson;
+
+    // Estimate: assuming all old lessons are remaining (server has actual sessions_completed)
+    final estimatedRemainingLessons = oldLessonsNumber;
+    final totalCredit = estimatedRemainingLessons * pricePerLesson;
+    final estimatedAdjustment = totalCredit - newAmount;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.receipt_long_rounded,
+                  color: AppTheme.primaryColor),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'تأكيد تعديل الباقة',
+              style: TextStyle(color: AppTheme.primaryColor, fontSize: 18),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Changes summary
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    if (hasNameChanged)
+                      _buildConfirmationRow(
+                        'نوع الحصة',
+                        '${_student!.lessonsName ?? "-"} ← $newLessonsName',
+                      ),
+                    if (hasLessonsNumberChanged)
+                      _buildConfirmationRow(
+                        'عدد الحصص',
+                        '$oldLessonsNumber ← $newLessonsNumber',
+                      ),
+                    if (hasDurationChanged)
+                      _buildConfirmationRow(
+                        'مدة الحصة',
+                        '$oldDuration دقيقة ← $newDuration دقيقة',
+                      ),
+                  ],
+                ),
+              ),
+
+              if (hasLessonsNumberChanged || hasDurationChanged) ...[
+                const SizedBox(height: 16),
+
+                // Financial impact
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildFinancialRow(
+                        'الدروس المتبقية (تقديري)',
+                        '$estimatedRemainingLessons',
+                        icon: Icons.school_outlined,
+                      ),
+                      const Divider(height: 16),
+                      _buildFinancialRow(
+                        'إجمالي رصيد الحصص',
+                        '${totalCredit.toStringAsFixed(2)} $currency',
+                        icon: Icons.account_balance_wallet_outlined,
+                      ),
+                      const Divider(height: 16),
+                      _buildFinancialRow(
+                        'سعر الباقة الجديدة',
+                        '${newAmount.toStringAsFixed(2)} $currency',
+                        icon: Icons.price_change_outlined,
+                      ),
+                      const Divider(height: 16),
+                      _buildFinancialRow(
+                        estimatedAdjustment >= 0
+                            ? 'سيتم إضافة للرصيد المعلق'
+                            : 'سيتم خصم من الرصيد المعلق',
+                        '${estimatedAdjustment >= 0 ? "+" : ""}${estimatedAdjustment.toStringAsFixed(2)} $currency',
+                        icon: estimatedAdjustment >= 0
+                            ? Icons.add_circle_outline
+                            : Icons.remove_circle_outline,
+                        valueColor: estimatedAdjustment >= 0
+                            ? Colors.green
+                            : Colors.red,
+                        isBold: true,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Note
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline,
+                          color: Colors.blue[700], size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'القيم أعلاه تقديرية. سيتم احتساب التعديل الفعلي بناءً على عدد الحصص المكتملة.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue[700],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'إلغاء',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _savePackageData();
+            },
+            icon: const Icon(Icons.check_rounded, size: 18),
+            label: const Text('تأكيد وحفظ'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD4AF37),
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConfirmationRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 14, color: AppTheme.primaryColor),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFinancialRow(
+    String label,
+    String value, {
+    required IconData icon,
+    Color? valueColor,
+    bool isBold = false,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isBold ? 16 : 14,
+            fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+            color: valueColor ?? AppTheme.primaryColor,
           ),
         ),
       ],
