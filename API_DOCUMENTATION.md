@@ -666,6 +666,53 @@ report_id: 123
 GET /reports/session-number?student_id=123&attendance=حضور
 ```
 
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "session_number": 5,
+    "lessons_number": 8,
+    "is_last_session": false
+  }
+}
+```
+
+#### Session Number Calculation Logic
+
+The session number is automatically calculated based on the attendance type:
+
+**Incrementing Attendances** (session number increases):
+| Attendance | Arabic Name | Description |
+|------------|-------------|-------------|
+| `حضور` | Attendance | Student attended |
+| `غياب` | Absence | Student was absent |
+| `تأجيل المعلم` | Teacher Delay | Teacher postponed |
+| `تأجيل ولي أمر` | Parent Delay | Parent/Student postponed |
+
+**Non-Incrementing Attendances** (session number = 0):
+| Attendance | Arabic Name | Description |
+|------------|-------------|-------------|
+| `تعويض التأجيل` | Delay Compensation | Makeup for postponed lesson |
+| `تعويض الغياب` | Absence Compensation | Makeup for absence |
+| `تجريبي` | Trial | Trial lesson |
+| `اجازة معلم` | Teacher Leave | Teacher holiday |
+
+**Postponed Events:**
+Reports created with `is_postponed: true` should have a calculated session number if the attendance type is incrementing (e.g., `تأجيل ولي أمر`). Only non-incrementing types should result in session_number = 0.
+
+**Reset Logic:**
+When session_number exceeds `lessons_number`, it resets to 1 (new package cycle).
+
+**Example:**
+
+```
+Student has 8 lessons, last report had session_number = 4
+→ Next حضور report = session_number 5
+→ Next تعويض التأجيل report = session_number 0 (non-incrementing)
+```
+
 ---
 
 ## 💰 Payments API

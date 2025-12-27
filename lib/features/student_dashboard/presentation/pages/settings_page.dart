@@ -1897,7 +1897,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
               Text(
-                '${transaction.amount.abs().toStringAsFixed(2)}',
+                transaction.amount.abs().toStringAsFixed(2),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,

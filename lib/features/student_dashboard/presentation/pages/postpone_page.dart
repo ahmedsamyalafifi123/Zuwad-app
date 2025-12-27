@@ -375,16 +375,34 @@ class _PostponePageState extends State<PostponePage> {
           print('DEBUG: Attendance: تأجيل ولي أمر');
         }
 
+        // Calculate session number first
+        String sessionNumber = '0';
+        try {
+          final sessionData = await _api.calculateSessionNumber(
+            studentId: student.id,
+            attendance: 'تأجيل ولي أمر',
+          );
+          sessionNumber = sessionData['session_number']?.toString() ?? '0';
+          if (kDebugMode) {
+            print('DEBUG: Calculated session number: $sessionNumber');
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('DEBUG: Failed to calculate session number: $e');
+            // Fallback to '0' or maybe try to fetch latest report?
+            // For now, keep '0' as fallback but ideally we want the real number
+          }
+        }
+
         final reportResult = await _api.createStudentReport(
           studentId: student.id,
           teacherId: widget.teacherId,
           attendance: 'تأجيل ولي أمر',
-          sessionNumber:
-              '0', // Backend will calculate the correct session number
+          sessionNumber: sessionNumber,
           date: widget.currentLessonDate!,
           time: widget.currentLessonTime ?? '',
           lessonDuration: widget.studentLessonDuration,
-          isPostponed: 1,
+          isPostponed: 0,
         );
 
         if (kDebugMode) {

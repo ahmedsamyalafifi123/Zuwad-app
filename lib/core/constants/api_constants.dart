@@ -66,7 +66,7 @@ class ApiConstants {
   static String get reportsEndpoint => '$v2BaseUrl/reports';
   static String get reportUploadImageEndpoint =>
       '$v2BaseUrl/reports/upload-image';
-  static String get reportSessionNumberEndpoint =>
+  static String get sessionNumberEndpoint =>
       '$v2BaseUrl/reports/session-number';
 
   // ============================================

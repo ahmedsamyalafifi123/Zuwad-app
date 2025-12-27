@@ -467,6 +467,35 @@ class WordPressApi {
     }
   }
 
+  /// Calculate session number based on attendance.
+  Future<Map<String, dynamic>> calculateSessionNumber({
+    required int studentId,
+    required String attendance,
+  }) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.sessionNumberEndpoint,
+        queryParameters: {
+          'student_id': studentId,
+          'attendance': attendance,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'];
+        }
+        throw Exception(jsonData['error']?['message'] ??
+            'Failed to calculate session number');
+      }
+      throw Exception(
+          'Failed to calculate session number: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Calculate session number failed: ${e.toString()}');
+    }
+  }
+
   // ============================================
   // Chat Methods
   // ============================================

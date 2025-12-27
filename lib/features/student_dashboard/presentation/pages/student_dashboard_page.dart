@@ -450,11 +450,21 @@ class _DashboardContentState extends State<_DashboardContent> {
 
     final now = DateTime.now();
 
-    // Create a set of report dates for quick lookup
-    // Format: "YYYY-MM-DD" to match against schedule dates
-    final reportDates = reports.map((r) => r.date).toSet();
+    // Create a set of report date+time keys for quick lookup
+    // Format: "YYYY-MM-DD|HH:MM" to uniquely identify each lesson
+    final reportDateTimes = reports.map((r) {
+      try {
+        final date = DateTime.parse(r.date);
+        final dateStr =
+            '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        final timeStr = _normalizeTimeForComparison(r.time);
+        return '$dateStr|$timeStr';
+      } catch (e) {
+        return '${r.date}|${r.time}';
+      }
+    }).toSet();
     if (kDebugMode) {
-      print('Report dates to exclude: $reportDates');
+      print('Report date+times to exclude: $reportDateTimes');
     }
 
     // Create a list of all upcoming lessons with their actual DateTime
@@ -513,6 +523,17 @@ class _DashboardContentState extends State<_DashboardContent> {
           }
           continue;
         }
+
+        // Check if this postponed lesson already has a report (date+time match)
+        final lessonTimeStr = _normalizeTimeForComparison(schedule.hour);
+        final lessonKey = '$lessonDateStr|$lessonTimeStr';
+        if (reportDateTimes.contains(lessonKey)) {
+          if (kDebugMode) {
+            print(
+                'Skipping postponed lesson at $lessonKey - report already exists');
+          }
+          continue;
+        }
       } else {
         // Handle regular recurring schedules
         final dayMap = {
@@ -557,15 +578,16 @@ class _DashboardContentState extends State<_DashboardContent> {
             '${lessonDateTime.year}-${lessonDateTime.month.toString().padLeft(2, '0')}-${lessonDateTime.day.toString().padLeft(2, '0')}';
       }
 
-      // Check if this lesson date already has a report (lesson already happened or was postponed)
-      // IMPORTANT: Only check reports for regular schedules, NOT postponed schedules
-      // Postponed schedules are the NEW target dates - they don't have reports yet
-      if (!schedule.isPostponed && reportDates.contains(lessonDateStr)) {
+      // Check if this lesson date+time already has a report
+      // For regular schedules, check against reportDateTimes
+      final regularLessonTimeStr = _normalizeTimeForComparison(schedule.hour);
+      final regularLessonKey = '$lessonDateStr|$regularLessonTimeStr';
+      if (!schedule.isPostponed && reportDateTimes.contains(regularLessonKey)) {
         if (kDebugMode) {
           print(
-              'Skipping regular lesson on $lessonDateStr - report already exists');
+              'Skipping regular lesson at $regularLessonKey - report already exists');
         }
-        continue; // Skip this regular schedule, a report already exists for this date
+        continue; // Skip this regular schedule, a report already exists for this date+time
       }
 
       // Only include future lessons
@@ -671,6 +693,27 @@ class _DashboardContentState extends State<_DashboardContent> {
         return 'الجمعة';
       default:
         return day.trim();
+    }
+  }
+
+  /// Normalizes time string to "HH:MM" format for comparison (strips seconds)
+  String _normalizeTimeForComparison(String timeString) {
+    try {
+      // First try parsing with _parseTimeString (handles AM/PM)
+      final parsed = _parseTimeString(timeString);
+      if (parsed != null) {
+        return '${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}';
+      }
+      // Fallback: if it's already in HH:MM:SS or HH:MM format, extract HH:MM
+      final parts = timeString.split(':');
+      if (parts.length >= 2) {
+        final hour = parts[0].padLeft(2, '0');
+        final minute = parts[1].padLeft(2, '0');
+        return '$hour:$minute';
+      }
+      return timeString;
+    } catch (e) {
+      return timeString;
     }
   }
 
