@@ -616,7 +616,7 @@ class WordPressApi {
         data: formData,
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final jsonData = response.data;
         if (jsonData['success'] == true) {
           return jsonData['data']['profile_image_url'];
