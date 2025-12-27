@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../../../core/api/wordpress_api.dart';
 import '../../../../core/services/secure_storage_service.dart';
@@ -18,6 +19,15 @@ class SettingsRepository {
 
     final data = await _api.getStudentProfile(userId);
     return Student.fromApiV2(data);
+  }
+
+  /// Upload profile image.
+  Future<String> uploadProfileImage(File imageFile) async {
+    final userId = await _secureStorage.getUserIdAsInt();
+    if (userId == null) {
+      throw Exception('User not logged in');
+    }
+    return await _api.uploadStudentProfileImage(userId, imageFile.path);
   }
 
   /// Update profile data fields.

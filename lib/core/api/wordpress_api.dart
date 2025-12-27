@@ -602,6 +602,34 @@ class WordPressApi {
   // Settings/Profile Methods
   // ============================================
 
+  /// Upload student profile image.
+  Future<String> uploadStudentProfileImage(
+      int studentId, String imagePath) async {
+    try {
+      String fileName = imagePath.split('/').last;
+      FormData formData = FormData.fromMap({
+        'image': await MultipartFile.fromFile(imagePath, filename: fileName),
+      });
+
+      final response = await _dio.post(
+        ApiConstants.studentUploadImageEndpoint(studentId),
+        data: formData,
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data']['profile_image_url'];
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to upload image');
+      }
+      throw Exception('Failed to upload image: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Upload image failed: ${e.toString()}');
+    }
+  }
+
   /// Update student profile data.
   Future<Map<String, dynamic>> updateStudentProfile(
     int studentId,

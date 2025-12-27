@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/domain/models/student.dart';
@@ -325,6 +327,100 @@ class _SettingsPageState extends State<SettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('فشل في حفظ البيانات: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _pickImage() async {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('المعرض'),
+                onTap: () {
+                  _getImage(ImageSource.gallery);
+                  Navigator.of(context).pop();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('الكاميرا'),
+                onTap: () {
+                  _getImage(ImageSource.camera);
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _getImage(ImageSource source) async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        await _uploadImage(File(image.path));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل اختيار الصورة: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadImage(File imageFile) async {
+    try {
+      setState(() => _isSaving = true);
+
+      // Upload image
+      final newImageUrl = await _repository.uploadProfileImage(imageFile);
+
+      if (mounted) {
+        setState(() {
+          // Update local student object with new image URL
+          if (_student != null) {
+            _student = _student!.copyWith(profileImageUrl: newImageUrl);
+          }
+        });
+
+        // Refresh auth bloc
+        context.read<AuthBloc>().add(GetStudentProfileEvent());
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم تحديث الصورة بنجاح'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل تحديث الصورة: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -670,12 +766,7 @@ class _SettingsPageState extends State<SettingsPage> {
       children: [
         // Profile image section
         GestureDetector(
-          onTap: () {
-            // TODO: Implement image picker
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('تحميل الصورة قريباً')),
-            );
-          },
+          onTap: _pickImage,
           child: Stack(
             alignment: Alignment.bottomLeft,
             children: [
