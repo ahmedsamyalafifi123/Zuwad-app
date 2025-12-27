@@ -49,7 +49,8 @@ Content-Type: application/json
       "phone": "01234567890",
       "email": "ahmed@example.com",
       "role": "student",
-      "m_id": "ST-001-123"
+      "m_id": "ST-001-123",
+      "profile_image_url": "https://example.com/wp-content/uploads/2024/01/profile_123.jpg"
     }
   }
 }
@@ -251,6 +252,47 @@ GET /students/{id}/wallet
 GET /students/{id}/family
 ```
 
+### Upload Student Profile Image
+
+Upload a profile image for a student. Accepts JPEG, PNG, GIF, or WebP files (max 5MB).
+
+```http
+POST /students/{id}/upload-image
+Content-Type: multipart/form-data
+
+image: [file]
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "profile_image_url": "https://example.com/wp-content/uploads/2024/01/profile_123.jpg"
+  }
+}
+```
+
+### Delete Student Profile Image
+
+```http
+DELETE /students/{id}/profile-image
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Profile image deleted successfully"
+  }
+}
+```
+
+> **Note:** Students can upload/delete their own profile images. Supervisors, administrators, and accountants can manage any student's profile image.
+
 ---
 
 ## 👨‍🏫 Teachers API
@@ -345,6 +387,47 @@ DELETE /teachers/{id}/free-slots/{slot_id}
 ```http
 GET /teachers/{id}/statistics
 ```
+
+### Upload Teacher Profile Image
+
+Upload a profile image for a teacher. Accepts JPEG, PNG, GIF, or WebP files (max 5MB).
+
+```http
+POST /teachers/{id}/upload-image
+Content-Type: multipart/form-data
+
+image: [file]
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "profile_image_url": "https://example.com/wp-content/uploads/2024/01/profile_456.jpg"
+  }
+}
+```
+
+### Delete Teacher Profile Image
+
+```http
+DELETE /teachers/{id}/profile-image
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Profile image deleted successfully"
+  }
+}
+```
+
+> **Note:** Teachers can upload/delete their own profile images. Supervisors and administrators can manage any teacher's profile image.
 
 ---
 

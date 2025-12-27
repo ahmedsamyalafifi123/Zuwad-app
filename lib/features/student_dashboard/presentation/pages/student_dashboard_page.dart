@@ -19,6 +19,7 @@ import '../../domain/models/student_report.dart';
 import 'postpone_page.dart';
 import 'placeholder_page.dart';
 import 'home_page.dart';
+import 'settings_page.dart';
 
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key});
@@ -78,10 +79,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
         icon: Icons.sports_esports_rounded,
       ),
       // 5: الاعدادات (Settings)
-      const PlaceholderPage(
-        title: 'الاعدادات',
-        icon: Icons.settings_rounded,
-      ),
+      const SettingsPage(),
     ];
 
     // Fetch student profile data when dashboard loads

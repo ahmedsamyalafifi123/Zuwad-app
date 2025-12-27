@@ -15,6 +15,9 @@ class Student {
   final String? notes;
   final String? mId;
   final String? lessonsName;
+  final String? birthday;
+  final String? country;
+  final String? profileImageUrl;
 
   Student({
     required this.id,
@@ -33,6 +36,9 @@ class Student {
     this.notes,
     this.mId,
     this.lessonsName,
+    this.birthday,
+    this.country,
+    this.profileImageUrl,
   });
 
   /// Parse from legacy API response (two separate calls)
@@ -56,6 +62,9 @@ class Student {
       notes: userMeta['notes']?.toString() ?? '',
       mId: userMeta['m_id']?.toString() ?? '',
       lessonsName: userMeta['lessons_name']?.toString() ?? '',
+      birthday: userMeta['birthday']?.toString(),
+      country: userMeta['country']?.toString(),
+      profileImageUrl: userMeta['profile_image_url']?.toString(),
     );
   }
 
@@ -84,6 +93,9 @@ class Student {
       notes: json['notes']?.toString(),
       mId: json['m_id']?.toString(),
       lessonsName: json['lessons_name']?.toString(),
+      birthday: json['birthday']?.toString(),
+      country: json['country']?.toString(),
+      profileImageUrl: json['profile_image_url']?.toString(),
     );
   }
 
@@ -104,6 +116,9 @@ class Student {
     String? notes,
     String? mId,
     String? lessonsName,
+    String? birthday,
+    String? country,
+    String? profileImageUrl,
   }) {
     return Student(
       id: id ?? this.id,
@@ -122,6 +137,9 @@ class Student {
       notes: notes ?? this.notes,
       mId: mId ?? this.mId,
       lessonsName: lessonsName ?? this.lessonsName,
+      birthday: birthday ?? this.birthday,
+      country: country ?? this.country,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
     );
   }
 
@@ -151,6 +169,9 @@ class Student {
       'notes': notes,
       'm_id': mId,
       'lessons_name': lessonsName,
+      'birthday': birthday,
+      'country': country,
+      'profile_image_url': profileImageUrl,
     };
   }
 }

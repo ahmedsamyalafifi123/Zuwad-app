@@ -599,6 +599,134 @@ class WordPressApi {
   }
 
   // ============================================
+  // Settings/Profile Methods
+  // ============================================
+
+  /// Update student profile data.
+  Future<Map<String, dynamic>> updateStudentProfile(
+    int studentId,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      if (kDebugMode) {
+        print('WordPressApi.updateStudentProfile - studentId: $studentId');
+        print(
+            'WordPressApi.updateStudentProfile - endpoint: ${ApiConstants.studentByIdEndpoint(studentId)}');
+        print('WordPressApi.updateStudentProfile - data: $data');
+      }
+
+      final response = await _dio.put(
+        ApiConstants.studentByIdEndpoint(studentId),
+        data: jsonEncode(data),
+      );
+
+      if (kDebugMode) {
+        print(
+            'WordPressApi.updateStudentProfile - statusCode: ${response.statusCode}');
+        print('WordPressApi.updateStudentProfile - response: ${response.data}');
+      }
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'];
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to update profile');
+      }
+      throw Exception('Failed to update profile: ${response.statusCode}');
+    } on DioException catch (e) {
+      if (kDebugMode) {
+        print('WordPressApi.updateStudentProfile - DioException: ${e.message}');
+        print(
+            'WordPressApi.updateStudentProfile - Response data: ${e.response?.data}');
+      }
+      final errorMessage = e.response?.data?['error']?['message'] ??
+          e.response?.data?['message'] ??
+          e.message ??
+          'Update failed';
+      throw Exception('Update profile failed: $errorMessage');
+    } catch (e) {
+      if (kDebugMode) {
+        print('WordPressApi.updateStudentProfile - Error: $e');
+      }
+      throw Exception('Update profile failed: ${e.toString()}');
+    }
+  }
+
+  /// Get student's wallet information.
+  Future<Map<String, dynamic>> getStudentWallet(int studentId) async {
+    try {
+      if (kDebugMode) {
+        print('WordPressApi.getStudentWallet - studentId: $studentId');
+        print(
+            'WordPressApi.getStudentWallet - endpoint: ${ApiConstants.studentWalletEndpoint(studentId)}');
+      }
+
+      final response = await _dio.get(
+        ApiConstants.studentWalletEndpoint(studentId),
+      );
+
+      if (kDebugMode) {
+        print(
+            'WordPressApi.getStudentWallet - statusCode: ${response.statusCode}');
+        print('WordPressApi.getStudentWallet - response: ${response.data}');
+      }
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'];
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to get wallet');
+      }
+      throw Exception('Failed to get wallet: ${response.statusCode}');
+    } catch (e) {
+      if (kDebugMode) {
+        print('WordPressApi.getStudentWallet - Error: $e');
+      }
+      throw Exception('Get wallet failed: ${e.toString()}');
+    }
+  }
+
+  /// Get wallet transactions for a family.
+  Future<List<dynamic>> getWalletTransactions(int familyId) async {
+    try {
+      if (kDebugMode) {
+        print('WordPressApi.getWalletTransactions - familyId: $familyId');
+        print(
+            'WordPressApi.getWalletTransactions - endpoint: ${ApiConstants.walletTransactionsEndpoint(familyId)}');
+      }
+
+      final response = await _dio.get(
+        ApiConstants.walletTransactionsEndpoint(familyId),
+      );
+
+      if (kDebugMode) {
+        print(
+            'WordPressApi.getWalletTransactions - statusCode: ${response.statusCode}');
+        print(
+            'WordPressApi.getWalletTransactions - response: ${response.data}');
+      }
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'] as List<dynamic>? ?? [];
+        }
+        return [];
+      }
+      return [];
+    } catch (e) {
+      if (kDebugMode) {
+        print('WordPressApi.getWalletTransactions - Error: $e');
+      }
+      return [];
+    }
+  }
+
+  // ============================================
   // Utility Methods
   // ============================================
 
