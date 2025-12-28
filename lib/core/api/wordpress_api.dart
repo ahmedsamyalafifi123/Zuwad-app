@@ -500,12 +500,37 @@ class WordPressApi {
   // Chat Methods
   // ============================================
 
+  /// Get available chat contacts for the authenticated user.
+  /// Returns list of users the current user can chat with.
+  Future<List<dynamic>> getChatContacts() async {
+    try {
+      final response = await _dio.get(ApiConstants.chatContactsEndpoint);
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'] as List<dynamic>;
+        }
+      }
+      return [];
+    } catch (e) {
+      if (kDebugMode) {
+        print('Get chat contacts failed: $e');
+      }
+      return [];
+    }
+  }
+
   /// Get chat conversations.
-  Future<List<dynamic>> getConversations({int page = 1}) async {
+  Future<List<dynamic>> getConversations(
+      {int page = 1, int perPage = 50}) async {
     try {
       final response = await _dio.get(
         ApiConstants.chatConversationsEndpoint,
-        queryParameters: {'page': page},
+        queryParameters: {
+          'page': page,
+          'per_page': perPage,
+        },
       );
 
       if (response.statusCode == 200) {
@@ -524,30 +549,42 @@ class WordPressApi {
   }
 
   /// Get messages for a conversation.
-  Future<List<dynamic>> getChatMessages(String conversationId,
-      {int page = 1}) async {
+  ///
+  /// Supports pagination with [page] parameter and real-time sync
+  /// with [afterId] parameter to get only new messages.
+  Future<Map<String, dynamic>> getChatMessages(
+    String conversationId, {
+    int page = 1,
+    int? afterId,
+  }) async {
     try {
+      final queryParams = <String, dynamic>{'page': page};
+      if (afterId != null) {
+        queryParams['after_id'] = afterId;
+      }
+
       final response = await _dio.get(
         ApiConstants.chatMessagesEndpoint(conversationId),
-        queryParameters: {'page': page},
+        queryParameters: queryParams,
       );
 
       if (response.statusCode == 200) {
         final jsonData = response.data;
         if (jsonData['success'] == true) {
-          return jsonData['data'] as List<dynamic>;
+          // Response includes conversation_id, other_user, and messages
+          return jsonData['data'] as Map<String, dynamic>;
         }
       }
-      return [];
+      return {'messages': []};
     } catch (e) {
       if (kDebugMode) {
         print('Get messages failed: $e');
       }
-      return [];
+      return {'messages': []};
     }
   }
 
-  /// Send a chat message.
+  /// Send a chat message to a conversation.
   Future<Map<String, dynamic>> sendChatMessage(
     String conversationId,
     String message,
@@ -572,18 +609,49 @@ class WordPressApi {
     }
   }
 
-  /// Create a new conversation.
-  Future<Map<String, dynamic>> createConversation(
+  /// Send a direct message to a recipient.
+  /// Creates conversation if needed.
+  Future<Map<String, dynamic>> sendDirectMessage(
     int recipientId,
     String message,
   ) async {
     try {
       final response = await _dio.post(
-        ApiConstants.chatConversationsEndpoint,
+        ApiConstants.chatSendDirectEndpoint,
         data: jsonEncode({
           'recipient_id': recipientId,
           'message': message,
         }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'];
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to send direct message');
+      }
+      throw Exception('Failed to send direct message: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Send direct message failed: ${e.toString()}');
+    }
+  }
+
+  /// Create a new conversation or get existing one.
+  Future<Map<String, dynamic>> createConversation(
+    int recipientId, {
+    String? message,
+  }) async {
+    try {
+      final data = <String, dynamic>{'recipient_id': recipientId};
+      if (message != null && message.isNotEmpty) {
+        data['message'] = message;
+      }
+
+      final response = await _dio.post(
+        ApiConstants.chatConversationsEndpoint,
+        data: jsonEncode(data),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -601,13 +669,22 @@ class WordPressApi {
   }
 
   /// Mark conversation as read.
-  Future<void> markConversationAsRead(String conversationId) async {
+  Future<int> markConversationAsRead(String conversationId) async {
     try {
-      await _dio.post(ApiConstants.chatReadEndpoint(conversationId));
+      final response =
+          await _dio.post(ApiConstants.chatReadEndpoint(conversationId));
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data']?['marked_read'] ?? 0;
+        }
+      }
+      return 0;
     } catch (e) {
       if (kDebugMode) {
         print('Mark as read failed: $e');
       }
+      return 0;
     }
   }
 
@@ -618,7 +695,7 @@ class WordPressApi {
       if (response.statusCode == 200) {
         final jsonData = response.data;
         if (jsonData['success'] == true) {
-          return jsonData['data']['count'] ?? 0;
+          return jsonData['data']['unread_count'] ?? 0;
         }
       }
       return 0;

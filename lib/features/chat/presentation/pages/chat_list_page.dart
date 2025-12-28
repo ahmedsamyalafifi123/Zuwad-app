@@ -1,10 +1,22 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../data/models/contact.dart';
+import '../../data/models/conversation.dart';
+import '../../data/repositories/chat_repository.dart';
 import 'chat_page.dart';
 
-class ChatListPage extends StatelessWidget {
+/// Chat list page showing available contacts and recent conversations.
+///
+/// Fetches contacts dynamically from the API based on user role relationships:
+/// - Students can chat with their teacher and supervisor
+/// - Teachers can chat with their students and supervisor
+/// - Supervisors can chat with their teachers and students
+class ChatListPage extends StatefulWidget {
   final String studentId;
   final String studentName;
+  // These are kept for backward compatibility but will be overridden by API data
   final String teacherId;
   final String teacherName;
   final String supervisorId;
@@ -21,121 +33,447 @@ class ChatListPage extends StatelessWidget {
   });
 
   @override
+  State<ChatListPage> createState() => _ChatListPageState();
+}
+
+class _ChatListPageState extends State<ChatListPage> {
+  final ChatRepository _chatRepository = ChatRepository();
+
+  List<Contact> _contacts = [];
+  List<Conversation> _conversations = [];
+  bool _isLoading = true;
+  bool _hasError = false;
+  String _errorMessage = '';
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+
+    // Set up periodic refresh every 30 seconds for unread counts
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) {
+        _loadConversations(showLoading: false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
+    try {
+      // Load contacts and conversations in parallel
+      final results = await Future.wait([
+        _chatRepository.getContacts(),
+        _chatRepository.getConversations(),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _contacts = results[0] as List<Contact>;
+          _conversations = results[1] as List<Conversation>;
+          _isLoading = false;
+        });
+
+        if (kDebugMode) {
+          print(
+              'Loaded ${_contacts.length} contacts and ${_conversations.length} conversations');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+          _errorMessage = 'فشل في تحميل جهات الاتصال';
+        });
+        if (kDebugMode) {
+          print('Error loading chat data: $e');
+        }
+      }
+    }
+  }
+
+  Future<void> _loadConversations({bool showLoading = true}) async {
+    if (showLoading && mounted) {
+      setState(() => _isLoading = true);
+    }
+
+    try {
+      final conversations = await _chatRepository.getConversations();
+      if (mounted) {
+        setState(() {
+          _conversations = conversations;
+          if (showLoading) _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted && showLoading) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  int _getUnreadCountForContact(int contactId) {
+    // Find conversation with this contact and return unread count
+    final conversation =
+        _conversations.where((c) => c.otherUser.id == contactId).firstOrNull;
+    return conversation?.unreadCount ?? 0;
+  }
+
+  String? _getLastMessageForContact(int contactId) {
+    final conversation =
+        _conversations.where((c) => c.otherUser.id == contactId).firstOrNull;
+    return conversation?.lastMessage;
+  }
+
+  String _getLastMessageTimeForContact(int contactId) {
+    final conversation =
+        _conversations.where((c) => c.otherUser.id == contactId).firstOrNull;
+
+    if (conversation?.lastMessageAt == null) return '';
+
+    final now = DateTime.now();
+    final msgTime = conversation!.lastMessageAt!;
+    final diff = now.difference(msgTime);
+
+    if (diff.inMinutes < 1) {
+      return 'الآن';
+    } else if (diff.inHours < 1) {
+      return 'منذ ${diff.inMinutes} د';
+    } else if (diff.inDays < 1) {
+      return 'منذ ${diff.inHours} س';
+    } else if (diff.inDays < 7) {
+      return 'منذ ${diff.inDays} ي';
+    } else {
+      return '${msgTime.day}/${msgTime.month}';
+    }
+  }
+
+  IconData _getIconForRole(String role) {
+    switch (role.toLowerCase()) {
+      case 'teacher':
+        return Icons.school_rounded;
+      case 'supervisor':
+        return Icons.support_agent_rounded;
+      case 'student':
+        return Icons.person_rounded;
+      default:
+        return Icons.chat_bubble_rounded;
+    }
+  }
+
+  String _getRoleName(String role, String relation) {
+    // Use relation first as it's more specific
+    switch (relation.toLowerCase()) {
+      case 'teacher':
+        return 'المعلم';
+      case 'supervisor':
+        return 'المشرف';
+      case 'student':
+        return 'الطالب';
+    }
+
+    // Fallback to role
+    switch (role.toLowerCase()) {
+      case 'teacher':
+        return 'المعلم';
+      case 'supervisor':
+        return 'المشرف';
+      case 'student':
+        return 'الطالب';
+      default:
+        return '';
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        body: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'المحادثات',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _buildChatTile(
-                context,
-                icon: Icons.school,
-                title: 'المعلم',
-                subtitle: teacherName,
-                onTap: () => _openChat(
-                  context,
-                  recipientId: teacherId,
-                  recipientName: teacherName,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildChatTile(
-                context,
-                icon: Icons.support_agent,
-                title: 'المشرف',
-                subtitle: supervisorName,
-                onTap: () => _openChat(
-                  context,
-                  recipientId: supervisorId,
-                  recipientName: supervisorName,
-                ),
-              ),
-            ],
-          ),
+        body: RefreshIndicator(
+          onRefresh: _loadData,
+          color: AppTheme.primaryColor,
+          child: _buildBody(),
         ),
       ),
     );
   }
 
-  Widget _buildChatTile(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: AppTheme.primaryColor,
+        ),
+      );
+    }
+
+    if (_hasError) {
+      return _buildErrorState();
+    }
+
+    if (_contacts.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        const Text(
+          'المحادثات',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryColor,
+          ),
+        ),
+        const SizedBox(height: 20),
+        ..._contacts.map((contact) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _buildContactTile(contact),
+            )),
+      ],
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.error_outline,
+            size: 64,
+            color: Colors.grey,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _errorMessage,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _loadData,
+            icon: const Icon(Icons.refresh),
+            label: const Text('إعادة المحاولة'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'لا توجد محادثات متاحة',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'سيتم عرض جهات الاتصال هنا',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[500],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactTile(Contact contact) {
+    final unreadCount = _getUnreadCountForContact(contact.id);
+    final lastMessage = _getLastMessageForContact(contact.id);
+    final lastMessageTime = _getLastMessageTimeForContact(contact.id);
+    final roleName = _getRoleName(contact.role, contact.relation);
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x1A000000), // 0.1 opacity grey
-            blurRadius: 10,
-            offset: Offset(0, 4),
+            color: Colors.black.withAlpha(15), // ~0.06 opacity
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          onTap: () => _openChat(contact),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0x1A8B0628), // 0.1 opacity primary
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: AppTheme.primaryColor,
-                    size: 24,
-                  ),
+                // Avatar
+                Stack(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color:
+                            AppTheme.primaryColor.withAlpha(25), // ~0.1 opacity
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: contact.profileImage != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: Image.network(
+                                contact.profileImage!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Icon(
+                                  _getIconForRole(contact.role),
+                                  color: AppTheme.primaryColor,
+                                  size: 28,
+                                ),
+                              ),
+                            )
+                          : Icon(
+                              _getIconForRole(contact.role),
+                              color: AppTheme.primaryColor,
+                              size: 28,
+                            ),
+                    ),
+                    // Unread badge
+                    if (unreadCount > 0)
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFf6c302),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            unreadCount > 99 ? '99+' : unreadCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(width: 16),
+                // Contact info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              contact.name,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: unreadCount > 0
+                                    ? FontWeight.bold
+                                    : FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (lastMessageTime.isNotEmpty)
+                            Text(
+                              lastMessageTime,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: unreadCount > 0
+                                    ? AppTheme.primaryColor
+                                    : Colors.grey[500],
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor
+                                  .withAlpha(20), // ~0.08 opacity
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              roleName,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.primaryColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (lastMessage != null) ...[
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                lastMessage,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey[600],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
                 ),
-                const Icon(
+                const SizedBox(width: 8),
+                Icon(
                   Icons.arrow_forward_ios,
                   size: 16,
-                  color: Colors.grey,
+                  color: Colors.grey[400],
                 ),
               ],
             ),
@@ -145,21 +483,22 @@ class ChatListPage extends StatelessWidget {
     );
   }
 
-  void _openChat(
-    BuildContext context, {
-    required String recipientId,
-    required String recipientName,
-  }) {
+  void _openChat(Contact contact) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ChatPage(
-          recipientId: recipientId,
-          recipientName: recipientName,
-          studentId: studentId,
-          studentName: studentName,
+          recipientId: contact.id.toString(),
+          recipientName: contact.name,
+          studentId: widget.studentId,
+          studentName: widget.studentName,
         ),
       ),
-    );
+    ).then((_) {
+      // Refresh conversations when returning from chat
+      if (mounted) {
+        _loadConversations(showLoading: false);
+      }
+    });
   }
 }

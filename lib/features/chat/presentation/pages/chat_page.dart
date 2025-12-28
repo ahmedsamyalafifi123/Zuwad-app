@@ -9,12 +9,22 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../data/repositories/chat_repository.dart';
+import '../../data/models/chat_message.dart' as models;
 
+/// Chat page for messaging between users.
+///
+/// Follows API v2 best practices:
+/// - Use after_id for polling new messages
+/// - Mark as read only when opening conversation or receiving new incoming messages
+/// - Poll for read status updates separately
 class ChatPage extends StatefulWidget {
   final String recipientId;
   final String recipientName;
   final String studentId;
   final String studentName;
+
+  /// Optional: if provided, use this conversation ID directly
+  final String? conversationId;
 
   const ChatPage({
     super.key,
@@ -22,6 +32,7 @@ class ChatPage extends StatefulWidget {
     required this.recipientName,
     required this.studentId,
     required this.studentName,
+    this.conversationId,
   });
 
   @override
@@ -32,159 +43,189 @@ class _ChatPageState extends State<ChatPage> {
   late final ChatRepository _chatRepository;
   late final core.InMemoryChatController _chatController;
   bool _isLoading = false;
+  bool _isInitializing = true;
   int _currentPage = 1;
-  Timer? _refreshTimer;
-  final Set<String> _sentMessageIds = {}; // Track successfully sent messages
+  Timer? _pollTimer;
+
+  // Track pending messages by their temp ID to prevent duplicates
+  final Map<String, String> _pendingToServerIds = {};
+  // Track all server message IDs we've seen
+  final Set<String> _knownServerIds = {};
+
+  String? _serverConversationId; // Server-assigned conversation ID
+  int _lastMessageId = 0; // For polling new messages
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
+    _pollTimer?.cancel();
     _chatController.dispose();
     super.dispose();
-  }
-
-  Future<void> _refreshMessages() async {
-    try {
-      if (kDebugMode) {
-        print('Refreshing messages...');
-      }
-      final messages = await _chatRepository.getMessages(
-        studentId: widget.studentId,
-        recipientId: widget.recipientId,
-        page: 1, // Always get latest messages
-      );
-
-      if (kDebugMode) {
-        print('Received ${messages.length} messages during refresh');
-      }
-
-      if (mounted && messages.isNotEmpty) {
-        // Get existing messages from controller
-        final existingMessages =
-            List<core.Message>.from(_chatController.messages);
-        final existingMessageIds =
-            existingMessages.map((msg) => msg.id).toSet();
-
-        // Convert server messages to flutter_chat_core messages
-        final serverCoreMessages = messages
-            .map((msg) => core.TextMessage(
-                  id: msg.id,
-                  authorId: msg.senderId,
-                  createdAt: msg
-                      .timestamp, // Already converted to local time in ChatMessage.fromJson
-                  text: msg.content,
-                ))
-            .toList();
-
-        // Only add new messages that don't exist locally
-        final newMessages = serverCoreMessages
-            .where((msg) => !existingMessageIds.contains(msg.id))
-            .toList();
-
-        if (newMessages.isNotEmpty) {
-          if (kDebugMode) {
-            print('Adding ${newMessages.length} new messages');
-          }
-          setState(() {
-            // Create a set of server message IDs for tracking sent messages
-            final serverMessageIds =
-                serverCoreMessages.map((msg) => msg.id).toSet();
-
-            // Update sent message status for local messages that now exist on server
-            final updatedMessages = existingMessages.map((msg) {
-              if (msg.authorId == widget.studentId &&
-                  serverMessageIds.contains(msg.id)) {
-                _sentMessageIds.add(msg.id);
-                // Update message status to sent
-                if (msg is core.TextMessage) {
-                  return core.TextMessage(
-                    id: msg.id,
-                    authorId: msg.authorId,
-                    createdAt: msg.createdAt,
-                    text: msg.text,
-                    status: core.MessageStatus.sent,
-                  );
-                }
-              }
-              return msg;
-            }).toList();
-
-            // Add new messages
-            final allMessages = [...updatedMessages, ...newMessages];
-
-            // Sort by creation time in ascending order (oldest first)
-            allMessages.sort((a, b) => a.createdAt!.compareTo(b.createdAt!));
-
-            // Update controller with messages
-            _chatController.setMessages(allMessages);
-            if (kDebugMode) {
-              print('Updated UI with ${newMessages.length} new messages');
-            }
-          });
-        } else {
-          // No new messages, just update status of existing sent messages
-          final serverMessageIds =
-              serverCoreMessages.map((msg) => msg.id).toSet();
-          final existingMessages =
-              List<core.Message>.from(_chatController.messages);
-          bool hasStatusUpdate = false;
-
-          final updatedMessages = existingMessages.map((msg) {
-            if (msg.authorId == widget.studentId &&
-                serverMessageIds.contains(msg.id) &&
-                !_sentMessageIds.contains(msg.id)) {
-              _sentMessageIds.add(msg.id);
-              hasStatusUpdate = true;
-              if (msg is core.TextMessage) {
-                return core.TextMessage(
-                  id: msg.id,
-                  authorId: msg.authorId,
-                  createdAt: msg.createdAt,
-                  text: msg.text,
-                  status: core.MessageStatus.sent,
-                );
-              }
-            }
-            return msg;
-          }).toList();
-
-          if (hasStatusUpdate) {
-            setState(() {
-              _chatController.setMessages(updatedMessages);
-            });
-          }
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error refreshing messages: $e');
-      }
-    }
   }
 
   @override
   void initState() {
     super.initState();
     _chatRepository = ChatRepository();
-
-    // Initialize InMemoryChatController
     _chatController = core.InMemoryChatController();
+    _serverConversationId = widget.conversationId;
 
     // Initial load
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadMessages();
-    });
-
-    // Set up periodic refresh every 5 seconds (less frequent to reduce flickering)
-    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (mounted) {
-        _refreshMessages();
-      }
+      _initializeConversation();
     });
   }
 
+  /// Initialize the conversation - create/get it, then load messages
+  Future<void> _initializeConversation() async {
+    setState(() {
+      _isInitializing = true;
+    });
+
+    try {
+      // If we don't have a conversation ID, create/get one
+      if (_serverConversationId == null) {
+        final recipientIdInt = int.tryParse(widget.recipientId);
+        if (recipientIdInt != null) {
+          final conversationData =
+              await _chatRepository.createOrGetConversation(
+            recipientId: recipientIdInt,
+          );
+
+          if (conversationData != null) {
+            _serverConversationId = conversationData['id']?.toString();
+            if (kDebugMode) {
+              print('Got conversation ID from server: $_serverConversationId');
+            }
+          }
+        }
+      }
+
+      // Load messages
+      await _loadMessages();
+
+      // Mark as read when opening conversation (per API best practices)
+      if (_serverConversationId != null) {
+        await _chatRepository.markAsRead(
+            conversationId: _serverConversationId!);
+      }
+
+      // Set up polling for NEW messages (every 2 seconds, uses after_id)
+      _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+        if (mounted) {
+          _pollNewMessages();
+        }
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error initializing conversation: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+        });
+      }
+    }
+  }
+
+  /// Poll for NEW messages only using after_id (as per API best practices)
+  Future<void> _pollNewMessages() async {
+    if (_serverConversationId == null || _lastMessageId == 0) return;
+
+    try {
+      if (kDebugMode) {
+        print('Polling new messages after_id: $_lastMessageId');
+      }
+
+      final messages = await _chatRepository.getMessagesByConversationId(
+        _serverConversationId!,
+        afterId: _lastMessageId,
+      );
+
+      if (kDebugMode) {
+        print('Received ${messages.length} new messages from poll');
+      }
+
+      if (mounted && messages.isNotEmpty) {
+        // Get existing messages
+        final existingMessages =
+            List<core.Message>.from(_chatController.messages);
+        final existingIds = existingMessages.map((m) => m.id).toSet();
+
+        bool hasNewIncoming = false;
+        final newMessages = <core.TextMessage>[];
+
+        for (var msg in messages) {
+          // Update last message ID
+          final msgId = int.tryParse(msg.id) ?? 0;
+          if (msgId > _lastMessageId) {
+            _lastMessageId = msgId;
+          }
+
+          // Skip if we already have this message
+          if (existingIds.contains(msg.id) ||
+              _knownServerIds.contains(msg.id)) {
+            continue;
+          }
+
+          // Skip if this is a message we sent (tracked in pendingToServerIds)
+          if (_pendingToServerIds.values.contains(msg.id)) {
+            continue;
+          }
+
+          _knownServerIds.add(msg.id);
+
+          // Check if this is an incoming message (not from us)
+          final isIncoming = !msg.isMine && msg.senderId != widget.studentId;
+          if (isIncoming && !msg.isRead) {
+            hasNewIncoming = true;
+          }
+
+          newMessages.add(core.TextMessage(
+            id: msg.id,
+            authorId: msg.isMine ? widget.studentId : msg.senderId,
+            createdAt: msg.timestamp,
+            text: msg.content,
+            status: _getMessageStatus(msg),
+          ));
+        }
+
+        if (newMessages.isNotEmpty) {
+          if (kDebugMode) {
+            print('Adding ${newMessages.length} new messages to UI');
+          }
+
+          setState(() {
+            final allMessages = [...existingMessages, ...newMessages];
+            allMessages.sort((a, b) => a.createdAt!.compareTo(b.createdAt!));
+            _chatController.setMessages(allMessages);
+          });
+
+          // Only mark as read if there are new INCOMING unread messages
+          if (hasNewIncoming) {
+            await _chatRepository.markAsRead(
+                conversationId: _serverConversationId!);
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error polling messages: $e');
+      }
+    }
+  }
+
+  core.MessageStatus _getMessageStatus(models.ChatMessage msg) {
+    // Only show sending indicator while message is pending
+    if (msg.isPending) {
+      return core.MessageStatus.sending;
+    }
+    // No status icons for any messages (removed read/sent indicators)
+    return core.MessageStatus.delivered;
+  }
+
   Future<void> _loadMessages() async {
-    if (_isLoading) return;
+    if (_isLoading || _serverConversationId == null) return;
 
     setState(() {
       _isLoading = true;
@@ -192,51 +233,44 @@ class _ChatPageState extends State<ChatPage> {
 
     try {
       if (kDebugMode) {
-        print(
-            'Loading messages for conversation between ${widget.studentId} and ${widget.recipientId}');
+        print('Loading messages for conversation $_serverConversationId');
       }
 
-      // Only fetch from server - no local messages
-      final serverMessages = await _chatRepository.getMessages(
-        studentId: widget.studentId,
-        recipientId: widget.recipientId,
+      final serverMessages = await _chatRepository.getMessagesByConversationId(
+        _serverConversationId!,
         page: _currentPage,
       );
 
       if (kDebugMode) {
         print('Received ${serverMessages.length} server messages');
-        for (var msg in serverMessages) {
-          print(
-              'Server message: ${msg.id} from ${msg.senderId} content: ${msg.content}');
+      }
+
+      // Track message IDs
+      for (var msg in serverMessages) {
+        _knownServerIds.add(msg.id);
+        final msgId = int.tryParse(msg.id) ?? 0;
+        if (msgId > _lastMessageId) {
+          _lastMessageId = msgId;
         }
       }
 
-      // Update UI with server messages
       if (serverMessages.isNotEmpty) {
-        if (kDebugMode) {
-          print('Setting messages in controller');
-        }
-
-        // Update UI with server messages
         setState(() {
-          // Convert server messages to flutter_chat_core types
           final coreMessages = serverMessages
               .map((msg) => core.TextMessage(
                     id: msg.id,
-                    authorId: msg.senderId,
-                    createdAt: msg
-                        .timestamp, // Already converted to local time in ChatMessage.fromJson
+                    authorId: msg.isMine ? widget.studentId : msg.senderId,
+                    createdAt: msg.timestamp,
                     text: msg.content,
+                    status: _getMessageStatus(msg),
                   ))
               .toList();
 
-          // Sort messages in ascending order (oldest first) so flutter_chat_ui displays newest at bottom
+          // Sort messages oldest first
           coreMessages.sort((a, b) => a.createdAt!.compareTo(b.createdAt!));
           _chatController.setMessages(coreMessages);
           _currentPage++;
           _isLoading = false;
-
-          // Messages will automatically show newest at bottom due to chronological order
         });
       } else {
         setState(() {
@@ -251,74 +285,80 @@ class _ChatPageState extends State<ChatPage> {
         _isLoading = false;
       });
 
-      // Only show error if we have no messages to display
       if (_chatController.messages.isEmpty && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading messages: $e')),
+          SnackBar(content: Text('خطأ في تحميل الرسائل: $e')),
         );
       }
     }
   }
 
   void _handleSendPressed(types.PartialText message) async {
-    // Generate a unique ID for the message
-    final messageId = const Uuid().v4();
+    // Generate a unique temporary ID for the message
+    final tempId = 'temp_${const Uuid().v4()}';
 
-    // Create message with sending status using flutter_chat_core types
+    // Create message with sending status
     final textMessage = core.TextMessage(
-      id: messageId,
+      id: tempId,
       authorId: widget.studentId,
-      createdAt: DateTime.now(), // Use local time for consistency
+      createdAt: DateTime.now(),
       text: message.text,
-      status: core.MessageStatus.sending, // Show sending status
+      status: core.MessageStatus.sending,
     );
 
     // Add the message to the UI immediately (optimistic update)
-    final currentMessages = List<core.Message>.from(_chatController.messages);
-    currentMessages.add(textMessage);
+    setState(() {
+      final currentMessages = List<core.Message>.from(_chatController.messages);
+      currentMessages.add(textMessage);
+      currentMessages.sort((a, b) => a.createdAt!.compareTo(b.createdAt!));
+      _chatController.setMessages(currentMessages);
+    });
 
-    // Sort by creation time in ascending order (oldest first)
-    currentMessages.sort((a, b) => a.createdAt!.compareTo(b.createdAt!));
-
-    // Update controller with properly sorted messages
-    _chatController.setMessages(currentMessages);
-
-    // Send to server in background without blocking UI
-    _sendMessageToServer(messageId, message.text);
+    // Send to server in background
+    _sendMessageToServer(tempId, message.text);
   }
 
-  Future<void> _sendMessageToServer(
-      String messageId, String messageText) async {
+  Future<void> _sendMessageToServer(String tempId, String messageText) async {
     try {
-      // Try to send the message
-      final sentMessage = await _chatRepository.sendMessage(
-        studentId: widget.studentId,
-        recipientId: widget.recipientId,
+      final recipientIdInt = int.tryParse(widget.recipientId);
+      if (recipientIdInt == null) {
+        throw Exception('Invalid recipient ID');
+      }
+
+      // Use direct message
+      final sentMessage = await _chatRepository.sendDirectMessage(
+        recipientId: recipientIdInt,
+        senderId: widget.studentId,
         message: messageText,
       );
 
-      // Message sent successfully - update status to sent with checkmark
       if (mounted) {
-        _sentMessageIds.add(sentMessage.id);
+        // Track the mapping from temp ID to server ID
+        _pendingToServerIds[tempId] = sentMessage.id;
+        _knownServerIds.add(sentMessage.id);
 
-        // Update the message status to sent
-        final currentMessages =
-            List<core.Message>.from(_chatController.messages);
-        final updatedMessages = currentMessages.map((msg) {
-          if (msg.id == messageId && msg is core.TextMessage) {
-            return core.TextMessage(
-              id: sentMessage.id, // Use server ID
-              authorId: msg.authorId,
-              createdAt: msg.createdAt,
-              text: msg.text,
-              status:
-                  core.MessageStatus.sent, // Show sent status with checkmark
-            );
-          }
-          return msg;
-        }).toList();
+        // Update last message ID for polling
+        final sentMsgId = int.tryParse(sentMessage.id) ?? 0;
+        if (sentMsgId > _lastMessageId) {
+          _lastMessageId = sentMsgId;
+        }
 
+        // Update the message: replace temp ID with server ID and mark as sent
         setState(() {
+          final currentMessages =
+              List<core.Message>.from(_chatController.messages);
+          final updatedMessages = currentMessages.map((msg) {
+            if (msg.id == tempId && msg is core.TextMessage) {
+              return core.TextMessage(
+                id: sentMessage.id, // Use server ID
+                authorId: msg.authorId,
+                createdAt: msg.createdAt,
+                text: msg.text,
+                status: core.MessageStatus.sent, // Single checkmark ✓
+              );
+            }
+            return msg;
+          }).toList();
           _chatController.setMessages(updatedMessages);
         });
 
@@ -329,32 +369,29 @@ class _ChatPageState extends State<ChatPage> {
     } catch (e) {
       if (mounted) {
         // Update message status to error
-        final currentMessages =
-            List<core.Message>.from(_chatController.messages);
-        final updatedMessages = currentMessages.map((msg) {
-          if (msg.id == messageId && msg is core.TextMessage) {
-            return core.TextMessage(
-              id: msg.id,
-              authorId: msg.authorId,
-              createdAt: msg.createdAt,
-              text: msg.text,
-              status: core.MessageStatus.error, // Show error status
-            );
-          }
-          return msg;
-        }).toList();
-
         setState(() {
+          final currentMessages =
+              List<core.Message>.from(_chatController.messages);
+          final updatedMessages = currentMessages.map((msg) {
+            if (msg.id == tempId && msg is core.TextMessage) {
+              return core.TextMessage(
+                id: msg.id,
+                authorId: msg.authorId,
+                createdAt: msg.createdAt,
+                text: msg.text,
+                status: core.MessageStatus.error,
+              );
+            }
+            return msg;
+          }).toList();
           _chatController.setMessages(updatedMessages);
         });
 
-        // Show error message
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                const Text('سيتم إرسال الرسالة عندما تعود للاتصال بالإنترنت'),
+          const SnackBar(
+            content: Text('سيتم إرسال الرسالة عندما تعود للاتصال بالإنترنت'),
             backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 3),
+            duration: Duration(seconds: 3),
           ),
         );
 
@@ -400,7 +437,7 @@ class _ChatPageState extends State<ChatPage> {
                         color: Colors.white,
                       ),
                     ),
-                    if (_isLoading)
+                    if (_isLoading || _isInitializing)
                       const Text(
                         'جاري التحميل...',
                         style: TextStyle(
@@ -419,60 +456,67 @@ class _ChatPageState extends State<ChatPage> {
               onPressed: () {
                 setState(() {
                   _currentPage = 1;
+                  _lastMessageId = 0;
+                  _knownServerIds.clear();
+                  _pendingToServerIds.clear();
                 });
+                _chatController.setMessages([]);
                 _loadMessages();
               },
               tooltip: 'تحديث المحادثة',
             ),
           ],
         ),
-        body: Container(
-          decoration: const BoxDecoration(
-            // WhatsApp-like background pattern
-            image: DecorationImage(
-              image: AssetImage('assets/images/chat_bg.png'),
-              fit: BoxFit.cover,
-              colorFilter: ColorFilter.mode(
-                Color(0x0D8B0628), // 0.05 opacity primary
-                BlendMode.dstATop,
-              ),
-            ),
-          ),
-          child: Column(
-            children: [
-              Expanded(
-                child: Chat(
-                  currentUserId: widget.studentId,
-                  resolveUser: (String userId) async {
-                    if (userId == widget.studentId) {
-                      return core.User(
-                        id: widget.studentId,
-                        name: widget.studentName,
-                      );
-                    } else {
-                      return core.User(
-                        id: widget.recipientId,
-                        name: widget.recipientName,
-                      );
-                    }
-                  },
-                  chatController: _chatController,
-                  onMessageSend: (String text) {
-                    _handleSendPressed(types.PartialText(text: text));
-                  },
-                  // Removed custom builders to use default flutter_chat_ui behavior
-                  // This ensures messages are displayed with newest at bottom
-                  theme: ChatTheme.light().copyWith(
-                    colors: ChatTheme.light().colors.copyWith(
-                          primary: AppTheme.primaryColor,
-                          onPrimary: Colors.white,
-                        ),
+        body: _isInitializing
+            ? const Center(
+                child: CircularProgressIndicator(
+                  color: AppTheme.primaryColor,
+                ),
+              )
+            : Container(
+                decoration: const BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage('assets/images/chat_bg.png'),
+                    fit: BoxFit.cover,
+                    colorFilter: ColorFilter.mode(
+                      Color(0x0D8B0628),
+                      BlendMode.dstATop,
+                    ),
                   ),
                 ),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Chat(
+                        currentUserId: widget.studentId,
+                        resolveUser: (String userId) async {
+                          if (userId == widget.studentId) {
+                            return core.User(
+                              id: widget.studentId,
+                              name: widget.studentName,
+                            );
+                          } else {
+                            return core.User(
+                              id: widget.recipientId,
+                              name: widget.recipientName,
+                            );
+                          }
+                        },
+                        chatController: _chatController,
+                        onMessageSend: (String text) {
+                          _handleSendPressed(types.PartialText(text: text));
+                        },
+                        theme: ChatTheme.light().copyWith(
+                          colors: ChatTheme.light().colors.copyWith(
+                                primary: AppTheme.primaryColor,
+                                onPrimary: Colors.white,
+                              ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
       ),
     );
   }

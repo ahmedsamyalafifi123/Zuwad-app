@@ -2,62 +2,104 @@ import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../../core/api/wordpress_api.dart';
 import '../models/chat_message.dart';
+import '../models/contact.dart';
+import '../models/conversation.dart';
 
 /// Repository for chat operations using API v2.
 ///
-/// The v2 API uses conversation-based endpoints rather than direct student/recipient.
+/// The v2 API uses conversation-based endpoints with proper server-side
+/// conversation IDs rather than client-generated ones.
 class ChatRepository {
   final WordPressApi _api = WordPressApi();
   final Connectivity _connectivity = Connectivity();
 
   /// Create a pending message for optimistic UI updates.
   ChatMessage _createPendingMessage({
-    required String studentId,
-    required String recipientId,
+    required String senderId,
     required String message,
   }) {
     return ChatMessage(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       content: message,
-      senderId: studentId,
+      senderId: senderId,
       senderName: '',
       timestamp: DateTime.now(),
       isPending: true,
     );
   }
 
-  /// Get messages for a conversation.
+  /// Get available chat contacts for the authenticated user.
+  /// Returns list of users the current user can chat with based on their role.
+  Future<List<Contact>> getContacts() async {
+    try {
+      final data = await _api.getChatContacts();
+
+      if (kDebugMode) {
+        print('Received ${data.length} contacts from server');
+      }
+
+      return data
+          .map((json) => Contact.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching contacts: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Get list of conversations with last messages and unread counts.
+  Future<List<Conversation>> getConversations({int page = 1}) async {
+    try {
+      final data = await _api.getConversations(page: page);
+
+      if (kDebugMode) {
+        print('Received ${data.length} conversations from server');
+      }
+
+      return data
+          .map((json) => Conversation.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting conversations: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Get messages for a conversation by conversation ID.
   ///
-  /// In v2 API, this uses conversation ID instead of student/recipient IDs.
-  Future<List<ChatMessage>> getMessages({
-    required String studentId,
-    required String recipientId,
+  /// If [afterId] is provided, only messages after that ID are returned
+  /// (useful for real-time sync polling).
+  Future<List<ChatMessage>> getMessagesByConversationId(
+    String conversationId, {
     int page = 1,
+    int? afterId,
   }) async {
     try {
-      // For v2 API, we use conversation ID which could be derived from student/recipient
-      // For now, we'll use a simple format: smaller_id-larger_id
-      final conversationId = _getConversationId(studentId, recipientId);
-
       if (kDebugMode) {
         print(
-            'Fetching messages for conversation: $conversationId, page: $page');
+            'Fetching messages for conversation: $conversationId, page: $page, afterId: $afterId');
       }
 
-      final data = await _api.getChatMessages(conversationId, page: page);
+      final data = await _api.getChatMessages(
+        conversationId,
+        page: page,
+        afterId: afterId,
+      );
+
+      // The API returns { conversation_id, other_user, messages: [...] }
+      final messagesList = data['messages'] as List<dynamic>? ?? [];
 
       if (kDebugMode) {
-        print('Received ${data.length} messages from server');
-        for (var msg in data) {
-          print(
-              'Message: ${msg['id']} from ${msg['sender_id']}, content: ${msg['content'] ?? msg['message']}');
-        }
+        print('Received ${messagesList.length} messages from server');
       }
 
-      final messages = data
+      return messagesList
           .map((json) => ChatMessage.fromJson(json as Map<String, dynamic>))
           .toList();
-      return messages;
     } catch (e) {
       if (kDebugMode) {
         print('Error fetching messages: $e');
@@ -66,10 +108,49 @@ class ChatRepository {
     }
   }
 
-  /// Send a message in a conversation.
-  Future<ChatMessage> sendMessage({
+  /// Get messages for a conversation between two users.
+  ///
+  /// This method first creates/gets the conversation, then fetches messages.
+  /// For new conversations, this may return an empty list.
+  @Deprecated('Use getMessagesByConversationId with a server conversation ID')
+  Future<List<ChatMessage>> getMessages({
     required String studentId,
     required String recipientId,
+    int page = 1,
+  }) async {
+    try {
+      // First, create or get the conversation to get the server-assigned ID
+      final recipientIdInt = int.tryParse(recipientId);
+      if (recipientIdInt == null) {
+        if (kDebugMode) {
+          print('Invalid recipient ID: $recipientId');
+        }
+        return [];
+      }
+
+      final conversationData = await _api.createConversation(recipientIdInt);
+      final conversationId = conversationData['id']?.toString();
+
+      if (conversationId == null) {
+        if (kDebugMode) {
+          print('Could not get conversation ID');
+        }
+        return [];
+      }
+
+      return getMessagesByConversationId(conversationId, page: page);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching messages: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Send a message to a conversation.
+  Future<ChatMessage> sendMessageToConversation({
+    required String conversationId,
+    required String senderId,
     required String message,
   }) async {
     // Check connectivity
@@ -79,8 +160,7 @@ class ChatRepository {
 
     // Create a pending message for optimistic UI
     final pendingMessage = _createPendingMessage(
-      studentId: studentId,
-      recipientId: recipientId,
+      senderId: senderId,
       message: message,
     );
 
@@ -92,10 +172,7 @@ class ChatRepository {
       return pendingMessage;
     }
 
-    // Try to send immediately if online
     try {
-      final conversationId = _getConversationId(studentId, recipientId);
-
       final data = await _api.sendChatMessage(conversationId, message);
 
       if (kDebugMode) {
@@ -112,16 +189,85 @@ class ChatRepository {
     }
   }
 
-  /// Create a new conversation.
-  Future<String?> createConversation({
+  /// Send a direct message to a recipient.
+  /// Creates conversation if needed - this is the recommended way to send messages.
+  Future<ChatMessage> sendDirectMessage({
     required int recipientId,
+    required String senderId,
     required String message,
   }) async {
-    try {
-      final data = await _api.createConversation(recipientId, message);
+    // Check connectivity
+    final connectivityResults = await _connectivity.checkConnectivity();
+    final bool isOnline =
+        !connectivityResults.contains(ConnectivityResult.none);
 
-      // Return the conversation ID
-      return data['id']?.toString();
+    // Create a pending message for optimistic UI
+    final pendingMessage = _createPendingMessage(
+      senderId: senderId,
+      message: message,
+    );
+
+    // If offline, return pending message
+    if (!isOnline) {
+      if (kDebugMode) {
+        print('Offline - returning pending message');
+      }
+      return pendingMessage;
+    }
+
+    try {
+      final data = await _api.sendDirectMessage(recipientId, message);
+
+      if (kDebugMode) {
+        print('Send direct message response: $data');
+      }
+
+      return ChatMessage.fromJson(data);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error sending direct message: $e');
+      }
+      // Return pending message on error for retry
+      return pendingMessage;
+    }
+  }
+
+  /// Legacy send message method for backward compatibility.
+  @Deprecated('Use sendDirectMessage or sendMessageToConversation instead')
+  Future<ChatMessage> sendMessage({
+    required String studentId,
+    required String recipientId,
+    required String message,
+  }) async {
+    final recipientIdInt = int.tryParse(recipientId);
+    if (recipientIdInt == null) {
+      return _createPendingMessage(senderId: studentId, message: message);
+    }
+
+    return sendDirectMessage(
+      recipientId: recipientIdInt,
+      senderId: studentId,
+      message: message,
+    );
+  }
+
+  /// Create a new conversation or get existing one.
+  /// Returns the conversation data including ID.
+  Future<Map<String, dynamic>?> createOrGetConversation({
+    required int recipientId,
+    String? initialMessage,
+  }) async {
+    try {
+      final data = await _api.createConversation(
+        recipientId,
+        message: initialMessage,
+      );
+
+      if (kDebugMode) {
+        print('Create/get conversation response: $data');
+      }
+
+      return data;
     } catch (e) {
       if (kDebugMode) {
         print('Error creating conversation: $e');
@@ -131,46 +277,22 @@ class ChatRepository {
   }
 
   /// Mark a conversation as read.
-  Future<void> markAsRead({
+  /// Returns the number of messages marked as read.
+  Future<int> markAsRead({
     required String conversationId,
   }) async {
     try {
-      await _api.markConversationAsRead(conversationId);
+      return await _api.markConversationAsRead(conversationId);
     } catch (e) {
       if (kDebugMode) {
         print('Error marking as read: $e');
       }
+      return 0;
     }
   }
 
   /// Get unread message count.
   Future<int> getUnreadCount() async {
     return await _api.getUnreadCount();
-  }
-
-  /// Get list of conversations.
-  Future<List<Map<String, dynamic>>> getConversations({int page = 1}) async {
-    try {
-      final data = await _api.getConversations(page: page);
-      return data.map((item) => item as Map<String, dynamic>).toList();
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error getting conversations: $e');
-      }
-      return [];
-    }
-  }
-
-  /// Generate a conversation ID from two user IDs.
-  /// Uses smaller ID first for consistency.
-  String _getConversationId(String userId1, String userId2) {
-    final id1 = int.tryParse(userId1) ?? 0;
-    final id2 = int.tryParse(userId2) ?? 0;
-
-    if (id1 < id2) {
-      return '$userId1-$userId2';
-    } else {
-      return '$userId2-$userId1';
-    }
   }
 }

@@ -9,6 +9,7 @@ class ChatMessage {
   final DateTime timestamp;
   final bool isRead;
   final bool isPending;
+  final bool isMine; // Whether the current user sent this message
 
   ChatMessage({
     required this.id,
@@ -18,6 +19,7 @@ class ChatMessage {
     required this.timestamp,
     this.isRead = false,
     this.isPending = false,
+    this.isMine = false,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
@@ -41,9 +43,17 @@ class ChatMessage {
     String timestampStr = json['timestamp'] ??
         json['created_at'] ??
         DateTime.now().toIso8601String();
-    // Parse as UTC since database stores timestamps in UTC, then convert to local time
-    final DateTime messageTimestamp =
-        DateTime.parse('${timestampStr}Z').toLocal();
+    // Handle timestamp parsing - try without Z suffix first
+    DateTime messageTimestamp;
+    try {
+      if (timestampStr.endsWith('Z')) {
+        messageTimestamp = DateTime.parse(timestampStr).toLocal();
+      } else {
+        messageTimestamp = DateTime.parse('${timestampStr}Z').toLocal();
+      }
+    } catch (e) {
+      messageTimestamp = DateTime.now();
+    }
 
     // isRead can be boolean or integer (0/1)
     bool messageIsRead = false;
@@ -57,6 +67,12 @@ class ChatMessage {
       messageIsPending = json['is_pending'] == 1 || json['is_pending'] == true;
     }
 
+    // isMine - the API provides this field to indicate if current user sent the message
+    bool messageIsMine = false;
+    if (json['is_mine'] != null) {
+      messageIsMine = json['is_mine'] == 1 || json['is_mine'] == true;
+    }
+
     return ChatMessage(
       id: messageId,
       content: messageContent,
@@ -65,6 +81,7 @@ class ChatMessage {
       timestamp: messageTimestamp,
       isRead: messageIsRead,
       isPending: messageIsPending,
+      isMine: messageIsMine,
     );
   }
 
@@ -73,7 +90,22 @@ class ChatMessage {
   // `user.id` when this message was sent by the current user. This
   // ensures the chat UI properly aligns/sizes/colors sent vs received bubbles.
   types.Message toUIMessage({required String currentUserId}) {
-    final authorId = (senderId == currentUserId) ? currentUserId : senderId;
+    // Use isMine from API if available, otherwise compare senderId
+    final isMyMessage = isMine || (senderId == currentUserId);
+    final authorId = isMyMessage ? currentUserId : senderId;
+
+    // Determine status:
+    // - pending: sending indicator
+    // - For MY messages: isRead=true means seen (✓✓), isRead=false means sent (✓)
+    // - For THEIR messages: always show as sent (no status icon needed)
+    types.Status status;
+    if (isPending) {
+      status = types.Status.sending;
+    } else if (isMyMessage) {
+      status = isRead ? types.Status.seen : types.Status.sent;
+    } else {
+      status = types.Status.delivered; // No visible status for incoming
+    }
 
     return types.TextMessage(
       author: types.User(
@@ -83,9 +115,7 @@ class ChatMessage {
       id: id,
       text: content,
       createdAt: timestamp.millisecondsSinceEpoch,
-      status: isPending
-          ? types.Status.sending
-          : (isRead ? types.Status.seen : types.Status.sent),
+      status: status,
     );
   }
 }

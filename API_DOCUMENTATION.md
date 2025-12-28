@@ -700,7 +700,7 @@ The session number is automatically calculated based on the attendance type:
 | `اجازة معلم` | Teacher Leave | Teacher holiday |
 
 **Postponed Events:**
-Reports created with `is_postponed: true` should have a calculated session number if the attendance type is incrementing (e.g., `تأجيل ولي أمر`). Only non-incrementing types should result in session_number = 0.
+Reports created with `is_postponed: true` always have session_number = 0.
 
 **Reset Logic:**
 When session_number exceeds `lessons_number`, it resets to 1 (new package cycle).
@@ -1007,52 +1007,474 @@ GET /teacher/notifications/count
 
 ## 💬 Chat API
 
+The Chat API provides real-time messaging between users based on their roles:
+
+| Role           | Can Chat With                        |
+| -------------- | ------------------------------------ |
+| **Student**    | Their assigned teacher + supervisor  |
+| **Teacher**    | Their students + their supervisor    |
+| **Supervisor** | Their teachers + students under them |
+
+### Get Available Contacts
+
+Returns list of users the authenticated user can chat with.
+
+```http
+GET /chat/contacts
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 5,
+      "name": "أحمد محمد",
+      "role": "teacher",
+      "relation": "teacher",
+      "profile_image": "https://example.com/uploads/profile.jpg"
+    },
+    {
+      "id": 10,
+      "name": "محمد علي",
+      "role": "supervisor",
+      "relation": "supervisor",
+      "profile_image": null
+    }
+  ]
+}
+```
+
 ### List Conversations
 
 ```http
-GET /chat/conversations?page=1
+GET /chat/conversations?page=1&per_page=50
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "other_user": {
+        "id": 5,
+        "name": "أحمد محمد",
+        "role": "teacher",
+        "profile_image": null
+      },
+      "last_message": "السلام عليكم",
+      "last_message_at": "2024-01-15 14:30:00",
+      "unread_count": 2,
+      "updated_at": "2024-01-15 14:30:00"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 50,
+    "total": 5,
+    "total_pages": 1
+  }
+}
+```
+
+### Create Conversation (or Get Existing)
+
+Creates a new conversation or returns existing one with the recipient.
+
+```http
+POST /chat/conversations
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "recipient_id": 123,
+  "message": "السلام عليكم"  // Optional initial message
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "is_new": true,
+    "other_user": {
+      "id": 123,
+      "name": "أحمد محمد",
+      "role": "teacher",
+      "profile_image": null
+    },
+    "message": {
+      "id": 10,
+      "message": "السلام عليكم",
+      "sender_id": 5,
+      "is_mine": true,
+      "is_read": false,
+      "created_at": "2024-01-15 14:30:00"
+    }
+  }
+}
 ```
 
 ### Get Messages
 
 ```http
-GET /chat/conversations/{id}/messages?page=1
+GET /chat/conversations/{id}/messages?page=1&per_page=50
+Authorization: Bearer {token}
+```
+
+**Real-time sync (get new messages only):**
+
+```http
+GET /chat/conversations/{id}/messages?after_id=100
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "conversation_id": 1,
+    "other_user": {
+      "id": 123,
+      "name": "أحمد محمد",
+      "role": "teacher",
+      "profile_image": null
+    },
+    "messages": [
+      {
+        "id": 10,
+        "message": "السلام عليكم",
+        "sender_id": 5,
+        "is_mine": false,
+        "is_read": true,
+        "created_at": "2024-01-15 14:30:00"
+      },
+      {
+        "id": 11,
+        "message": "وعليكم السلام",
+        "sender_id": 123,
+        "is_mine": true,
+        "is_read": false,
+        "created_at": "2024-01-15 14:31:00"
+      }
+    ]
+  },
+  "meta": {
+    "page": 1,
+    "per_page": 50,
+    "total": 2,
+    "total_pages": 1
+  }
+}
 ```
 
 ### Send Message
 
 ```http
 POST /chat/conversations/{id}/messages
+Authorization: Bearer {token}
 Content-Type: application/json
 
 {
-  "message": "مرحباً!"
+  "message": "مرحباً! كيف حالك؟"
 }
 ```
 
-### Create Conversation
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 12,
+    "conversation_id": 1,
+    "message": "مرحباً! كيف حالك؟",
+    "sender_id": 123,
+    "is_mine": true,
+    "is_read": false,
+    "created_at": "2024-01-15 14:32:00"
+  }
+}
+```
+
+### Send Direct Message (Convenience)
+
+Send message directly by recipient ID. Creates conversation if needed.
 
 ```http
-POST /chat/conversations
+POST /chat/send-direct
+Authorization: Bearer {token}
 Content-Type: application/json
 
 {
-  "recipient_id": 123,
+  "recipient_id": 5,
   "message": "السلام عليكم"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 13,
+    "conversation_id": 1,
+    "recipient_id": 5,
+    "message": "السلام عليكم",
+    "is_mine": true,
+    "is_read": false,
+    "created_at": "2024-01-15 14:33:00"
+  }
 }
 ```
 
 ### Mark as Read
 
+Mark all messages from other user as read.
+
 ```http
 POST /chat/conversations/{id}/read
+Authorization: Bearer {token}
 ```
 
-### Unread Count
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "marked_read": 5
+  }
+}
+```
+
+### Get Unread Count
 
 ```http
 GET /chat/unread-count
+Authorization: Bearer {token}
 ```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "unread_count": 3
+  }
+}
+```
+
+### Flutter Implementation Guide
+
+#### Message Read Status (✓ / ✓✓)
+
+Messages have an `is_read` field:
+
+- `is_read: false` → Show single check ✓ (sent)
+- `is_read: true` → Show double check ✓✓ (read)
+
+**Important Rules:**
+
+1. Only the **receiver** can mark messages as read
+2. Call `POST /chat/conversations/{id}/read` when user **opens** the conversation
+3. Do NOT call markAsRead during polling - only when user actively views
+
+#### Complete Flutter Service
+
+```dart
+class ChatService {
+  final ApiClient _api;
+  Timer? _pollTimer;
+  int _lastMessageId = 0;
+  int? _activeConversationId;
+
+  // Get available contacts based on user role
+  Future<List<Contact>> getContacts() async {
+    final response = await _api.get('/chat/contacts');
+    return (response['data'] as List)
+        .map((c) => Contact.fromJson(c))
+        .toList();
+  }
+
+  // Get all conversations with unread counts
+  Future<List<Conversation>> getConversations() async {
+    final response = await _api.get('/chat/conversations');
+    return (response['data'] as List)
+        .map((c) => Conversation.fromJson(c))
+        .toList();
+  }
+
+  // Get or create conversation when user taps on contact
+  Future<Conversation> openConversation(int recipientId) async {
+    final response = await _api.post('/chat/conversations', {
+      'recipient_id': recipientId,
+    });
+    final conv = Conversation.fromJson(response['data']);
+    _activeConversationId = conv.id;
+    return conv;
+  }
+
+  // Get all messages for a conversation
+  Future<List<Message>> getMessages(int conversationId) async {
+    final response = await _api.get(
+      '/chat/conversations/$conversationId/messages'
+    );
+    final messages = (response['data']['messages'] as List)
+        .map((m) => Message.fromJson(m))
+        .toList();
+
+    if (messages.isNotEmpty) {
+      _lastMessageId = messages.last.id;
+    }
+
+    // Mark messages as read when user opens conversation
+    await markAsRead(conversationId);
+
+    return messages;
+  }
+
+  // Poll for NEW messages only (for real-time updates)
+  Future<List<Message>> pollNewMessages(int conversationId) async {
+    if (_lastMessageId == 0) return [];
+
+    final response = await _api.get(
+      '/chat/conversations/$conversationId/messages?after_id=$_lastMessageId'
+    );
+
+    final messages = (response['data']['messages'] as List)
+        .map((m) => Message.fromJson(m))
+        .toList();
+
+    if (messages.isNotEmpty) {
+      _lastMessageId = messages.last.id;
+
+      // Only mark as read if conversation is active AND has incoming messages
+      if (_activeConversationId == conversationId) {
+        final hasIncoming = messages.any((m) => !m.isMine && !m.isRead);
+        if (hasIncoming) {
+          await markAsRead(conversationId);
+        }
+      }
+    }
+
+    return messages;
+  }
+
+  // Send message
+  Future<Message> sendMessage(int conversationId, String text) async {
+    final response = await _api.post(
+      '/chat/conversations/$conversationId/messages',
+      {'message': text}
+    );
+    final msg = Message.fromJson(response['data']);
+    _lastMessageId = msg.id;
+    return msg;
+  }
+
+  // Mark messages as read - ONLY call when user opens/views conversation
+  Future<void> markAsRead(int conversationId) async {
+    await _api.post('/chat/conversations/$conversationId/read');
+  }
+
+  // Get total unread count for badge
+  Future<int> getUnreadCount() async {
+    final response = await _api.get('/chat/unread-count');
+    return response['data']['unread_count'] ?? 0;
+  }
+
+  // Start polling for real-time updates
+  void startPolling(int conversationId, Function(List<Message>) onNewMessages) {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(Duration(seconds: 2), (_) async {
+      final messages = await pollNewMessages(conversationId);
+      if (messages.isNotEmpty) {
+        onNewMessages(messages);
+      }
+    });
+  }
+
+  // Stop polling when leaving conversation
+  void stopPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _activeConversationId = null;
+  }
+}
+```
+
+#### Message Model
+
+```dart
+class Message {
+  final int id;
+  final String message;
+  final int senderId;
+  final bool isMine;
+  final bool isRead;  // Use for ✓/✓✓ display
+  final DateTime createdAt;
+
+  // Show ✓ for sent, ✓✓ for read (only on outgoing messages)
+  String get statusIcon {
+    if (!isMine) return ''; // No icon for incoming
+    return isRead ? '✓✓' : '✓';
+  }
+
+  // Blue color for read, gray for sent
+  Color get statusColor {
+    return isRead ? Colors.blue : Colors.grey;
+  }
+}
+```
+
+#### Chat Flow Best Practices
+
+1. **Opening Conversation:**
+
+   ```dart
+   void onContactTap(Contact contact) async {
+     final conv = await chatService.openConversation(contact.id);
+     final messages = await chatService.getMessages(conv.id);
+     // Messages are now marked as read
+     chatService.startPolling(conv.id, onNewMessages);
+   }
+   ```
+
+2. **Leaving Conversation:**
+
+   ```dart
+   void onBackPressed() {
+     chatService.stopPolling();
+     // Refresh conversation list to update unread counts
+     loadConversations();
+   }
+   ```
+
+3. **Displaying Unread Badge:**
+   ```dart
+   // In conversation list, show unread_count from API
+   ListTile(
+     title: Text(conv.otherUser.name),
+     subtitle: Text(conv.lastMessage ?? ''),
+     trailing: conv.unreadCount > 0
+       ? Badge(label: '${conv.unreadCount}')
+       : null,
+   )
+   ```
 
 ---
 

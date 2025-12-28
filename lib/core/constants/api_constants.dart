@@ -85,12 +85,14 @@ class ApiConstants {
   // ============================================
   // Chat Endpoints
   // ============================================
+  static String get chatContactsEndpoint => '$v2BaseUrl/chat/contacts';
   static String get chatConversationsEndpoint =>
       '$v2BaseUrl/chat/conversations';
   static String chatMessagesEndpoint(String conversationId) =>
       '$v2BaseUrl/chat/conversations/$conversationId/messages';
   static String chatReadEndpoint(String conversationId) =>
       '$v2BaseUrl/chat/conversations/$conversationId/read';
+  static String get chatSendDirectEndpoint => '$v2BaseUrl/chat/send-direct';
   static String get chatUnreadCountEndpoint => '$v2BaseUrl/chat/unread-count';
 
   // ============================================
