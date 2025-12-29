@@ -128,133 +128,109 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
   }
 
   Widget _buildIslamicModernNavBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      child: Stack(
-        alignment: Alignment.topCenter,
-        clipBehavior: Clip.none,
-        children: [
-          // Main nav bar container with Islamic modern design
-          Container(
-            height: 70,
-            margin: const EdgeInsets.only(top: 25),
-            decoration: BoxDecoration(
-              // Gradient background for premium look
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFFFFDF5), // Warm cream white
-                  Color(0xFFF8F4E8), // Subtle gold tint
-                ],
-              ),
-              border: Border.all(
-                color: const Color(0xFFD4AF37), // Gold border
-                width: 1.5,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x268B0628), // 15% opacity
-                  blurRadius: 20,
-                  offset: Offset(0, 4),
-                ),
-                BoxShadow(
-                  color: Color(0x1AD4AF37), // 10% opacity
-                  blurRadius: 10,
-                  spreadRadius: 1,
-                ),
-              ],
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Stack(
-                children: [
-                  // Subtle Islamic geometric pattern overlay
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: _IslamicPatternPainter(),
-                    ),
+    return Align(
+      alignment: Alignment.bottomCenter,
+      heightFactor: 1.0,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: Container(
+          margin:
+              const EdgeInsets.fromLTRB(12, 0, 12, 28), // Moved up as requested
+          child: Stack(
+            alignment: Alignment.topCenter,
+            clipBehavior: Clip.none,
+            children: [
+              // Main nav bar container with Islamic modern design
+              Container(
+                // Removed fixed height to prevent overflow
+                margin: const EdgeInsets.only(top: 25),
+                decoration: BoxDecoration(
+                  // Gradient background for premium look
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color.fromARGB(255, 255, 255, 255), // Warm cream white
+                      Color.fromARGB(255, 234, 234, 234), // Subtle gold tint
+                    ],
                   ),
-                  // Navigation items
-                  Row(
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26, // Black shadow
+                      blurRadius: 10,
+                      offset: Offset(0, 2),
+                    ),
+                    BoxShadow(
+                      color: Colors.black12, // Softer black shadow
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                  borderRadius:
+                      BorderRadius.circular(15), // Reduced border radius
+                ),
+                child: ClipRRect(
+                  borderRadius:
+                      BorderRadius.circular(15), // Reduced border radius
+                  child: Stack(
                     children: [
-                      // Left side: 3 nav items
-                      Expanded(
-                        flex: 3,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildNavItem(0),
-                            _buildNavItem(1),
-                            _buildNavItem(2),
-                          ],
+                      // Subtle Islamic geometric pattern overlay
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: _IslamicPatternPainter(),
                         ),
                       ),
-                      // Center spacer for logo
-                      const SizedBox(width: 70),
-                      // Right side: 3 nav items
-                      Expanded(
-                        flex: 3,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildNavItem(3),
-                            _buildNavItem(4),
-                            _buildNavItem(5),
-                          ],
-                        ),
+                      // Navigation items
+                      Row(
+                        children: [
+                          // Left side: 3 nav items
+                          Expanded(
+                            flex: 3,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                _buildNavItem(0),
+                                _buildNavItem(1),
+                                _buildNavItem(2),
+                              ],
+                            ),
+                          ),
+                          // Center spacer for logo
+                          const SizedBox(width: 70),
+                          // Right side: 3 nav items
+                          Expanded(
+                            flex: 3,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                _buildNavItem(3),
+                                _buildNavItem(4),
+                                _buildNavItem(5),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
 
-          // Decorative centered logo (non-clickable)
-          Positioned(
-            top: -5,
-            child: Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFFF8F4E8), // Light cream
-                    Color(0xFFFFFFFF), // White
-                  ],
-                ),
-                border: Border.all(
-                  color: const Color(0xFFD4AF37), // Gold border
-                  width: 2.5,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x66D4AF37), // 40% opacity
-                    blurRadius: 15,
-                    spreadRadius: 2,
+              // Decorative centered logo (non-clickable)
+              Positioned(
+                top: -15,
+                child: SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: Image.asset(
+                    'assets/images/zuwad.png',
+                    fit: BoxFit.contain,
                   ),
-                  BoxShadow(
-                    color: Color(0x1A8B0628), // 10% opacity
-                    blurRadius: 10,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(10.0),
-                child: Image.asset(
-                  'assets/images/zuwad.png',
-                  fit: BoxFit.contain,
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -269,14 +245,8 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-        decoration: isSelected
-            ? BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: const Color.fromARGB(
-                    10, 0, 0, 0), // 20% opacity - more visible
-              )
-            : null,
+        padding: const EdgeInsets.symmetric(
+            horizontal: 4, vertical: 8), // Reduced padding
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -287,7 +257,8 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                 item['icon'] as IconData,
                 size: isSelected ? 22 : 20,
                 color: isSelected
-                    ? const Color(0xFFD4AF37) // Gold when selected
+                    ? const Color.fromARGB(
+                        255, 224, 173, 5) // Black when selected (requested)
                     : const Color(0xFF8B0628), // Burgundy when not selected
               ),
             ),
@@ -295,24 +266,17 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
             AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 200),
               style: TextStyle(
-                fontSize: isSelected ? 9 : 8,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                fontFamily: 'Qatar', // Use custom font
+                fontSize: isSelected ? 10 : 9,
+                fontWeight: isSelected
+                    ? FontWeight.bold // Qatar Bold
+                    : FontWeight.w500, // Qatar Medium
                 color: isSelected
-                    ? const Color(0xFFD4AF37) // Gold when selected
+                    ? const Color.fromARGB(
+                        255, 0, 0, 0) // Black when selected (requested)
                     : const Color(0xFF8B0628), // Burgundy when not selected
               ),
               child: Text(item['label'] as String),
-            ),
-            // Selection indicator
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.only(top: 2),
-              height: 2,
-              width: isSelected ? 16 : 0,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD4AF37),
-                borderRadius: BorderRadius.circular(1),
-              ),
             ),
           ],
         ),
