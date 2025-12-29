@@ -545,7 +545,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 color: AppTheme.primaryColor,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.fromLTRB(
+                      16, MediaQuery.of(context).padding.top + 20.0, 16, 16),
                   child: Column(
                     children: [
                       // Section 1: Personal Data

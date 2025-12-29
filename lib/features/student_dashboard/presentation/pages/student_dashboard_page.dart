@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Add this import
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
 import '../../../../core/theme/app_theme.dart';
@@ -9,7 +10,6 @@ import '../../../../services/livekit_service.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
-import '../../../auth/presentation/pages/login_page.dart';
 import '../../../chat/presentation/pages/chat_list_page.dart';
 import '../../../meeting/presentation/pages/meeting_page.dart';
 import '../../data/repositories/schedule_repository.dart';
@@ -36,8 +36,8 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
   // Navigation items configuration for cleaner code
   static const List<Map<String, dynamic>> _navItems = [
     {'icon': Icons.home_rounded, 'label': 'الرئيسة'},
+    {'icon': Icons.calendar_month_rounded, 'label': 'الجدول'},
     {'icon': Icons.emoji_events_rounded, 'label': 'الانجازات'},
-    {'icon': Icons.calendar_month_rounded, 'label': 'جدول الحصص'},
     {'icon': Icons.chat_bubble_rounded, 'label': 'المراسلة'},
     {'icon': Icons.sports_esports_rounded, 'label': 'العاب'},
     {'icon': Icons.settings_rounded, 'label': 'الاعدادات'},
@@ -50,13 +50,13 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
     _pages = [
       // 0: الرئيسة (Dashboard/Main page)
       _DashboardContent(),
-      // 1: الانجازات (Achievements)
-      const HomePage(),
-      // 2: جدول الحصص (Schedule)
+      // 1: جدول الحصص (Schedule)
       const PlaceholderPage(
         title: 'جدول الحصص',
         icon: Icons.calendar_month_rounded,
       ),
+      // 2: الانجازات (Achievements)
+      const HomePage(),
       // 3: المراسلة (Messages)
       BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
@@ -88,41 +88,133 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Set status bar to white with dark icons
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.white,
+      statusBarIconBrightness: Brightness.dark,
+    ));
+
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 8.0),
-              child: Hero(
-                tag: 'app_logo',
-                child: Image.asset(
-                  'assets/images/zuwad.png',
-                  height: 40,
-                  width: 40,
-                ),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(50), // Adjusted height
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color.fromARGB(
+                    255, 255, 255, 255), // Warm cream white (Matching Nav Bar)
+                Color.fromARGB(
+                    255, 234, 234, 234), // Subtle gold tint (Matching Nav Bar)
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Color.fromARGB(85, 0, 0, 0),
+                blurRadius: 10,
+                offset: Offset(0, 6),
+              ),
+            ],
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(20),
+              bottomRight: Radius.circular(20),
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Center: Title
+                  Text(
+                    _navItems[_currentIndex]['label'] as String,
+                    style: const TextStyle(
+                      // Title Style
+                      fontFamily: 'Qatar',
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+
+                  // Left: Student Avatar
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: BlocBuilder<AuthBloc, AuthState>(
+                      builder: (context, state) {
+                        String? imageUrl;
+                        if (state is AuthAuthenticated &&
+                            state.student != null) {
+                          imageUrl = state.student!.profileImageUrl;
+                        }
+                        return Container(
+                          // Avatar Container
+                          width: 40, // Smaller as requested
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFFD4AF37),
+                              width: 2,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x26D4AF37),
+                                blurRadius: 4,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          child: ClipOval(
+                            child: imageUrl != null && imageUrl.isNotEmpty
+                                ? Image.network(
+                                    imageUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: const Color(0xFFF5F5F5),
+                                      child: const Icon(
+                                        Icons.person,
+                                        color: AppTheme.primaryColor,
+                                        size: 24,
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    color: const Color(0xFFF5F5F5),
+                                    child: const Icon(
+                                      Icons.person,
+                                      color: AppTheme.primaryColor,
+                                      size: 24,
+                                    ),
+                                  ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  // Right: Page Icon
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Icon(
+                      // Page Icon
+                      _navItems[_currentIndex]['icon'] as IconData,
+                      color:
+                          Colors.black.withOpacity(0.30), // Black 30% opacity
+                      size: 28,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
-            const Text('أكاديمية زواد'),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              context.read<AuthBloc>().add(LogoutEvent());
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) => const LoginPage(),
-                ),
-              );
-            },
           ),
-        ],
+        ),
       ),
       body: _pages[_currentIndex],
       extendBody: true,
+      extendBodyBehindAppBar: true, // Allow body to show behind rounded corners
       bottomNavigationBar: _buildIslamicModernNavBar(),
     );
   }
@@ -1365,6 +1457,9 @@ class _DashboardContentState extends State<_DashboardContent> {
   Widget build(BuildContext context) {
     // Calculate bottom padding to account for the nav bar
     final bottomPadding = MediaQuery.of(context).padding.bottom + 80.0;
+    // Calculate top padding for header
+    final topPadding =
+        MediaQuery.of(context).padding.top + 20.0; // Header height + spacing
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -1378,7 +1473,8 @@ class _DashboardContentState extends State<_DashboardContent> {
               final student = state.student!;
 
               return SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, bottomPadding),
+                padding:
+                    EdgeInsets.fromLTRB(16.0, topPadding, 16.0, bottomPadding),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
