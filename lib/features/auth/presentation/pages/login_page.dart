@@ -21,7 +21,7 @@ class _LoginPageState extends State<LoginPage> {
 
   // Custom maroon color from design
   static const Color bgColor = Color(0xFF7D0D21);
-  static const Color goldColor = Color(0xFFD4A940);
+  static const Color goldColor = Color(0xFFF7BF00);
 
   @override
   void dispose() {
@@ -161,7 +161,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 children: const [
                   TextSpan(
-                    text: 'أنت على ',
+                    text: 'أنت على بعد ',
                     style: TextStyle(color: Colors.black),
                   ),
                   TextSpan(
@@ -172,11 +172,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   TextSpan(
-                    text: ' من\n',
-                    style: TextStyle(color: Colors.black),
-                  ),
-                  TextSpan(
-                    text: 'رحلتك مع القرآن الكريم',
+                    text: ' \n من رحلتك مع أكاديمية زوّاد',
                     style: TextStyle(color: Colors.black),
                   ),
                 ],
@@ -197,10 +193,10 @@ class _LoginPageState extends State<LoginPage> {
                   constraints: const BoxConstraints(maxWidth: 450),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
+                        color: Colors.black.withValues(alpha: 0.50),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),
@@ -214,15 +210,29 @@ class _LoginPageState extends State<LoginPage> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Title
-                          const Center(
-                            child: Text(
-                              'تسجيل دخول',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: bgColor,
-                              ),
+                          // Title with underline
+                          Center(
+                            child: Column(
+                              children: [
+                                const Text(
+                                  'تسجيل الدخول',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontFamily: 'Qatar',
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  width: 140,
+                                  height: 1,
+                                  decoration: BoxDecoration(
+                                    color: const Color.fromARGB(255, 0, 0, 0),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 18),
@@ -282,7 +292,7 @@ class _LoginPageState extends State<LoginPage> {
 
                           // Login Button
                           SizedBox(
-                            height: 44,
+                            height: 50,
                             child: ElevatedButton(
                               onPressed: state is AuthLoading
                                   ? null
@@ -318,8 +328,10 @@ class _LoginPageState extends State<LoginPage> {
                                   : const Text(
                                       'تسجيل الدخول',
                                       style: TextStyle(
-                                        fontSize: 15,
+                                        fontSize: 16,
+                                        fontFamily: 'Qatar',
                                         fontWeight: FontWeight.bold,
+                                        color: Colors.black,
                                       ),
                                     ),
                             ),
@@ -360,43 +372,53 @@ class _LoginPageState extends State<LoginPage> {
     bool obscureText = false,
     Widget? suffixIcon,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        obscureText: obscureText,
-        textDirection: TextDirection.rtl,
-        textAlign: TextAlign.right,
-        style: const TextStyle(fontSize: 14),
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: TextStyle(
-            color: Colors.grey[500],
-            fontSize: 13,
-          ),
-          suffixIcon: Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: Icon(icon, color: bgColor, size: 18),
-          ),
-          prefixIcon: suffixIcon,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 18,
-            vertical: 12,
-          ),
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      obscureText: obscureText,
+      textDirection: TextDirection.rtl,
+      textAlign: TextAlign.right,
+      style: const TextStyle(fontSize: 14),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: TextStyle(
+          color: Colors.grey[500],
+          fontSize: 13,
         ),
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return 'هذا الحقل مطلوب';
-          }
-          return null;
-        },
+        suffixIcon: Padding(
+          padding: const EdgeInsets.only(right: 14),
+          child: Icon(icon, color: bgColor, size: 18),
+        ),
+        prefixIcon: suffixIcon,
+        filled: true,
+        fillColor: Colors.grey[100],
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.black),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.red),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 14,
+        ),
       ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'هذا الحقل مطلوب';
+        }
+        return null;
+      },
     );
   }
 }
