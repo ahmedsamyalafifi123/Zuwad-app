@@ -35,17 +35,16 @@ class _LoginPageState extends State<LoginPage> {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     // ========== EASY CONTROLS ==========
     // Phone bg_top settings
-    const double phoneBgTopPosition =
-        0; // Move up (negative) or down (positive)
-    const double phoneBgTopHeight = 0.50; // Percentage of screen (0.50 = 50%)
+    const double phoneBgTopPosition = 0;
+    const double phoneBgTopHeight = 0.65;
 
     // Tablet bg_top settings
-    const double tabletBgTopPosition =
-        -50; // Move up (negative) or down (positive)
-    const double tabletBgTopHeight = 0.65; // Percentage of screen (0.65 = 65%)
+    const double tabletBgTopPosition = 0;
+    const double tabletBgTopHeight = 0.85;
     // ====================================
 
     // Apply settings based on device
@@ -54,9 +53,15 @@ class _LoginPageState extends State<LoginPage> {
 
     // Responsive values
     final isSmallScreen = screenHeight < 700;
+
+    // Kid image height - separate for phone and tablet
+    final double phoneKidHeight =
+        isSmallScreen ? screenHeight * 0.22 : screenHeight * 0.28;
+    const double tabletKidHeightPercent = 0.50;
     final kidImageHeight =
-        isSmallScreen ? screenHeight * 0.25 : screenHeight * 0.30;
-    final cardTopPadding = isSmallScreen ? 30.0 : 40.0;
+        isTablet ? screenHeight * tabletKidHeightPercent : phoneKidHeight;
+
+    final cardTopPadding = isSmallScreen ? 25.0 : 35.0;
     final horizontalPadding = isTablet ? screenWidth * 0.15 : 24.0;
 
     return Scaffold(
@@ -98,246 +103,19 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
 
-                  // Main scrollable content
+                  // Main content
                   SafeArea(
-                    child: SingleChildScrollView(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight:
-                              screenHeight - MediaQuery.of(context).padding.top,
-                        ),
-                        child: Center(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: horizontalPadding),
-                            child: Column(
-                              children: [
-                                // Top spacing
-                                SizedBox(height: screenHeight * 0.04),
-
-                                // Arabic text at top
-                                RichText(
-                                  textAlign: TextAlign.center,
-                                  text: TextSpan(
-                                    style: TextStyle(
-                                      fontSize: isSmallScreen ? 18 : 22,
-                                      fontFamily: 'Cairo',
-                                      height: 1.4,
-                                    ),
-                                    children: const [
-                                      TextSpan(
-                                        text: 'أنت على ',
-                                        style: TextStyle(color: Colors.black),
-                                      ),
-                                      TextSpan(
-                                        text: 'خطوات قليلة',
-                                        style: TextStyle(color: bgColor),
-                                      ),
-                                      TextSpan(
-                                        text: ' من\n',
-                                        style: TextStyle(color: Colors.black),
-                                      ),
-                                      TextSpan(
-                                        text: 'رحلتك مع القرآن الكريم',
-                                        style: TextStyle(color: Colors.black),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                SizedBox(height: isSmallScreen ? 10 : 20),
-
-                                // Login card with kid image overlapping
-                                Stack(
-                                  clipBehavior: Clip.none,
-                                  alignment: Alignment.topCenter,
-                                  children: [
-                                    // White login card
-                                    Container(
-                                      margin: EdgeInsets.only(
-                                          top: kidImageHeight - 5),
-                                      width: double.infinity,
-                                      constraints:
-                                          const BoxConstraints(maxWidth: 450),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(30),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color:
-                                                Colors.black.withOpacity(0.15),
-                                            blurRadius: 20,
-                                            offset: const Offset(0, 10),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Padding(
-                                        padding: EdgeInsets.fromLTRB(
-                                            24, cardTopPadding, 24, 32),
-                                        child: Form(
-                                          key: _formKey,
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
-                                            children: [
-                                              // Title
-                                              const Center(
-                                                child: Text(
-                                                  'تسجيل دخول',
-                                                  style: TextStyle(
-                                                    fontSize: 24,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: bgColor,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 24),
-
-                                              // Phone Field
-                                              _buildTextField(
-                                                controller: _phoneController,
-                                                hintText: 'رقم الهاتف',
-                                                icon: Icons.phone,
-                                                keyboardType:
-                                                    TextInputType.phone,
-                                              ),
-                                              const SizedBox(height: 14),
-
-                                              // Password Field
-                                              _buildTextField(
-                                                controller: _passwordController,
-                                                hintText: 'كلمة المرور',
-                                                icon: Icons.lock,
-                                                obscureText: _obscurePassword,
-                                                suffixIcon: IconButton(
-                                                  icon: Icon(
-                                                    _obscurePassword
-                                                        ? Icons.visibility
-                                                        : Icons.visibility_off,
-                                                    color: Colors.grey,
-                                                  ),
-                                                  onPressed: () {
-                                                    setState(() {
-                                                      _obscurePassword =
-                                                          !_obscurePassword;
-                                                    });
-                                                  },
-                                                ),
-                                              ),
-                                              const SizedBox(height: 10),
-
-                                              // Forgot Password
-                                              Align(
-                                                alignment:
-                                                    Alignment.centerRight,
-                                                child: TextButton(
-                                                  onPressed: () {
-                                                    // Implement forgot password functionality
-                                                  },
-                                                  style: TextButton.styleFrom(
-                                                    padding: EdgeInsets.zero,
-                                                    minimumSize: Size.zero,
-                                                    tapTargetSize:
-                                                        MaterialTapTargetSize
-                                                            .shrinkWrap,
-                                                  ),
-                                                  child: const Text(
-                                                    'نسيت كلمة المرور',
-                                                    style: TextStyle(
-                                                      color: bgColor,
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 20),
-
-                                              // Login Button
-                                              SizedBox(
-                                                height: 48,
-                                                child: ElevatedButton(
-                                                  onPressed:
-                                                      state is AuthLoading
-                                                          ? null
-                                                          : () {
-                                                              if (_formKey
-                                                                  .currentState!
-                                                                  .validate()) {
-                                                                context
-                                                                    .read<
-                                                                        AuthBloc>()
-                                                                    .add(
-                                                                      LoginWithPhoneEvent(
-                                                                        phone: _phoneController
-                                                                            .text
-                                                                            .trim(),
-                                                                        password:
-                                                                            _passwordController.text,
-                                                                      ),
-                                                                    );
-                                                              }
-                                                            },
-                                                  style:
-                                                      ElevatedButton.styleFrom(
-                                                    backgroundColor: goldColor,
-                                                    foregroundColor:
-                                                        Colors.white,
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              25),
-                                                    ),
-                                                    elevation: 0,
-                                                  ),
-                                                  child: state is AuthLoading
-                                                      ? const SizedBox(
-                                                          width: 22,
-                                                          height: 22,
-                                                          child:
-                                                              CircularProgressIndicator(
-                                                            color: Colors.white,
-                                                            strokeWidth: 2,
-                                                          ),
-                                                        )
-                                                      : const Text(
-                                                          'تسجيل الدخول',
-                                                          style: TextStyle(
-                                                            fontSize: 16,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-
-                                    // Kid image - positioned above the card
-                                    Positioned(
-                                      top: 5,
-                                      child: Image.asset(
-                                        'assets/images/kid.webp',
-                                        height: kidImageHeight,
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                // Bottom spacing
-                                const SizedBox(height: 30),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                    child: _buildContent(
+                      context: context,
+                      state: state,
+                      screenHeight: screenHeight,
+                      screenWidth: screenWidth,
+                      isSmallScreen: isSmallScreen,
+                      isTablet: isTablet,
+                      keyboardOpen: keyboardOpen,
+                      kidImageHeight: kidImageHeight,
+                      cardTopPadding: cardTopPadding,
+                      horizontalPadding: horizontalPadding,
                     ),
                   ),
                 ],
@@ -346,6 +124,227 @@ class _LoginPageState extends State<LoginPage> {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildContent({
+    required BuildContext context,
+    required AuthState state,
+    required double screenHeight,
+    required double screenWidth,
+    required bool isSmallScreen,
+    required bool isTablet,
+    required bool keyboardOpen,
+    required double kidImageHeight,
+    required double cardTopPadding,
+    required double horizontalPadding,
+  }) {
+    Widget content = Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+        child: Column(
+          mainAxisSize: keyboardOpen ? MainAxisSize.min : MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            // Top spacing - smaller when not scrolling
+            SizedBox(height: keyboardOpen ? 10 : screenHeight * 0.02),
+
+            // Arabic text at top
+            RichText(
+              textAlign: TextAlign.center,
+              text: TextSpan(
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 16 : 20,
+                  fontFamily: 'Cairo',
+                  height: 1.3,
+                ),
+                children: const [
+                  TextSpan(
+                    text: 'أنت على ',
+                    style: TextStyle(color: Colors.black),
+                  ),
+                  TextSpan(
+                    text: 'خطوات قليلة',
+                    style: TextStyle(color: bgColor),
+                  ),
+                  TextSpan(
+                    text: ' من\n',
+                    style: TextStyle(color: Colors.black),
+                  ),
+                  TextSpan(
+                    text: 'رحلتك مع القرآن الكريم',
+                    style: TextStyle(color: Colors.black),
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: isSmallScreen ? 5 : 10),
+
+            // Login card with kid image overlapping
+            Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.topCenter,
+              children: [
+                // White login card
+                Container(
+                  margin: EdgeInsets.only(top: kidImageHeight - 5),
+                  width: double.infinity,
+                  constraints: const BoxConstraints(maxWidth: 450),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(24, cardTopPadding, 24, 24),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Title
+                          const Center(
+                            child: Text(
+                              'تسجيل دخول',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: bgColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Phone Field
+                          _buildTextField(
+                            controller: _phoneController,
+                            hintText: 'رقم الهاتف',
+                            icon: Icons.phone,
+                            keyboardType: TextInputType.phone,
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Password Field
+                          _buildTextField(
+                            controller: _passwordController,
+                            hintText: 'كلمة المرور',
+                            icon: Icons.lock,
+                            obscureText: _obscurePassword,
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                                color: Colors.grey,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Forgot Password
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () {},
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: const Text(
+                                'نسيت كلمة المرور',
+                                style: TextStyle(
+                                  color: bgColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Login Button
+                          SizedBox(
+                            height: 44,
+                            child: ElevatedButton(
+                              onPressed: state is AuthLoading
+                                  ? null
+                                  : () {
+                                      if (_formKey.currentState!.validate()) {
+                                        context.read<AuthBloc>().add(
+                                              LoginWithPhoneEvent(
+                                                phone: _phoneController.text
+                                                    .trim(),
+                                                password:
+                                                    _passwordController.text,
+                                              ),
+                                            );
+                                      }
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: goldColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(22),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: state is AuthLoading
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'تسجيل الدخول',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Kid image - positioned above the card
+                Positioned(
+                  top: 5,
+                  child: Image.asset(
+                    'assets/images/kid.webp',
+                    height: kidImageHeight,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Always allow scrolling when content overflows
+    return SingleChildScrollView(
+      child: content,
     );
   }
 
@@ -369,22 +368,22 @@ class _LoginPageState extends State<LoginPage> {
         obscureText: obscureText,
         textDirection: TextDirection.rtl,
         textAlign: TextAlign.right,
-        style: const TextStyle(fontSize: 15),
+        style: const TextStyle(fontSize: 14),
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: TextStyle(
             color: Colors.grey[500],
-            fontSize: 14,
+            fontSize: 13,
           ),
           suffixIcon: Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Icon(icon, color: bgColor, size: 20),
+            padding: const EdgeInsets.only(right: 14),
+            child: Icon(icon, color: bgColor, size: 18),
           ),
           prefixIcon: suffixIcon,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 14,
+            horizontal: 18,
+            vertical: 12,
           ),
         ),
         validator: (value) {
