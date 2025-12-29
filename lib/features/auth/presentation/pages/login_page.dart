@@ -155,7 +155,8 @@ class _LoginPageState extends State<LoginPage> {
               text: TextSpan(
                 style: TextStyle(
                   fontSize: isSmallScreen ? 16 : 20,
-                  fontFamily: 'Cairo',
+                  fontFamily: 'Qatar',
+                  fontWeight: FontWeight.w500,
                   height: 1.3,
                 ),
                 children: const [
@@ -165,7 +166,10 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   TextSpan(
                     text: 'خطوات قليلة',
-                    style: TextStyle(color: bgColor),
+                    style: TextStyle(
+                      color: bgColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   TextSpan(
                     text: ' من\n',
