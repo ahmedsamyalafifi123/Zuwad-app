@@ -819,290 +819,302 @@ class _DashboardContentState extends State<_DashboardContent> {
     if (_nextLesson == null) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x1A000000), // 0.1 opacity black
+              color: Color(0x1A000000),
               blurRadius: 10,
               offset: Offset(0, 4),
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Text(
-                  'الدرس القادم',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.refresh, color: Color(0xFFf6c302)),
-                  onPressed: () {
-                    setState(() => _isLoading = true);
-                    _loadNextLesson(forceRefresh: true);
-                  },
-                  tooltip: 'تحديث الجدول',
-                ),
-              ],
+        child: const Center(
+          child: Text(
+            'لا يوجد دروس مجدولة',
+            style: TextStyle(
+              fontFamily: 'Qatar',
+              fontSize: 16,
+              color: Colors.grey,
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'لا يوجد دروس مجدولة',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
-            ),
-          ],
+          ),
         ),
       );
     }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1A000000), // 0.1 opacity black
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.event_available,
-                color: AppTheme.primaryColor,
-                size: 24,
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'الدرس القادم',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.refresh, color: Color(0xFFf6c302)),
-                onPressed: () {
-                  setState(() => _isLoading = true);
-                  _loadNextLesson(forceRefresh: true);
-                },
-                tooltip: 'تحديث الجدول',
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.secondaryColor,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  _lessonName,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
+    // Determine if user can join the lesson
+    int lessonDuration = 30;
+    if (_nextSchedule != null && _nextSchedule!.lessonDuration.isNotEmpty) {
+      lessonDuration =
+          int.tryParse(_nextSchedule!.lessonDuration) ?? lessonDuration;
+    }
+    bool canJoin = false;
+    if (_timeUntilNextLesson != null) {
+      final minutesUntilStart = _timeUntilNextLesson!.inMinutes;
+      final minutesAfterStart = -minutesUntilStart;
+      if (minutesUntilStart <= 15 && minutesAfterStart <= lessonDuration) {
+        canJoin = true;
+      }
+    }
+    final canPostpone = !canJoin;
+
+    // Get screen size for responsive design
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final isMediumScreen = screenWidth >= 360 && screenWidth < 400;
+
+    // Responsive sizes
+    final containerPadding = isSmallScreen ? 12.0 : 16.0;
+    final avatarRadius = isSmallScreen ? 16.0 : 20.0;
+    final avatarIconSize = isSmallScreen ? 20.0 : 24.0;
+    final subjectFontSize = isSmallScreen ? 14.0 : 16.0;
+    final dayFontSize = isSmallScreen ? 14.0 : 16.0;
+    final timeFontSize = isSmallScreen ? 12.0 : 14.0;
+    final teacherLabelSize = isSmallScreen ? 10.0 : 11.0;
+    final teacherNameSize = isSmallScreen ? 11.0 : 13.0;
+    final buttonFontSize = isSmallScreen ? 12.0 : 14.0;
+    final buttonPaddingH = isSmallScreen ? 14.0 : 20.0;
+    final buttonPaddingV = isSmallScreen ? 8.0 : 10.0;
+
+    return Column(
+      children: [
+        // Gradient box with lesson info (like bottom nav bar)
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(containerPadding),
+          decoration: BoxDecoration(
+            // Gradient background like bottom nav bar
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color.fromARGB(255, 255, 255, 255), // Warm cream white
+                Color.fromARGB(255, 230, 230, 230), // Subtle gold tint
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: const [
+              BoxShadow(
+                color: Color.fromARGB(140, 0, 0, 0),
+                blurRadius: 10,
+                offset: Offset(0, 4),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0x0D8B0628), // 0.05 opacity primary
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0x338B0628), // 0.2 opacity primary
-                width: 1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.calendar_today,
-                      color: AppTheme.primaryColor,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _nextLesson!.day,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    const Icon(
-                      Icons.access_time,
-                      color: AppTheme.primaryColor,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _nextLesson!.hour,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.person,
-                      color: AppTheme.primaryColor,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'المعلم:',
+          child: Column(
+            children: [
+              // Main row: Subject (right) | Avatar+Teacher (center) | Day+Time (left)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Right: Subject name
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      _lessonName,
                       style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _teacherName,
-                      style: const TextStyle(
-                        fontSize: 14,
+                        fontFamily: 'Qatar',
+                        fontSize: subjectFontSize,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: Colors.black,
                       ),
+                      textAlign: TextAlign.right,
                     ),
-                  ],
-                ),
-                if (_nextSchedule != null) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.timelapse,
-                        color: AppTheme.primaryColor,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'المدة:',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
+                  ),
+                  // Center: Avatar + المعلم + Teacher name (in a row)
+                  Expanded(
+                    flex: 3,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: avatarRadius,
+                          backgroundColor:
+                              const Color.fromARGB(255, 230, 230, 230),
+                          child: Icon(
+                            Icons.person,
+                            size: avatarIconSize,
+                            color: AppTheme.primaryColor,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      BlocBuilder<AuthBloc, AuthState>(
-                        builder: (context, state) {
-                          if (state is AuthAuthenticated &&
-                              state.student != null) {
-                            return Text(
-                              '${state.student!.lessonDuration} دقيقة',
-                              style: const TextStyle(
-                                fontSize: 14,
+                        const SizedBox(width: 6),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'المعلم',
+                              style: TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: teacherLabelSize,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            Text(
+                              _teacherName,
+                              style: TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: teacherNameSize,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
                               ),
-                            );
-                          }
-                          return const Text(
-                            '-- دقيقة',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
                             ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (_timeUntilNextLesson != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0x1AF6C302), // 0.1 opacity secondary
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text(
-                    'الوقت المتبقي للدرس',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildCountdownItem(
-                        _timeUntilNextLesson!.inDays,
-                        'يوم',
-                      ),
-                      _buildCountdownSeparator(),
-                      _buildCountdownItem(
-                        _timeUntilNextLesson!.inHours % 24,
-                        'ساعة',
-                      ),
-                      _buildCountdownSeparator(),
-                      _buildCountdownItem(
-                        _timeUntilNextLesson!.inMinutes % 60,
-                        'دقيقة',
-                      ),
-                      _buildCountdownSeparator(),
-                      _buildCountdownItem(
-                        _timeUntilNextLesson!.inSeconds % 60,
-                        'ثانية',
-                      ),
-                    ],
+                  // Left: Day + Time - pushed to the far left
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment:
+                          CrossAxisAlignment.end, // Push to far left in RTL
+                      children: [
+                        Text(
+                          _nextLesson!.day,
+                          style: TextStyle(
+                            fontFamily: 'Qatar',
+                            fontSize: dayFontSize,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 2), // Reduced spacing
+                        Text(
+                          _nextLesson!.hour,
+                          style: TextStyle(
+                            fontFamily: 'Qatar',
+                            fontSize: timeFontSize,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  _buildJoinLessonButton(),
                 ],
+              ),
+              // Countdown section
+              if (_timeUntilNextLesson != null) ...[
+                SizedBox(height: isSmallScreen ? 12 : 16),
+                Text(
+                  'الوقت المتبقي للدرس',
+                  style: TextStyle(
+                    fontFamily: 'Qatar',
+                    fontSize: isSmallScreen ? 12 : 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildCountdownItem(_timeUntilNextLesson!.inDays, 'يوم'),
+                    _buildCountdownSeparator(),
+                    _buildCountdownItem(
+                        _timeUntilNextLesson!.inHours % 24, 'ساعة'),
+                    _buildCountdownSeparator(),
+                    _buildCountdownItem(
+                        _timeUntilNextLesson!.inMinutes % 60, 'دقيقة'),
+                    _buildCountdownSeparator(),
+                    _buildCountdownItem(
+                        _timeUntilNextLesson!.inSeconds % 60, 'ثانية'),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+        // Buttons below the box - smaller and aligned to right side
+        SizedBox(height: isSmallScreen ? 8 : 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.start, // Start = right in RTL
+          children: [
+            // إنضم للدرس button - green gradient when can join, light yellow when can't
+            Container(
+              decoration: BoxDecoration(
+                gradient: canJoin
+                    ? const LinearGradient(
+                        colors: [
+                          Color.fromARGB(255, 157, 231, 161), // Light green
+                          Color.fromARGB(255, 85, 194, 88), // Green
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      )
+                    : const LinearGradient(
+                        colors: [
+                          Color.fromARGB(255, 253, 247, 89), // Light yellow
+                          Color.fromARGB(255, 240, 191, 12) // Lighter yellow
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: ElevatedButton(
+                onPressed: canJoin ? _joinLesson : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.black,
+                  disabledForegroundColor: Colors.black,
+                  padding: EdgeInsets.symmetric(
+                      vertical: buttonPaddingV, horizontal: buttonPaddingH),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(
+                  'إنضم للدرس',
+                  style: TextStyle(
+                    fontFamily: 'Qatar',
+                    fontSize: buttonFontSize,
+                    fontWeight: FontWeight.bold,
+                    color: canJoin ? Colors.white : Colors.black,
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: isSmallScreen ? 6 : 10),
+            // تأجيل الدرس (white border only) - smaller button
+            OutlinedButton(
+              onPressed: canPostpone ? _openPostponePage : null,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: BorderSide(
+                  color: canPostpone
+                      ? Colors.white
+                      : const Color.fromARGB(255, 117, 117, 117)!,
+                  width: 1.5,
+                ),
+                padding: EdgeInsets.symmetric(
+                    vertical: buttonPaddingV, horizontal: buttonPaddingH),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                'تأجيل الدرس',
+                style: TextStyle(
+                  fontFamily: 'Qatar',
+                  fontSize: buttonFontSize,
+                  fontWeight: FontWeight.bold,
+                  color: canPostpone ? Colors.white : Colors.grey[600],
+                ),
               ),
             ),
           ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1146,78 +1158,6 @@ class _DashboardContentState extends State<_DashboardContent> {
           color: AppTheme.primaryColor,
         ),
       ),
-    );
-  }
-
-  Widget _buildJoinLessonButton() {
-    // Determine lesson duration in minutes
-    int lessonDuration = 30; // fallback
-    if (_nextSchedule != null && _nextSchedule!.lessonDuration.isNotEmpty) {
-      lessonDuration =
-          int.tryParse(_nextSchedule!.lessonDuration) ?? lessonDuration;
-    }
-
-    // Compute canJoin: active from 15 minutes before start until lesson end
-    bool canJoin = false;
-    if (_timeUntilNextLesson != null) {
-      final minutesUntilStart = _timeUntilNextLesson!.inMinutes;
-      final minutesAfterStart = -minutesUntilStart; // negative if past start
-
-      if (minutesUntilStart <= 15 && minutesAfterStart <= lessonDuration) {
-        canJoin = true;
-      }
-    }
-
-    // postpone button enabled only when join is disabled
-    final canPostpone = !canJoin;
-
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton(
-            onPressed: canPostpone ? _openPostponePage : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: canPostpone ? Colors.white : Colors.grey[300],
-              foregroundColor:
-                  canPostpone ? AppTheme.primaryColor : Colors.grey[400],
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              elevation: canPostpone ? 2 : 0,
-            ),
-            child: const Text('تأجيل الحصة',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: canJoin ? _joinLesson : null,
-            icon: Icon(
-              Icons.video_call,
-              size: 20,
-              color: canJoin ? Colors.white : Colors.grey[400],
-            ),
-            label: Text(
-              'دخول الدرس',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: canJoin ? Colors.white : Colors.grey[400],
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  canJoin ? const Color(0xFFf6c302) : Colors.grey[300],
-              foregroundColor: canJoin ? Colors.white : Colors.grey[400],
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              elevation: canJoin ? 4 : 0,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
