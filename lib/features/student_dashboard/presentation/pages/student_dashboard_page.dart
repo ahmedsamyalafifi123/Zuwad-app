@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Add this import
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lottie/lottie.dart';
 import 'dart:async';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/loading_widget.dart';
@@ -1545,6 +1546,22 @@ class _DashboardContentState extends State<_DashboardContent> {
                       ),
                     ),
 
+                    // Quick Action Buttons Section
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        // First button - الدروس القادمة
+                        _buildQuickActionButton(
+                          imagePath: 'assets/images/lottie.json',
+                          label: 'الدروس القادمة',
+                          onTap: () {
+                            // TODO: Navigate to upcoming lessons
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
                     // Next Lesson Section
                     _buildNextLessonSection(),
 
@@ -1858,6 +1875,104 @@ class _DashboardContentState extends State<_DashboardContent> {
               Icons.arrow_forward_ios,
               size: 16,
               color: Colors.grey,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActionButton({
+    required String imagePath,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 110,
+        height: 100,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // White card - positioned in the middle
+            Positioned(
+              top: 35, // Half of image height (70/2) to leave space for image
+              left: 0,
+              right: 0,
+              bottom:
+                  20, // Half of yellow pill height (35/2) to leave space for pill
+              child: Container(
+                decoration: BoxDecoration(
+                  // Gradient background matching bottom nav bar
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color.fromARGB(255, 255, 255, 255), // Warm cream white
+                      Color.fromARGB(255, 234, 234, 234), // Subtle gray tint
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Lottie animation at TOP - half outside, half inside white card
+            Positioned(
+              top: -12,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Lottie.asset(
+                  imagePath,
+                  width: 100,
+                  height: 100,
+                  fit: BoxFit.contain,
+                  repeat: true, // Run continuously
+                ),
+              ),
+            ),
+            // Yellow pill at BOTTOM - half inside, half outside white card
+            Positioned(
+              bottom: 8,
+              left: 12,
+              right: 12,
+              child: Container(
+                height: 25,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFf6c302), // Yellow background
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color:
+                          const Color.fromARGB(135, 0, 0, 0).withOpacity(0.2),
+                      blurRadius: 5,
+                      spreadRadius: 3,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'Qatar',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),

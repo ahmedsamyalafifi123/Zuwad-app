@@ -122,6 +122,8 @@ flutter:
     - assets/images/
     - assets/animations/
     - assets/images/chat_bg.png
+    - assets/images/book.webp
+    - assets/images/lottie.json
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
