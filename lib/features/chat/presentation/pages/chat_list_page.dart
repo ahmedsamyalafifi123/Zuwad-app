@@ -229,7 +229,8 @@ class _ChatListPageState extends State<ChatListPage> {
     }
 
     return ListView(
-      padding: const EdgeInsets.all(16.0),
+      padding: EdgeInsets.fromLTRB(
+          16.0, MediaQuery.of(context).padding.top + 20.0, 16.0, 16.0),
       children: [
         const Text(
           'المحادثات',

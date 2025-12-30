@@ -1483,15 +1483,40 @@ class _DashboardContentState extends State<_DashboardContent> {
                       padding: const EdgeInsets.only(bottom: 20.0),
                       child: Row(
                         children: [
-                          CircleAvatar(
-                              radius: 30,
-                              backgroundColor:
-                                  const Color(0x33FFFFFF), // 0.2 opacity white
-                              child: const Icon(
-                                Icons.person,
-                                size: 40,
-                                color: Colors.white,
-                              )),
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.black,
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 1,
+                                  spreadRadius: 2,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: CircleAvatar(
+                                radius: 30,
+                                backgroundColor: const Color(
+                                    0x33FFFFFF), // 0.2 opacity white
+                                backgroundImage:
+                                    student.profileImageUrl != null &&
+                                            student.profileImageUrl!.isNotEmpty
+                                        ? NetworkImage(student.profileImageUrl!)
+                                        : null,
+                                child: student.profileImageUrl == null ||
+                                        student.profileImageUrl!.isEmpty
+                                    ? const Icon(
+                                        Icons.person,
+                                        size: 40,
+                                        color: Colors.white,
+                                      )
+                                    : null),
+                          ),
                           const SizedBox(width: 16),
                           Expanded(
                             child: Column(
