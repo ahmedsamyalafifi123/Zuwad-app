@@ -999,31 +999,83 @@ class _DashboardContentState extends State<_DashboardContent> {
               ),
               // Countdown section
               if (_timeUntilNextLesson != null) ...[
-                SizedBox(height: isSmallScreen ? 12 : 16),
-                Text(
-                  'الوقت المتبقي للدرس',
-                  style: TextStyle(
-                    fontFamily: 'Qatar',
-                    fontSize: isSmallScreen ? 12 : 14,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 60,
+                  child: Stack(
+                    alignment: Alignment.centerRight,
+                    children: [
+                      // Background Text Layer
+                      Transform.translate(
+                        offset:
+                            const Offset(0, -2), // Slight vertical adjustment
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Text(
+                              'الوقــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــت', // Extended line
+                              style: TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black,
+                                height: 1.0,
+                                letterSpacing:
+                                    0.3, // Tighten slightly to connect
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.visible,
+                            ),
+                            SizedBox(
+                                height:
+                                    8), // Space between lines to match boxes
+                            Text(
+                              'المتبقــــــــــــــــــــــــــــــــــــــــــــــــــــــــــي', // Extended line
+                              style: TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black,
+                                height: 1.0,
+                                letterSpacing: 0.3,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.visible,
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Foreground Countdown Layer
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          // Padding to avoid covering the words "الوقت/المتبقي"
+                          // Adjust this width based on the visual length of "الوقـ/المتبقـ"
+                          const SizedBox(width: 50),
+
+                          // Days (shown if > 0)
+                          if (_timeUntilNextLesson!.inDays > 0) ...[
+                            _buildCountdownItem(
+                                _timeUntilNextLesson!.inDays, 'يوم'),
+                            const SizedBox(width: 8),
+                          ],
+                          // Hours
+                          _buildCountdownItem(
+                              _timeUntilNextLesson!.inHours % 24, 'ساعة'),
+                          const SizedBox(width: 8),
+                          // Minutes
+                          _buildCountdownItem(
+                              _timeUntilNextLesson!.inMinutes % 60, 'دقيقة'),
+                          const SizedBox(width: 8),
+                          // Seconds
+                          _buildCountdownItem(
+                              _timeUntilNextLesson!.inSeconds % 60, 'ثانية'),
+                        ],
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildCountdownItem(_timeUntilNextLesson!.inDays, 'يوم'),
-                    _buildCountdownSeparator(),
-                    _buildCountdownItem(
-                        _timeUntilNextLesson!.inHours % 24, 'ساعة'),
-                    _buildCountdownSeparator(),
-                    _buildCountdownItem(
-                        _timeUntilNextLesson!.inMinutes % 60, 'دقيقة'),
-                    _buildCountdownSeparator(),
-                    _buildCountdownItem(
-                        _timeUntilNextLesson!.inSeconds % 60, 'ثانية'),
-                  ],
                 ),
               ],
             ],
@@ -1120,43 +1172,44 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   Widget _buildCountdownItem(int value, String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      width: 40, // Fixed width for consistency
+      padding: const EdgeInsets.symmetric(
+          vertical: 10), // horizontal padding removed as width is fixed
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor,
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             value.toString().padLeft(2, '0'),
             style: const TextStyle(
-              fontSize: 18,
+              fontFamily: 'Qatar',
+              fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: Colors.black,
+              height: 1.0, // Reduced line height
             ),
           ),
           Text(
             label,
             style: const TextStyle(
+              fontFamily: 'Qatar',
               fontSize: 10,
-              color: Colors.white70,
+              fontWeight: FontWeight.w500,
+              color: Colors.black,
+              height: 1.2,
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCountdownSeparator() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 4),
-      child: Text(
-        ':',
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: AppTheme.primaryColor,
-        ),
       ),
     );
   }
