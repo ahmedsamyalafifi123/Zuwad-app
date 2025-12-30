@@ -417,6 +417,8 @@ class _DashboardContentState extends State<_DashboardContent> {
   final ReportRepository _reportRepository = ReportRepository();
   StudentSchedule? _nextSchedule;
   Schedule? _nextLesson;
+  DateTime?
+      _nextLessonDateTime; // Store the actual calculated date for countdown
   String _teacherName = '';
   String _lessonName = '';
   bool _isLoading = true;
@@ -622,29 +624,50 @@ class _DashboardContentState extends State<_DashboardContent> {
           }
         }
 
-        lessonDateTime = DateTime(
-          now.year,
-          now.month,
-          now.day + daysUntil,
-          lessonTime.hour,
-          lessonTime.minute,
-        );
+        // FIX: Iterate through future weeks to find a slot without a report
+        // Check up to 8 weeks ahead (should be enough to find an available slot)
+        final regularLessonTimeStr = _normalizeTimeForComparison(schedule.hour);
+        bool foundSlot = false;
 
-        // Calculate the date string for comparison with reports
-        lessonDateStr =
-            '${lessonDateTime.year}-${lessonDateTime.month.toString().padLeft(2, '0')}-${lessonDateTime.day.toString().padLeft(2, '0')}';
-      }
+        for (int weekOffset = 0; weekOffset < 8; weekOffset++) {
+          final candidateDateTime = DateTime(
+            now.year,
+            now.month,
+            now.day + daysUntil + (weekOffset * 7),
+            lessonTime.hour,
+            lessonTime.minute,
+          );
 
-      // Check if this lesson date+time already has a report
-      // For regular schedules, check against reportDateTimes
-      final regularLessonTimeStr = _normalizeTimeForComparison(schedule.hour);
-      final regularLessonKey = '$lessonDateStr|$regularLessonTimeStr';
-      if (!schedule.isPostponed && reportDateTimes.contains(regularLessonKey)) {
-        if (kDebugMode) {
-          print(
-              'Skipping regular lesson at $regularLessonKey - report already exists');
+          // Calculate the date string for comparison with reports
+          final candidateDateStr =
+              '${candidateDateTime.year}-${candidateDateTime.month.toString().padLeft(2, '0')}-${candidateDateTime.day.toString().padLeft(2, '0')}';
+          final candidateKey = '$candidateDateStr|$regularLessonTimeStr';
+
+          if (reportDateTimes.contains(candidateKey)) {
+            if (kDebugMode) {
+              print(
+                  'Skipping regular lesson at $candidateKey - report already exists, checking next week...');
+            }
+            continue; // Check next week's occurrence
+          }
+
+          // Found a slot without a report!
+          lessonDateTime = candidateDateTime;
+          lessonDateStr = candidateDateStr;
+          foundSlot = true;
+          if (kDebugMode) {
+            print('Found available slot at $candidateKey');
+          }
+          break;
         }
-        continue; // Skip this regular schedule, a report already exists for this date+time
+
+        if (!foundSlot) {
+          if (kDebugMode) {
+            print(
+                'No available slot found for ${schedule.day} at ${schedule.hour} in next 8 weeks');
+          }
+          continue; // Skip this schedule if no slot found
+        }
       }
 
       // Only include future lessons
@@ -686,23 +709,32 @@ class _DashboardContentState extends State<_DashboardContent> {
       }
 
       _nextLesson = upcomingLessons.first['schedule'] as Schedule;
+      _nextLessonDateTime = upcomingLessons.first['dateTime']
+          as DateTime; // Store the calculated date
       if (kDebugMode) {
         print(
-            'Selected next lesson: ${_nextLesson!.day} at ${_nextLesson!.hour}, isPostponed: ${_nextLesson!.isPostponed}');
+            'Selected next lesson: ${_nextLesson!.day} at ${_nextLesson!.hour}, dateTime: $_nextLessonDateTime, isPostponed: ${_nextLesson!.isPostponed}');
       }
     } else {
       if (kDebugMode) {
         print('No upcoming lessons found');
       }
       _nextLesson = null;
+      _nextLessonDateTime = null;
     }
   }
 
   void _updateCountdown() {
-    if (_nextLesson != null) {
+    // Use the stored _nextLessonDateTime directly instead of recalculating
+    // This ensures the countdown uses the correct date that accounts for reports
+    if (_nextLessonDateTime != null) {
+      final now = DateTime.now();
       final previousDuration = _timeUntilNextLesson;
-      final newDuration =
-          _scheduleRepository.getTimeUntilNextLesson(_nextLesson!);
+      Duration? newDuration;
+
+      if (_nextLessonDateTime!.isAfter(now)) {
+        newDuration = _nextLessonDateTime!.difference(now);
+      }
 
       if (previousDuration == null ||
           previousDuration.inSeconds != newDuration?.inSeconds) {
