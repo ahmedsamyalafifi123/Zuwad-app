@@ -1506,100 +1506,109 @@ class _DashboardContentState extends State<_DashboardContent> {
             } else if (state is AuthAuthenticated && state.student != null) {
               final student = state.student!;
 
-              return SingleChildScrollView(
-                padding:
-                    EdgeInsets.fromLTRB(16.0, topPadding, 16.0, bottomPadding),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Welcome header
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 20.0),
-                      child: Row(
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.black,
-                                width: 1,
+              return RefreshIndicator(
+                onRefresh: () async {
+                  context.read<AuthBloc>().add(GetStudentProfileEvent());
+                  await _loadNextLesson(forceRefresh: true);
+                },
+                color: const Color(0xFFD4AF37),
+                backgroundColor: Colors.white,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                      16.0, topPadding, 16.0, bottomPadding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Welcome header
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 20.0),
+                        child: Row(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.black,
+                                  width: 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    blurRadius: 1,
+                                    spreadRadius: 2,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
-                                  blurRadius: 1,
-                                  spreadRadius: 2,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
+                              child: CircleAvatar(
+                                  radius: 30,
+                                  backgroundColor: const Color(
+                                      0x33FFFFFF), // 0.2 opacity white
+                                  backgroundImage: student.profileImageUrl !=
+                                              null &&
+                                          student.profileImageUrl!.isNotEmpty
+                                      ? NetworkImage(student.profileImageUrl!)
+                                      : null,
+                                  child: student.profileImageUrl == null ||
+                                          student.profileImageUrl!.isEmpty
+                                      ? const Icon(
+                                          Icons.person,
+                                          size: 40,
+                                          color: Colors.white,
+                                        )
+                                      : null),
                             ),
-                            child: CircleAvatar(
-                                radius: 30,
-                                backgroundColor: const Color(
-                                    0x33FFFFFF), // 0.2 opacity white
-                                backgroundImage:
-                                    student.profileImageUrl != null &&
-                                            student.profileImageUrl!.isNotEmpty
-                                        ? NetworkImage(student.profileImageUrl!)
-                                        : null,
-                                child: student.profileImageUrl == null ||
-                                        student.profileImageUrl!.isEmpty
-                                    ? const Icon(
-                                        Icons.person,
-                                        size: 40,
-                                        color: Colors.white,
-                                      )
-                                    : null),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'مرحباً، ${student.name}',
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'مرحباً، ${student.name}',
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
                                   ),
-                                ),
-                                Text(
-                                  'نتمنى لك يوماً موفقاً',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: const Color(
-                                        0xCCFFFFFF), // 0.8 opacity white
+                                  Text(
+                                    'نتمنى لك يوماً موفقاً',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: const Color(
+                                          0xCCFFFFFF), // 0.8 opacity white
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
+                          ],
+                        ),
+                      ),
+
+                      // Quick Action Buttons Section
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          // First button - الدروس القادمة
+                          _buildQuickActionButton(
+                            imagePath: 'assets/images/lottie.json',
+                            label: 'الدروس القادمة',
+                            onTap: () {
+                              // TODO: Navigate to upcoming lessons
+                            },
                           ),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: 20),
 
-                    // Quick Action Buttons Section
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        // First button - الدروس القادمة
-                        _buildQuickActionButton(
-                          imagePath: 'assets/images/lottie.json',
-                          label: 'الدروس القادمة',
-                          onTap: () {
-                            // TODO: Navigate to upcoming lessons
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
+                      // Next Lesson Section
+                      _buildNextLessonSection(),
 
-                    // Next Lesson Section
-                    _buildNextLessonSection(),
-
-                    const SizedBox(height: 20),
-                  ],
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               );
             } else {
