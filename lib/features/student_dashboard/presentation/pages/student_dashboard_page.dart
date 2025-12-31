@@ -1572,28 +1572,54 @@ class _DashboardContentState extends State<_DashboardContent> {
                 backgroundColor: Colors.white,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(
-                      16.0, topPadding, 16.0, bottomPadding),
+                  padding:
+                      EdgeInsets.fromLTRB(0.0, topPadding, 0.0, bottomPadding),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Welcome header
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 20.0),
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 20.0, left: 24.0),
+                        padding: const EdgeInsets.only(
+                            right: 16.0, top: 12.0, bottom: 12.0, left: 20.0),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color.fromARGB(
+                                  255, 255, 255, 255), // Warm cream white
+                              Color.fromARGB(
+                                  255, 234, 234, 234), // Subtle gold tint
+                            ],
+                          ),
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.zero,
+                            bottomLeft: Radius.circular(50),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color.fromARGB(120, 0, 0, 0),
+                              blurRadius: 8,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Container(
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: Colors.black,
-                                  width: 1,
+                                  width: 1.5,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.3),
+                                    color: Colors.black.withOpacity(0.4),
                                     blurRadius: 1,
-                                    spreadRadius: 2,
+                                    spreadRadius: 1,
                                     offset: const Offset(0, 2),
                                   ),
                                 ],
@@ -1612,12 +1638,13 @@ class _DashboardContentState extends State<_DashboardContent> {
                                       ? const Icon(
                                           Icons.person,
                                           size: 40,
-                                          color: Colors.white,
+                                          color: Colors.black54, // Darker icon
                                         )
                                       : null),
                             ),
                             const SizedBox(width: 16),
-                            Expanded(
+                            Flexible(
+                              fit: FlexFit.loose,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -1626,42 +1653,51 @@ class _DashboardContentState extends State<_DashboardContent> {
                                     style: const TextStyle(
                                       fontSize: 22,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.white,
+                                      color: Colors.black, // Black text
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
                                     'نتمنى لك يوماً موفقاً',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       fontSize: 14,
-                                      color: const Color(
-                                          0xCCFFFFFF), // 0.8 opacity white
+                                      color: Colors.black87, // Dark text
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),
                             ),
+                            const SizedBox(
+                                width: 6), // 6 after text as requested
                           ],
                         ),
                       ),
 
                       // Quick Action Buttons Section
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          // First button - الدروس القادمة
-                          _buildQuickActionButton(
-                            imagePath: 'assets/images/lottie.json',
-                            label: 'الدروس القادمة',
-                            onTap: () {
-                              // TODO: Navigate to upcoming lessons
-                            },
-                          ),
-                        ],
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            // First button - الدروس القادمة
+                            _buildQuickActionButton(
+                              imagePath: 'assets/images/lottie.json',
+                              label: 'الدروس القادمة',
+                              onTap: () {
+                                // TODO: Navigate to upcoming lessons
+                              },
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 20),
 
                       // Next Lesson Section
-                      _buildNextLessonSection(),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: _buildNextLessonSection(),
+                      ),
 
                       const SizedBox(height: 20),
                     ],
