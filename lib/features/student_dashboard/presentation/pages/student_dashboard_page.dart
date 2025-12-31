@@ -953,7 +953,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                               ),
                             ),
                             Text(
-                              _teacherName,
+                              _teacherName.split(' ').first,
                               style: TextStyle(
                                 fontFamily: 'Qatar',
                                 fontSize: teacherNameSize,
