@@ -18,6 +18,7 @@ import '../../data/repositories/report_repository.dart';
 import '../../domain/models/schedule.dart';
 import '../../domain/models/student_report.dart';
 import 'postpone_page.dart';
+import 'report_details_page.dart';
 import 'placeholder_page.dart';
 import 'home_page.dart';
 import 'settings_page.dart';
@@ -425,6 +426,8 @@ class _DashboardContentState extends State<_DashboardContent> {
   Duration? _timeUntilNextLesson;
   Timer? _countdownTimer;
 
+  StudentReport? _lastReport;
+
   @override
   void initState() {
     super.initState();
@@ -455,6 +458,22 @@ class _DashboardContentState extends State<_DashboardContent> {
           student.id,
           forceRefresh: forceRefresh,
         );
+
+        // Sort reports to find the last one
+        if (reports.isNotEmpty) {
+          reports.sort((a, b) {
+            try {
+              final dateA = DateTime.parse('${a.date} ${a.time}');
+              final dateB = DateTime.parse('${b.date} ${b.time}');
+              return dateB.compareTo(dateA); // Descending
+            } catch (e) {
+              return 0;
+            }
+          });
+          _lastReport = reports.first;
+        } else {
+          _lastReport = null;
+        }
 
         // Get next schedule with force refresh
         final nextSchedule = await _scheduleRepository.getNextSchedule(
@@ -1135,6 +1154,44 @@ class _DashboardContentState extends State<_DashboardContent> {
               ),
             ),
             SizedBox(width: isSmallScreen ? 6 : 10),
+            // الانجاز السابق button
+            if (_lastReport != null) ...[
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          ReportDetailsPage(report: _lastReport!),
+                    ),
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(
+                    color: Colors.white,
+                    width: 1.5,
+                  ),
+                  padding: EdgeInsets.symmetric(
+                      vertical: buttonPaddingV, horizontal: buttonPaddingH),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(
+                  'الانجاز السابق',
+                  style: TextStyle(
+                    fontFamily: 'Qatar',
+                    fontSize: buttonFontSize,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              SizedBox(width: isSmallScreen ? 6 : 10),
+            ],
             // تأجيل الدرس (white border only) - smaller button
             OutlinedButton(
               onPressed: canPostpone ? _openPostponePage : null,
