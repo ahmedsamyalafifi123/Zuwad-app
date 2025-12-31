@@ -875,8 +875,8 @@ class _DashboardContentState extends State<_DashboardContent> {
     final teacherLabelSize = isSmallScreen ? 10.0 : 11.0;
     final teacherNameSize = isSmallScreen ? 11.0 : 13.0;
     final buttonFontSize = isSmallScreen ? 12.0 : 14.0;
-    final buttonPaddingH = isSmallScreen ? 14.0 : 20.0;
-    final buttonPaddingV = isSmallScreen ? 8.0 : 10.0;
+    final buttonPaddingH = isSmallScreen ? 10.0 : 16.0;
+    final buttonPaddingV = isSmallScreen ? 4.0 : 8.0;
 
     return Column(
       children: [
