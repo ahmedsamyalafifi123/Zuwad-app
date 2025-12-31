@@ -143,6 +143,24 @@ class Student {
     );
   }
 
+  static String getDisplayLessonName(String? lessonsName) {
+    if (lessonsName == null || lessonsName.isEmpty) return 'المسار العام';
+    switch (lessonsName.trim()) {
+      case 'قرآن':
+        return 'القرآن الكريم';
+      case 'لغة عربية':
+        return 'اللغة العربية';
+      case 'تجويد':
+        return 'التجويد';
+      case 'تربية اسلامية':
+        return 'التربية الاسلامية';
+      default:
+        return lessonsName;
+    }
+  }
+
+  String get displayLessonName => getDisplayLessonName(lessonsName);
+
   String toDebugString() {
     return 'Student{id: $id, name: $name, phone: $phone, teacherId: $teacherId, '
         'teacherName: $teacherName, lessonsNumber: $lessonsNumber, '

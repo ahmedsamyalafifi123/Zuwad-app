@@ -566,7 +566,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       // Section 2: Package Management
                       _buildExpandableSection(
                         title: 'إدارة الباقة',
-                        subtitle: _student?.lessonsName ?? 'تعديل بيانات الحصص',
+                        subtitle:
+                            _student?.displayLessonName ?? 'تعديل بيانات الحصص',
                         icon: Icons.school_rounded,
                         isExpanded: _packageExpanded,
                         onTap: () => setState(
@@ -1404,7 +1405,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     if (hasNameChanged)
                       _buildConfirmationRow(
                         'نوع الحصة',
-                        '${_student!.lessonsName ?? "-"} ← $newLessonsName',
+                        '${_student!.displayLessonName} ← ${Student.getDisplayLessonName(newLessonsName)}',
                       ),
                     if (hasLessonsNumberChanged)
                       _buildConfirmationRow(

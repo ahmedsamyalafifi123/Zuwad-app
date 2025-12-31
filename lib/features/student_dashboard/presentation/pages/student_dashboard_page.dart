@@ -450,7 +450,7 @@ class _DashboardContentState extends State<_DashboardContent> {
 
         // Get student data
         final student = authState.student!;
-        _lessonName = student.lessonsName ?? 'درس';
+        _lessonName = student.displayLessonName;
         _teacherName = student.teacherName ?? 'المعلم';
 
         // Get reports to check which schedules already have reports
@@ -1657,13 +1657,35 @@ class _DashboardContentState extends State<_DashboardContent> {
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  Text(
-                                    'نتمنى لك يوماً موفقاً',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.black87, // Dark text
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(
+                                          0.05), // Very light grey bg
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
-                                    overflow: TextOverflow.ellipsis,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          student.displayLessonName,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.black87, // Dark text
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(
+                                          Icons.keyboard_arrow_down,
+                                          size: 16,
+                                          color: Colors.black54,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
