@@ -1166,6 +1166,12 @@ class _DashboardContentState extends State<_DashboardContent> {
             ),
           ],
         ),
+        const SizedBox(height: 18),
+        const Divider(
+          color: Colors.white,
+          height: 1,
+          thickness: 1,
+        ),
       ],
     );
   }
