@@ -222,27 +222,51 @@ class _HomePageState extends State<HomePage> {
           }
         }
 
-        lessonDateTime = DateTime(
-          now.year,
-          now.month,
-          now.day + daysUntil,
-          lessonTime.hour,
-          lessonTime.minute,
-        );
+        // Iterate through future weeks to find a slot without a report
+        // Check up to 8 weeks ahead
+        final regularLessonTimeStr = _normalizeTimeForComparison(schedule.hour);
 
-        lessonDateStr =
-            '${lessonDateTime.year}-${lessonDateTime.month.toString().padLeft(2, '0')}-${lessonDateTime.day.toString().padLeft(2, '0')}';
+        for (int weekOffset = 0; weekOffset < 8; weekOffset++) {
+          final candidateDateTime = DateTime(
+            now.year,
+            now.month,
+            now.day + daysUntil + (weekOffset * 7),
+            lessonTime.hour,
+            lessonTime.minute,
+          );
+
+          // Calculate the date string for comparison with reports
+          final candidateDateStr =
+              '${candidateDateTime.year}-${candidateDateTime.month.toString().padLeft(2, '0')}-${candidateDateTime.day.toString().padLeft(2, '0')}';
+          final candidateKey = '$candidateDateStr|$regularLessonTimeStr';
+
+          if (reportDateTimes.contains(candidateKey)) {
+            continue; // Report exists, check next week
+          }
+
+          // Found a slot without a report
+          lessonDateTime = candidateDateTime;
+          lessonDateStr = candidateDateStr;
+
+          // Only include if it's in the future (double check)
+          if (lessonDateTime.isAfter(now)) {
+            upcomingLessons.add({
+              'schedule': schedule,
+              'dateTime': lessonDateTime,
+              'dateStr': lessonDateStr,
+            });
+          }
+          break; // Found the next lesson for this schedule, move to next schedule
+        }
+
+        // Skip the logic below since we added to upcomingLessons inside the loop
+        continue;
       }
 
-      // Check if this lesson date+time already has a report
-      // Only check reports for regular schedules, NOT postponed schedules
-      final regularLessonTimeStr = _normalizeTimeForComparison(schedule.hour);
-      final regularLessonKey = '$lessonDateStr|$regularLessonTimeStr';
-      if (!schedule.isPostponed && reportDateTimes.contains(regularLessonKey)) {
-        continue; // Skip this regular schedule, a report already exists for this date+time
-      }
+      // This part is only reached by the postponed logic block above
+      // because the regular schedule block now continues/breaks.
 
-      // Only include future lessons
+      // Only include future lessons (for postponed)
       if (lessonDateTime != null && lessonDateTime.isAfter(now)) {
         upcomingLessons.add({
           'schedule': schedule,
