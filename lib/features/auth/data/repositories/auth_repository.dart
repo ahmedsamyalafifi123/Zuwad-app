@@ -102,6 +102,7 @@ class AuthRepository {
   }
 
   /// Get family members (siblings).
+  /// Excludes members with payment_status "متوقف" (stopped/inactive).
   Future<List<Student>> getFamilyMembers() async {
     try {
       final userId = await getCurrentUserId();
@@ -126,7 +127,18 @@ class AuthRepository {
         print(
             'AuthRepository.getFamilyMembers: Parsed ${students.length} students');
       }
-      return students;
+
+      // Filter out students with payment_status "متوقف" (stopped/inactive)
+      final activeStudents = students
+          .where((student) => student.paymentStatus != 'متوقف')
+          .toList();
+
+      if (kDebugMode) {
+        print(
+            'AuthRepository.getFamilyMembers: ${activeStudents.length} active students after filtering');
+      }
+
+      return activeStudents;
     } catch (e) {
       if (kDebugMode) {
         print('AuthRepository.getFamilyMembers: Error - $e');

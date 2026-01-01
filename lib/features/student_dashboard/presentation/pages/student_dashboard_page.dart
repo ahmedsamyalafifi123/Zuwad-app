@@ -1411,50 +1411,83 @@ class _DashboardContentState extends State<_DashboardContent> {
   }
 
   Future<void> _switchAccount(Student newStudent) async {
+    if (!mounted) return;
+
     try {
-      if (mounted) {
-        // Show loading indicator
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(color: AppTheme.primaryColor),
-          ),
-        );
-      }
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryColor),
+        ),
+      );
+
+      // Clear caches for the new student to ensure fresh data
+      await _scheduleRepository.clearCache(newStudent.id);
+      await _reportRepository.clearCache(newStudent.id);
+
+      if (!mounted) return;
 
       await _authRepository.switchUser(newStudent);
 
-      if (mounted) {
-        // Clear local state before refreshing
-        setState(() {
-          _nextSchedule = null;
-          _nextLesson = null;
-          _nextLessonDateTime = null;
-          _lastReport = null;
-          _familyMembers = []; // Clear family members so they reload
-          _timeUntilNextLesson = null;
-          _countdownTimer?.cancel();
-          _isLoading = true;
-        });
+      if (!mounted) return;
 
-        // Refresh profile - this will update the AuthBloc state
-        context.read<AuthBloc>().add(GetStudentProfileEvent());
+      // Clear local state before refreshing
+      setState(() {
+        _nextSchedule = null;
+        _nextLesson = null;
+        _nextLessonDateTime = null;
+        _lastReport = null;
+        _familyMembers = []; // Clear family members so they reload
+        _timeUntilNextLesson = null;
+        _countdownTimer?.cancel();
+        _isLoading = true;
+      });
 
-        // Pop loading dialog
+      // Refresh profile - this will update the AuthBloc state
+      context.read<AuthBloc>().add(GetStudentProfileEvent());
+
+      // Pop loading dialog
+      if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
+      }
 
-        // Reload dashboard data with force refresh after a short delay
-        // to allow AuthBloc to update
-        await Future.delayed(const Duration(milliseconds: 500));
-        if (mounted) {
-          await _loadNextLesson(forceRefresh: true);
+      // Wait for AuthBloc to update with new student data
+      // Poll for the new student ID with a timeout
+      int attempts = 0;
+      const maxAttempts = 10;
+      bool foundNewStudent = false;
+
+      while (attempts < maxAttempts && mounted) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        if (!mounted) return;
+
+        final authState = context.read<AuthBloc>().state;
+        if (authState is AuthAuthenticated &&
+            authState.student != null &&
+            authState.student!.id == newStudent.id) {
+          foundNewStudent = true;
+          break;
         }
+        attempts++;
+      }
+
+      if (!mounted) return;
+
+      if (foundNewStudent) {
+        // Now load dashboard data with the new student
+        await _loadNextLesson(forceRefresh: true);
+      } else {
+        // Force load anyway after timeout
+        await _loadNextLesson(forceRefresh: true);
       }
     } catch (e) {
       if (mounted) {
-        // Pop loading dialog
-        Navigator.pop(context);
+        // Pop loading dialog if still showing
+        if (Navigator.canPop(context)) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('فشل تغيير الحساب: $e')),
         );
@@ -1767,8 +1800,14 @@ class _DashboardContentState extends State<_DashboardContent> {
 
               return RefreshIndicator(
                 onRefresh: () async {
+                  // Clear family members so they reload fresh
+                  setState(() {
+                    _familyMembers = [];
+                  });
                   context.read<AuthBloc>().add(GetStudentProfileEvent());
                   await _loadNextLesson(forceRefresh: true);
+                  // Reload family members in the background
+                  _loadFamilyMembers();
                 },
                 color: const Color(0xFFD4AF37),
                 backgroundColor: Colors.white,

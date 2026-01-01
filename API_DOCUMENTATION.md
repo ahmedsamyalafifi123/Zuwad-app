@@ -392,7 +392,8 @@ Authorization: Bearer {token}
         "m_id": "ST-001-456",
         "is_current": true,
         "lessons_name": "تحفيظ قرآن",
-        "profile_image_url": "https://example.com/uploads/profile_456.jpg"
+        "profile_image_url": "https://example.com/uploads/profile_456.jpg",
+        "payment_status": "تم الدفع"
       },
       {
         "id": 789,
@@ -400,7 +401,8 @@ Authorization: Bearer {token}
         "m_id": "ST-001-789",
         "is_current": false,
         "lessons_name": "تجويد",
-        "profile_image_url": null
+        "profile_image_url": null,
+        "payment_status": "في انتظار الدفع"
       }
     ]
   }
