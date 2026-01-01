@@ -1662,8 +1662,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 8, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(
-                                          0.05), // Very light grey bg
+                                      color: const Color.fromARGB(
+                                          28, 0, 0, 0), // Very light grey bg
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Row(
@@ -1672,17 +1672,11 @@ class _DashboardContentState extends State<_DashboardContent> {
                                         Text(
                                           student.displayLessonName,
                                           style: const TextStyle(
-                                            fontSize: 13,
+                                            fontSize: 14,
                                             color: Colors.black87, // Dark text
-                                            fontWeight: FontWeight.w500,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                           overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        const Icon(
-                                          Icons.keyboard_arrow_down,
-                                          size: 16,
-                                          color: Colors.black54,
                                         ),
                                       ],
                                     ),
@@ -1690,8 +1684,24 @@ class _DashboardContentState extends State<_DashboardContent> {
                                 ],
                               ),
                             ),
-                            const SizedBox(
-                                width: 6), // 6 after text as requested
+                            const SizedBox(width: 12), // Separate arrow
+                            Container(
+                              margin: const EdgeInsets.only(top: 24.0),
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: const Color.fromARGB(
+                                    28, 0, 0, 0), // Very light grey bg
+                                borderRadius: BorderRadius.circular(24),
+                                border:
+                                    Border.all(color: Colors.black, width: 1),
+                              ),
+                              child: const Icon(
+                                Icons.keyboard_arrow_down,
+                                size: 24,
+                                color: Colors.black54,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
                           ],
                         ),
                       ),
