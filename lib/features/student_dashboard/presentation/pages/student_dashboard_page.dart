@@ -1118,13 +1118,15 @@ class _DashboardContentState extends State<_DashboardContent> {
                       )
                     : const LinearGradient(
                         colors: [
-                          Color.fromARGB(255, 253, 247, 89), // Light yellow
-                          Color.fromARGB(255, 240, 191, 12) // Lighter yellow
+                          Color.fromARGB(0, 253, 247, 89), // Light yellow
+                          Color.fromARGB(0, 240, 191, 12) // Lighter yellow
                         ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                       ),
                 borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: Color.fromARGB(157, 255, 255, 255), width: 1.5),
               ),
               child: ElevatedButton(
                 onPressed: canJoin ? _joinLesson : null,
@@ -1147,50 +1149,14 @@ class _DashboardContentState extends State<_DashboardContent> {
                     fontFamily: 'Qatar',
                     fontSize: buttonFontSize,
                     fontWeight: FontWeight.bold,
-                    color: canJoin ? Colors.white : Colors.black,
+                    color: canJoin
+                        ? Colors.white
+                        : const Color.fromARGB(157, 255, 255, 255),
                   ),
                 ),
               ),
             ),
             SizedBox(width: isSmallScreen ? 6 : 10),
-            // الانجاز السابق button
-            if (_lastReport != null) ...[
-              OutlinedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          ReportDetailsPage(report: _lastReport!),
-                    ),
-                  );
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(
-                    color: Colors.white,
-                    width: 1.5,
-                  ),
-                  padding: EdgeInsets.symmetric(
-                      vertical: buttonPaddingV, horizontal: buttonPaddingH),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Text(
-                  'الانجاز السابق',
-                  style: TextStyle(
-                    fontFamily: 'Qatar',
-                    fontSize: buttonFontSize,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              SizedBox(width: isSmallScreen ? 6 : 10),
-            ],
             // تأجيل الدرس (white border only) - smaller button
             OutlinedButton(
               onPressed: canPostpone ? _openPostponePage : null,
@@ -1220,6 +1186,56 @@ class _DashboardContentState extends State<_DashboardContent> {
                 ),
               ),
             ),
+
+            // الانجاز السابق button
+            if (_lastReport != null) ...[
+              SizedBox(width: isSmallScreen ? 6 : 10),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color.fromARGB(255, 253, 247, 89), // Light yellow
+                      Color.fromARGB(255, 240, 191, 12) // Lighter yellow
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            ReportDetailsPage(report: _lastReport!),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    foregroundColor: Colors.black, // darker text for yellow bg
+                    padding: EdgeInsets.symmetric(
+                        vertical: buttonPaddingV, horizontal: buttonPaddingH),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    'الانجاز السابق',
+                    style: TextStyle(
+                      fontFamily: 'Qatar',
+                      fontSize: buttonFontSize,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 18),
