@@ -11,6 +11,7 @@ import '../../domain/models/student_report.dart';
 import '../../domain/models/schedule.dart';
 import 'report_details_page.dart';
 import 'postpone_page.dart';
+import '../../../auth/domain/models/student.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -107,7 +108,11 @@ class _HomePageState extends State<HomePage> {
       );
 
       if (nextSchedule != null && nextSchedule.schedules.isNotEmpty) {
-        _findNextTwoLessons(nextSchedule.schedules, _reports);
+        final authState = context.read<AuthBloc>().state;
+        if (authState is AuthAuthenticated && authState.student != null) {
+          _findNextTwoLessons(
+              nextSchedule.schedules, _reports, authState.student!);
+        }
       } else {
         if (mounted) {
           setState(() {
@@ -134,7 +139,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _findNextTwoLessons(
-      List<Schedule> schedules, List<StudentReport> reports) {
+      List<Schedule> schedules, List<StudentReport> reports, Student student) {
     if (schedules.isEmpty) {
       if (mounted) setState(() => _nextLessons = []);
       return;
@@ -280,6 +285,66 @@ class _HomePageState extends State<HomePage> {
     if (upcomingLessons.isNotEmpty) {
       upcomingLessons.sort((a, b) =>
           (a['dateTime'] as DateTime).compareTo(b['dateTime'] as DateTime));
+
+      // Calculate session numbers
+      int lastSessionNumber = 0;
+      if (reports.isNotEmpty) {
+        final validReports = reports.where((r) => r.sessionNumber > 0).toList();
+        if (validReports.isNotEmpty) {
+          // Sort by date and time descending to get the LATEST report
+          validReports.sort((a, b) {
+            final dateCompare = b.date.compareTo(a.date);
+            if (dateCompare != 0) return dateCompare;
+
+            // If dates are equal, try to compare times
+            // Simple string comparison might suffice for standard formats,
+            // but parsing is safer if formats vary.
+            // Given the context, we'll do a basic string compare for now
+            // as normalized times are usually comparable.
+            return b.time.compareTo(a.time);
+          });
+
+          lastSessionNumber = validReports.first.sessionNumber;
+        }
+        if (kDebugMode) {
+          print(
+              'DEBUG: Max Session Number (from latest report): $lastSessionNumber');
+        }
+      } else {
+        if (kDebugMode) {
+          print('DEBUG: No reports found in list');
+        }
+      }
+
+      int currentSessionNum = lastSessionNumber;
+      final int totalLessons =
+          student.lessonsNumber != null && student.lessonsNumber! > 0
+              ? student.lessonsNumber!
+              : 8; // Default fallback
+
+      if (kDebugMode) {
+        print('DEBUG: Student Total Lessons: $totalLessons');
+        print('DEBUG: Starting count from: $currentSessionNum');
+      }
+
+      // Assign session numbers to upcoming lessons logic
+      for (var lesson in upcomingLessons) {
+        final schedule = lesson['schedule'] as Schedule;
+        if (schedule.isPostponed) {
+          lesson['sessionNumber'] = 0; // 0 indicates postponed/no number
+        } else {
+          currentSessionNum++;
+          if (currentSessionNum > totalLessons) {
+            currentSessionNum = 1;
+          }
+          lesson['sessionNumber'] = currentSessionNum;
+        }
+
+        if (kDebugMode) {
+          print(
+              'DEBUG: Assigned session ${lesson['sessionNumber']} to lesson on ${lesson['dateStr']} (Postponed: ${schedule.isPostponed})');
+        }
+      }
 
       // Take up to 2 lessons
       final nextTwo = upcomingLessons.take(2).toList();
@@ -565,119 +630,321 @@ class _HomePageState extends State<HomePage> {
           itemCount: _nextLessons.length,
           itemBuilder: (context, index) {
             final lessonData = _nextLessons[index];
-            return _buildNextLessonCard(lessonData['schedule'] as Schedule,
-                lessonData['dateTime'] as DateTime);
+            return _buildNextLessonCard(
+              lessonData['schedule'] as Schedule,
+              lessonData['dateTime'] as DateTime,
+              lessonData['sessionNumber'] as int? ?? 0,
+            );
           },
         ),
       ],
     );
   }
 
-  Widget _buildNextLessonCard(Schedule schedule, DateTime dateTime) {
-    // Format date nicely (e.g., 2024-05-20)
-    final dateStr =
-        '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+  Widget _buildNextLessonCard(
+      Schedule schedule, DateTime dateTime, int sessionNumber) {
+    // Get student details from Bloc
+    String teacherName = 'المعلم';
+    String lessonName = 'درس';
+
+    // We can access the auth state here since we are inside a widget
+    try {
+      final authState = context.read<AuthBloc>().state;
+      if (authState is AuthAuthenticated && authState.student != null) {
+        teacherName = authState.student!.teacherName ?? 'المعلم';
+        lessonName = authState.student!.displayLessonName;
+      }
+    } catch (e) {
+      // safe fallback
+    }
+
+    // Month names mapping
+    final Map<int, String> monthNames = {
+      1: 'يناير',
+      2: 'فبراير',
+      3: 'مارس',
+      4: 'أبريل',
+      5: 'مايو',
+      6: 'يونيو',
+      7: 'يوليو',
+      8: 'أغسطس',
+      9: 'سبتمبر',
+      10: 'أكتوبر',
+      11: 'نوفمبر',
+      12: 'ديسمبر'
+    };
+
+    final dayNumber = dateTime.day.toString();
+    final monthName = monthNames[dateTime.month] ?? '';
+
+    // Normalize time strictly for display (HH:MM or h:mm a)
+    String displayTime = schedule.hour;
+
+    // Clean teacher first name
+    String teacherFirstName = teacherName;
+    if (teacherName.contains(' ')) {
+      teacherFirstName = teacherName.split(' ')[0];
+    }
 
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1A000000), // 0.1 opacity grey
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white, width: 1.2),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            // Right Side: Date/Time (Placed first for RTL)
+            // Right Side: Date/Time (Placed first for RTL)
+            Container(
+              width: 120, // Increased width as requested
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.only(
+                  topRight: Radius.circular(18),
+                  bottomRight: Radius.circular(18),
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      schedule.day,
+                      style: const TextStyle(
+                        fontFamily: 'Qatar',
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        'اليوم: ${schedule.day}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'التاريخ: $dateStr',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'الوقت: ${schedule.hour}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[700],
-                          fontWeight: FontWeight.bold,
+                      // Swapped Icon/Text order for RTL (Icon on Right)
+                      const Icon(Icons.access_time,
+                          color: Color(0xFFF0BF0C), size: 16),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          displayTime,
+                          style: const TextStyle(
+                            fontFamily: 'Qatar',
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
-                ),
-                // Postpone Button
-                ElevatedButton(
-                  onPressed: () => _openPostponePage(schedule, dateTime),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: AppTheme.primaryColor,
-                    elevation: 1,
-                    side: const BorderSide(color: AppTheme.primaryColor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Swapped Icon/Text order for RTL (Icon on Right)
+                      const Icon(Icons.calendar_month,
+                          color: Color(0xFFF0BF0C), size: 16),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          '$dayNumber $monthName',
+                          style: const TextStyle(
+                            fontFamily: 'Qatar',
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Text(
-                    'تأجيل الحصة',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-            if (schedule.isPostponed) ...[
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+
+            // Left Side: Main Card (Gradient BG)
+            Expanded(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.orange.withOpacity(0.5)),
-                ),
-                child: const Text(
-                  'هذه الحصة مؤجلة',
-                  style: TextStyle(
-                    color: Colors.orange,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color.fromARGB(255, 255, 255, 255), // Warm cream white
+                      Color.fromARGB(255, 234, 234, 234), // Subtle gold tint
+                    ],
                   ),
-                  textAlign: TextAlign.center,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(18),
+                    bottomLeft: Radius.circular(18),
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Header: Lesson# (Right) | Avatar (Left)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Lesson Number (Right visual / Start in RTL)
+                        Text(
+                          schedule.isPostponed
+                              ? 'حصة مؤجلة'
+                              : 'الحصة $sessionNumber',
+                          style: const TextStyle(
+                            fontFamily: 'Qatar',
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'الاستاذة',
+                                  style: TextStyle(
+                                    fontFamily: 'Qatar',
+                                    fontSize: 10,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                Text(
+                                  teacherFirstName,
+                                  style: const TextStyle(
+                                    fontFamily: 'Qatar',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: const Color(0xFFD4AF37), width: 1.5),
+                              ),
+                              child: CircleAvatar(
+                                radius: 16,
+                                backgroundColor: Colors.grey[200],
+                                backgroundImage: const AssetImage(
+                                    'assets/images/male_avatar.webp'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Footer: LessonName (Right) | Button (Left)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.circle_outlined,
+                                      size: 8, color: Color(0xFFF0BF0C)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'درس',
+                                    style: TextStyle(
+                                      fontFamily: 'Qatar',
+                                      fontSize: 10,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                lessonName,
+                                style: const TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          height: 30,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color.fromARGB(
+                                    255, 255, 198, 12), // Dark/Gold Yellow
+                                Color.fromARGB(
+                                    255, 206, 158, 1), // Light Yellow
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 3,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: () =>
+                                _openPostponePage(schedule, dateTime),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              'إعادة الجدولة',
+                              style: TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ],
         ),
       ),

@@ -40,8 +40,8 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
   // Navigation items configuration for cleaner code
   static const List<Map<String, dynamic>> _navItems = [
     {'icon': Icons.home_rounded, 'label': 'الرئيسة'},
-    {'icon': Icons.calendar_month_rounded, 'label': 'الجدول'},
     {'icon': Icons.emoji_events_rounded, 'label': 'الانجازات'},
+    {'icon': Icons.calendar_month_rounded, 'label': 'الجدول'},
     {'icon': Icons.chat_bubble_rounded, 'label': 'المراسلة'},
     {'icon': Icons.sports_esports_rounded, 'label': 'العاب'},
     {'icon': Icons.settings_rounded, 'label': 'الاعدادات'},
