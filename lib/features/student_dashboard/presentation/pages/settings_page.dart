@@ -631,13 +631,9 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildDefaultAvatar() {
-    return Container(
-      color: const Color(0xFFF5F5F5),
-      child: const Icon(
-        Icons.person,
-        color: AppTheme.primaryColor,
-        size: 30,
-      ),
+    return Image.asset(
+      'assets/images/male_avatar.webp',
+      fit: BoxFit.cover,
     );
   }
 

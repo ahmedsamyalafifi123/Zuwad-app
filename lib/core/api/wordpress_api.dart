@@ -248,6 +248,68 @@ class WordPressApi {
     }
   }
 
+  /// Get student family members.
+  Future<List<dynamic>> getStudentFamily(int studentId) async {
+    try {
+      if (kDebugMode) {
+        print('getStudentFamily: Fetching family for studentId: $studentId');
+        print(
+            'getStudentFamily: Endpoint: ${ApiConstants.studentFamilyEndpoint(studentId)}');
+      }
+
+      final response = await _dio.get(
+        ApiConstants.studentFamilyEndpoint(studentId),
+      );
+
+      if (kDebugMode) {
+        print('getStudentFamily: Response status: ${response.statusCode}');
+        print('getStudentFamily: Response data: ${response.data}');
+      }
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          // The API returns {family_id: ..., members: [...]}
+          // We need to extract the members array
+          final data = jsonData['data'];
+          List<dynamic> members;
+
+          if (data is List) {
+            // If data is directly a list (backwards compatibility)
+            members = data;
+          } else if (data is Map<String, dynamic> &&
+              data.containsKey('members')) {
+            // If data is an object with 'members' key
+            members = data['members'] as List<dynamic>;
+          } else {
+            // Fallback to empty list
+            members = [];
+          }
+
+          if (kDebugMode) {
+            print('getStudentFamily: Found ${members.length} family members');
+            for (var i = 0; i < members.length; i++) {
+              print('getStudentFamily: Member $i: ${members[i]}');
+            }
+          }
+          return members;
+        }
+        if (kDebugMode) {
+          print(
+              'getStudentFamily: API returned success=false, error: ${jsonData['error']}');
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to get family members');
+      }
+      throw Exception('Failed to get family members: ${response.statusCode}');
+    } catch (e) {
+      if (kDebugMode) {
+        print('getStudentFamily: Exception occurred: $e');
+      }
+      throw Exception('Get family members failed: ${e.toString()}');
+    }
+  }
+
   /// Get student reports.
   Future<List<dynamic>> getStudentReports(int studentId,
       {int page = 1, int perPage = 50}) async {

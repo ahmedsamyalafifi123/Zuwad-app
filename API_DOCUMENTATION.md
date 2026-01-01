@@ -146,8 +146,19 @@ GET /students?page=1&per_page=20&search=ahmed&teacher_id=5
 
 ### Get Student
 
+**Permission:** Authenticated users (students can access their own data or family members)
+
+Students can access their own profile data as well as data of family members who share the same `payment_phone`. This enables the account switching feature in mobile apps.
+
+**Access Rules:**
+
+- ✅ Allow if user is accessing their own data (user_id matches)
+- ✅ Allow if the requested student has the same `payment_phone` as the authenticated user (family member)
+- ❌ Deny otherwise
+
 ```http
 GET /students/{id}
+Authorization: Bearer {token}
 ```
 
 ### Create Student
@@ -360,8 +371,40 @@ GET /students/{id}/wallet
 
 ### Get Family Members
 
+Returns all family members (students sharing the same `payment_phone`).
+
 ```http
 GET /students/{id}/family
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "family_id": 123,
+    "members": [
+      {
+        "id": 456,
+        "name": "Ahmed Mohamed",
+        "m_id": "ST-001-456",
+        "is_current": true,
+        "lessons_name": "تحفيظ قرآن",
+        "profile_image_url": "https://example.com/uploads/profile_456.jpg"
+      },
+      {
+        "id": 789,
+        "name": "Sara Mohamed",
+        "m_id": "ST-001-789",
+        "is_current": false,
+        "lessons_name": "تجويد",
+        "profile_image_url": null
+      }
+    ]
+  }
+}
 ```
 
 ### Upload Student Profile Image

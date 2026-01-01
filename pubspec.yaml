@@ -124,6 +124,9 @@ flutter:
     - assets/images/chat_bg.png
     - assets/images/book.webp
     - assets/images/lottie.json
+    - assets/images/male_avatar.webp
+    - assets/images/female_avatar.webp
+
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

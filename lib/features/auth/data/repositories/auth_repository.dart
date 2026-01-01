@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../../../core/services/secure_storage_service.dart';
 import '../../../../core/api/wordpress_api.dart';
 import '../../domain/models/student.dart';
@@ -58,20 +59,38 @@ class AuthRepository {
   Future<Student> getStudentProfile() async {
     try {
       final userId = await getCurrentUserId();
+      if (kDebugMode) {
+        print('AuthRepository.getStudentProfile: userId = $userId');
+      }
 
       if (userId == null) {
         throw Exception('User not logged in');
       }
 
       // Get student profile from v2 API
+      if (kDebugMode) {
+        print(
+            'AuthRepository.getStudentProfile: Fetching profile for userId $userId');
+      }
       final profileData = await _api.getStudentProfile(userId);
+      if (kDebugMode) {
+        print(
+            'AuthRepository.getStudentProfile: Received profileData: $profileData');
+      }
 
       // Create student object from the response
       // v2 API returns student data directly, no need for separate meta call
       final student = Student.fromApiV2(profileData);
+      if (kDebugMode) {
+        print(
+            'AuthRepository.getStudentProfile: Created student: ${student.name}');
+      }
 
       return student;
     } catch (e) {
+      if (kDebugMode) {
+        print('AuthRepository.getStudentProfile: Error - $e');
+      }
       throw Exception('Failed to get student profile: ${e.toString()}');
     }
   }
@@ -80,6 +99,58 @@ class AuthRepository {
   Future<bool> changePassword(
       String currentPassword, String newPassword) async {
     return await _api.changePassword(currentPassword, newPassword);
+  }
+
+  /// Get family members (siblings).
+  Future<List<Student>> getFamilyMembers() async {
+    try {
+      final userId = await getCurrentUserId();
+      if (kDebugMode) {
+        print('AuthRepository.getFamilyMembers: userId = $userId');
+      }
+      if (userId == null) {
+        if (kDebugMode) {
+          print(
+              'AuthRepository.getFamilyMembers: userId is null, returning empty list');
+        }
+        return [];
+      }
+
+      final data = await _api.getStudentFamily(userId);
+      if (kDebugMode) {
+        print(
+            'AuthRepository.getFamilyMembers: Received ${data.length} items from API');
+      }
+      final students = data.map((json) => Student.fromApiV2(json)).toList();
+      if (kDebugMode) {
+        print(
+            'AuthRepository.getFamilyMembers: Parsed ${students.length} students');
+      }
+      return students;
+    } catch (e) {
+      if (kDebugMode) {
+        print('AuthRepository.getFamilyMembers: Error - $e');
+      }
+      // Return empty list on failure rather than blocking UI
+      return [];
+    }
+  }
+
+  /// Switch current user to another family member.
+  /// This updates the stored user ID but keeps the same auth token.
+  Future<void> switchUser(Student newStudent) async {
+    if (kDebugMode) {
+      print(
+          'AuthRepository.switchUser: Switching to student id=${newStudent.id}, name=${newStudent.name}');
+    }
+    // We update the stored user ID and Name.
+    // The Token remains the same, assuming it's valid for the whole family.
+    await _secureStorage.saveUserId(newStudent.id.toString());
+    await _secureStorage.saveUserName(newStudent.name);
+    if (kDebugMode) {
+      print('AuthRepository.switchUser: Done saving user ID and name');
+    }
+    // Role is likely same (student)
   }
 
   /// Logout and clear all stored data.

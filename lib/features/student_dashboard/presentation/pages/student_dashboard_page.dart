@@ -11,6 +11,8 @@ import '../../../../services/livekit_service.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../auth/data/repositories/auth_repository.dart';
+import '../../../auth/domain/models/student.dart';
 import '../../../chat/presentation/pages/chat_list_page.dart';
 import '../../../meeting/presentation/pages/meeting_page.dart';
 import '../../data/repositories/schedule_repository.dart';
@@ -174,22 +176,14 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                                 ? Image.network(
                                     imageUrl,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      color: const Color(0xFFF5F5F5),
-                                      child: const Icon(
-                                        Icons.person,
-                                        color: AppTheme.primaryColor,
-                                        size: 24,
-                                      ),
+                                    errorBuilder: (_, __, ___) => Image.asset(
+                                      'assets/images/male_avatar.webp',
+                                      fit: BoxFit.cover,
                                     ),
                                   )
-                                : Container(
-                                    color: const Color(0xFFF5F5F5),
-                                    child: const Icon(
-                                      Icons.person,
-                                      color: AppTheme.primaryColor,
-                                      size: 24,
-                                    ),
+                                : Image.asset(
+                                    'assets/images/male_avatar.webp',
+                                    fit: BoxFit.cover,
                                   ),
                           ),
                         );
@@ -426,7 +420,11 @@ class _DashboardContentState extends State<_DashboardContent> {
   Duration? _timeUntilNextLesson;
   Timer? _countdownTimer;
 
+  final AuthRepository _authRepository = AuthRepository();
   StudentReport? _lastReport;
+  List<Student> _familyMembers = [];
+  bool _loadingFamily = false;
+  final GlobalKey _arrowKey = GlobalKey();
 
   @override
   void initState() {
@@ -450,6 +448,12 @@ class _DashboardContentState extends State<_DashboardContent> {
 
         // Get student data
         final student = authState.student!;
+
+        // Load family members if not loaded
+        if (_familyMembers.isEmpty) {
+          _loadFamilyMembers();
+        }
+
         _lessonName = student.displayLessonName;
         _teacherName = student.teacherName ?? 'المعلم';
 
@@ -882,12 +886,10 @@ class _DashboardContentState extends State<_DashboardContent> {
     // Get screen size for responsive design
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
-    final isMediumScreen = screenWidth >= 360 && screenWidth < 400;
 
     // Responsive sizes
     final containerPadding = isSmallScreen ? 12.0 : 16.0;
     final avatarRadius = isSmallScreen ? 16.0 : 20.0;
-    final avatarIconSize = isSmallScreen ? 20.0 : 24.0;
     final subjectFontSize = isSmallScreen ? 14.0 : 16.0;
     final dayFontSize = isSmallScreen ? 14.0 : 16.0;
     final timeFontSize = isSmallScreen ? 12.0 : 14.0;
@@ -952,11 +954,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                           radius: avatarRadius,
                           backgroundColor:
                               const Color.fromARGB(255, 230, 230, 230),
-                          child: Icon(
-                            Icons.person,
-                            size: avatarIconSize,
-                            color: AppTheme.primaryColor,
-                          ),
+                          backgroundImage: const AssetImage(
+                              'assets/images/male_avatar.webp'),
                         ),
                         const SizedBox(width: 6),
                         Column(
@@ -1387,6 +1386,209 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
   }
 
+  Future<void> _loadFamilyMembers() async {
+    try {
+      if (kDebugMode) {
+        print('_loadFamilyMembers: Starting to load family members...');
+      }
+      final members = await _authRepository.getFamilyMembers();
+      if (kDebugMode) {
+        print('_loadFamilyMembers: Received ${members.length} family members');
+        for (var m in members) {
+          print('_loadFamilyMembers: Member: id=${m.id}, name=${m.name}');
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _familyMembers = members;
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading family members: $e');
+      }
+    }
+  }
+
+  Future<void> _switchAccount(Student newStudent) async {
+    try {
+      if (mounted) {
+        // Show loading indicator
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(color: AppTheme.primaryColor),
+          ),
+        );
+      }
+
+      await _authRepository.switchUser(newStudent);
+
+      if (mounted) {
+        // Clear local state before refreshing
+        setState(() {
+          _nextSchedule = null;
+          _nextLesson = null;
+          _nextLessonDateTime = null;
+          _lastReport = null;
+          _familyMembers = []; // Clear family members so they reload
+          _timeUntilNextLesson = null;
+          _countdownTimer?.cancel();
+          _isLoading = true;
+        });
+
+        // Refresh profile - this will update the AuthBloc state
+        context.read<AuthBloc>().add(GetStudentProfileEvent());
+
+        // Pop loading dialog
+        Navigator.pop(context);
+
+        // Reload dashboard data with force refresh after a short delay
+        // to allow AuthBloc to update
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          await _loadNextLesson(forceRefresh: true);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        // Pop loading dialog
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('فشل تغيير الحساب: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showAccountSelection(BuildContext context) async {
+    if (_familyMembers.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _loadingFamily = true;
+        });
+      }
+      await _loadFamilyMembers();
+      if (mounted) {
+        setState(() {
+          _loadingFamily = false;
+        });
+      }
+    }
+
+    if (!mounted) return;
+
+    final authState = context.read<AuthBloc>().state;
+    final currentStudentId =
+        authState is AuthAuthenticated ? authState.student?.id : null;
+
+    final RenderBox button = (_arrowKey.currentContext?.findRenderObject() ??
+        context.findRenderObject()) as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    // Get button position in overlay coordinates
+    final buttonPosition = button.localToGlobal(Offset.zero, ancestor: overlay);
+    final buttonSize = button.size;
+
+    // Position the menu below the button
+    final RelativeRect position = RelativeRect.fromLTRB(
+      buttonPosition.dx, // left
+      buttonPosition.dy +
+          buttonSize.height +
+          8, // top - below button with 8px gap
+      overlay.size.width - buttonPosition.dx - buttonSize.width, // right
+      0, // bottom - let it grow upward if needed
+    );
+
+    final items = _familyMembers.isEmpty
+        ? [
+            const PopupMenuItem<Student>(
+              enabled: false,
+              child: Text(
+                'لا توجد حسابات مرتبطة',
+                style: TextStyle(fontFamily: 'Qatar', fontSize: 14),
+                textAlign: TextAlign.right,
+              ),
+            )
+          ]
+        : _familyMembers.map((student) {
+            final isSelected = student.id == currentStudentId;
+            return PopupMenuItem<Student>(
+              value: student,
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: const Color(0xFFD4AF37), width: 1),
+                        image: DecorationImage(
+                          image: student.profileImageUrl != null &&
+                                  student.profileImageUrl!.isNotEmpty
+                              ? NetworkImage(student.profileImageUrl!)
+                              : const AssetImage(
+                                      'assets/images/male_avatar.webp')
+                                  as ImageProvider,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            student.name,
+                            style: const TextStyle(
+                              fontFamily: 'Qatar',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (student.lessonsName != null &&
+                              student.lessonsName!.isNotEmpty)
+                            Text(
+                              student.displayLessonName,
+                              style: TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (isSelected)
+                      const Icon(Icons.check,
+                          color: AppTheme.primaryColor, size: 18),
+                  ],
+                ),
+              ),
+            );
+          }).toList();
+
+    showMenu<Student>(
+      context: context,
+      position: position,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      items: items,
+    ).then((Student? selected) {
+      if (selected != null && selected.id != currentStudentId) {
+        _switchAccount(selected);
+      }
+    });
+  }
+
   void _joinLesson() {
     if (_nextLesson == null) return;
 
@@ -1632,15 +1834,9 @@ class _DashboardContentState extends State<_DashboardContent> {
                                               null &&
                                           student.profileImageUrl!.isNotEmpty
                                       ? NetworkImage(student.profileImageUrl!)
-                                      : null,
-                                  child: student.profileImageUrl == null ||
-                                          student.profileImageUrl!.isEmpty
-                                      ? const Icon(
-                                          Icons.person,
-                                          size: 40,
-                                          color: Colors.black54, // Darker icon
-                                        )
-                                      : null),
+                                      : const AssetImage(
+                                              'assets/images/male_avatar.webp')
+                                          as ImageProvider),
                             ),
                             const SizedBox(width: 16),
                             Flexible(
@@ -1685,20 +1881,38 @@ class _DashboardContentState extends State<_DashboardContent> {
                               ),
                             ),
                             const SizedBox(width: 12), // Separate arrow
-                            Container(
-                              margin: const EdgeInsets.only(top: 24.0),
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: const Color.fromARGB(
-                                    28, 0, 0, 0), // Very light grey bg
-                                borderRadius: BorderRadius.circular(24),
-                                border:
-                                    Border.all(color: Colors.black, width: 1),
-                              ),
-                              child: const Icon(
-                                Icons.keyboard_arrow_down,
-                                size: 24,
-                                color: Colors.black54,
+                            GestureDetector(
+                              onTap: () {
+                                if (_arrowKey.currentContext != null) {
+                                  _showAccountSelection(
+                                      _arrowKey.currentContext!);
+                                }
+                              },
+                              child: Container(
+                                key: _arrowKey,
+                                margin: const EdgeInsets.only(top: 24.0),
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: const Color.fromARGB(
+                                      28, 0, 0, 0), // Very light grey bg
+                                  borderRadius: BorderRadius.circular(24),
+                                  border:
+                                      Border.all(color: Colors.black, width: 1),
+                                ),
+                                child: _loadingFamily
+                                    ? const SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.black54,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.keyboard_arrow_down,
+                                        size: 24,
+                                        color: Colors.black54,
+                                      ),
                               ),
                             ),
                             const SizedBox(width: 4),
