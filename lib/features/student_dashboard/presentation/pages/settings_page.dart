@@ -533,7 +533,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFFFFFDF5),
+        backgroundColor: const Color(0xFF8b0628),
         body: _isLoading
             ? const Center(
                 child: CircularProgressIndicator(
@@ -551,8 +551,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     children: [
                       // Section 1: Personal Data
                       _buildExpandableSection(
-                        title: 'البيانات الشخصية',
-                        subtitle: _student?.name ?? 'تعديل بياناتك الشخصية',
+                        title: _student?.name ?? 'البيانات الشخصية',
+                        subtitle: 'تعديل بيانات الطالب',
                         icon: Icons.person_rounded,
                         isExpanded: _personalExpanded,
                         onTap: () => setState(
@@ -565,9 +565,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
                       // Section 2: Package Management
                       _buildExpandableSection(
-                        title: 'إدارة الباقة',
-                        subtitle:
+                        title:
                             _student?.displayLessonName ?? 'تعديل بيانات الحصص',
+                        subtitle: 'إدارة الباقة',
                         icon: Icons.school_rounded,
                         isExpanded: _packageExpanded,
                         onTap: () => setState(
@@ -650,7 +650,14 @@ class _SettingsPageState extends State<SettingsPage> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color.fromARGB(255, 255, 255, 255), // Warm cream white
+            Color.fromARGB(255, 234, 234, 234), // Subtle gold tint
+          ],
+        ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isExpanded ? const Color(0xFFD4AF37) : const Color(0xFFE0E0E0),
@@ -658,8 +665,9 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         boxShadow: [
           BoxShadow(
-            color:
-                isExpanded ? const Color(0x26D4AF37) : const Color(0x0D000000),
+            color: isExpanded
+                ? const Color.fromARGB(26, 212, 175, 55)
+                : const Color.fromARGB(82, 0, 0, 0),
             blurRadius: isExpanded ? 12 : 6,
             offset: const Offset(0, 4),
           ),
@@ -701,15 +709,17 @@ class _SettingsPageState extends State<SettingsPage> {
                         Text(
                           title,
                           style: const TextStyle(
+                            fontFamily: 'Qatar',
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryColor,
+                            color: Colors.black,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           subtitle,
                           style: TextStyle(
+                            fontFamily: 'Qatar',
                             fontSize: 14,
                             color: Colors.grey[600],
                           ),
@@ -724,10 +734,18 @@ class _SettingsPageState extends State<SettingsPage> {
                   AnimatedRotation(
                     duration: const Duration(milliseconds: 200),
                     turns: isExpanded ? -0.25 : 0,
-                    child: const Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      color: Color(0xFFD4AF37),
-                      size: 20,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: Color.fromARGB(
+                            255, 226, 226, 226), // Light gray background
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        color: Colors.black, // Black icon
+                        size: 16, // Slightly smaller icon to fit in circle
+                      ),
                     ),
                   ),
                 ],
@@ -857,6 +875,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ? _birthdayController.text
                             : 'اختر التاريخ',
                         style: TextStyle(
+                          fontFamily: 'Qatar',
                           fontSize: 16,
                           color: _birthdayController.text.isNotEmpty
                               ? Colors.black87
@@ -900,7 +919,8 @@ class _SettingsPageState extends State<SettingsPage> {
               child: OutlinedButton.icon(
                 onPressed: _showChangePasswordDialog,
                 icon: const Icon(Icons.lock_outline),
-                label: const Text('تغيير كلمة المرور'),
+                label: const Text('تغيير كلمة المرور',
+                    style: TextStyle(fontFamily: 'Qatar')),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.primaryColor,
                   side: const BorderSide(color: AppTheme.primaryColor),
@@ -922,7 +942,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       )
                     : const Icon(Icons.save_outlined),
-                label: const Text('حفظ التغييرات'),
+                label: const Text('حفظ التغييرات',
+                    style: TextStyle(fontFamily: 'Qatar')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFD4AF37),
                   foregroundColor: Colors.white,
@@ -1030,6 +1051,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         Text(
                           'المعلم',
                           style: TextStyle(
+                            fontFamily: 'Qatar',
                             fontSize: 12,
                             color: Colors.grey[600],
                           ),
@@ -1037,6 +1059,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         Text(
                           _student!.teacherName!,
                           style: const TextStyle(
+                            fontFamily: 'Qatar',
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.primaryColor,
@@ -1088,6 +1111,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Text(
                   'تغيير هذه البيانات قد يؤثر على المدفوعات والجدول',
                   style: TextStyle(
+                    fontFamily: 'Qatar',
                     fontSize: 12,
                     color: Colors.orange[800],
                   ),
@@ -1211,6 +1235,7 @@ class _SettingsPageState extends State<SettingsPage> {
         Text(
           label,
           style: TextStyle(
+            fontFamily: 'Qatar',
             fontSize: 11,
             color: Colors.grey[600],
           ),
@@ -1219,6 +1244,7 @@ class _SettingsPageState extends State<SettingsPage> {
         Text(
           value,
           style: const TextStyle(
+            fontFamily: 'Qatar',
             fontSize: 16,
             fontWeight: FontWeight.bold,
             color: AppTheme.primaryColor,
@@ -1245,6 +1271,7 @@ class _SettingsPageState extends State<SettingsPage> {
         value: value,
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: const TextStyle(fontFamily: 'Qatar'),
           prefixIcon: Icon(icon, color: AppTheme.primaryColor),
           border: InputBorder.none,
           contentPadding:
@@ -1255,7 +1282,10 @@ class _SettingsPageState extends State<SettingsPage> {
             value: item,
             child: Text(
               item.toString(),
-              style: const TextStyle(fontSize: 16),
+              style: const TextStyle(
+                fontFamily: 'Qatar',
+                fontSize: 16,
+              ),
             ),
           );
         }).toList(),
@@ -1529,11 +1559,15 @@ class _SettingsPageState extends State<SettingsPage> {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 14, color: AppTheme.primaryColor),
+            style: const TextStyle(
+                fontFamily: 'Qatar',
+                fontSize: 14,
+                color: AppTheme.primaryColor),
           ),
           Text(
             value,
             style: const TextStyle(
+              fontFamily: 'Qatar',
               fontSize: 14,
               fontWeight: FontWeight.bold,
               color: AppTheme.primaryColor,
@@ -1558,12 +1592,14 @@ class _SettingsPageState extends State<SettingsPage> {
         Expanded(
           child: Text(
             label,
-            style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+            style: TextStyle(
+                fontFamily: 'Qatar', fontSize: 14, color: Colors.grey[700]),
           ),
         ),
         Text(
           value,
           style: TextStyle(
+            fontFamily: 'Qatar',
             fontSize: isBold ? 16 : 14,
             fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
             color: valueColor ?? AppTheme.primaryColor,
@@ -1599,6 +1635,7 @@ class _SettingsPageState extends State<SettingsPage> {
               const Text(
                 'رصيد المحفظة',
                 style: TextStyle(
+                  fontFamily: 'Qatar',
                   color: Colors.white70,
                   fontSize: 14,
                 ),
@@ -1607,6 +1644,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Text(
                 '${_walletInfo?.balance.toStringAsFixed(2) ?? '0.00'} ${_walletInfo?.currency ?? 'EGP'}',
                 style: const TextStyle(
+                  fontFamily: 'Qatar',
                   color: Colors.white,
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -1617,6 +1655,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Text(
                   'رصيد معلق: ${_walletInfo!.pendingBalance.toStringAsFixed(2)} ${_walletInfo!.currency}',
                   style: const TextStyle(
+                    fontFamily: 'Qatar',
                     color: Colors.white70,
                     fontSize: 12,
                   ),
@@ -1655,6 +1694,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       const Text(
                         'حالة الدفع',
                         style: TextStyle(
+                          fontFamily: 'Qatar',
                           fontSize: 12,
                           color: Colors.grey,
                         ),
@@ -1662,6 +1702,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       Text(
                         _student!.paymentStatus!,
                         style: TextStyle(
+                          fontFamily: 'Qatar',
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color:
@@ -1690,11 +1731,12 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 const Text(
                   'قيمة الاشتراك',
-                  style: TextStyle(fontSize: 16),
+                  style: TextStyle(fontFamily: 'Qatar', fontSize: 16),
                 ),
                 Text(
                   '${_student!.amount!.toStringAsFixed(2)} ${_student!.currency ?? 'EGP'}',
                   style: const TextStyle(
+                    fontFamily: 'Qatar',
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryColor,
@@ -1763,7 +1805,14 @@ class _SettingsPageState extends State<SettingsPage> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color.fromARGB(255, 255, 255, 255),
+            Color.fromARGB(255, 234, 234, 234),
+          ],
+        ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isCredit
@@ -1818,6 +1867,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: Text(
                     transaction.typeLabel,
                     style: TextStyle(
+                      fontFamily: 'Qatar',
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: isCredit ? Colors.green[700] : Colors.red[700],
@@ -1831,6 +1881,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       ? transaction.description
                       : transaction.typeLabel,
                   style: const TextStyle(
+                    fontFamily: 'Qatar',
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: Color(0xFF333333),
@@ -1851,6 +1902,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     Text(
                       transaction.date,
                       style: TextStyle(
+                        fontFamily: 'Qatar',
                         fontSize: 12,
                         color: Colors.grey[600],
                       ),
@@ -1868,6 +1920,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         child: Text(
                           transaction.studentName!,
                           style: TextStyle(
+                            fontFamily: 'Qatar',
                             fontSize: 12,
                             color: Colors.grey[600],
                           ),
@@ -1889,6 +1942,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Text(
                 isCredit ? '+' : '-',
                 style: TextStyle(
+                  fontFamily: 'Qatar',
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: isCredit ? Colors.green[700] : Colors.red[700],
@@ -1897,6 +1951,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Text(
                 transaction.amount.abs().toStringAsFixed(2),
                 style: TextStyle(
+                  fontFamily: 'Qatar',
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: isCredit ? Colors.green[700] : Colors.red[700],
@@ -1920,9 +1975,12 @@ class _SettingsPageState extends State<SettingsPage> {
       controller: controller,
       keyboardType: keyboardType,
       textDirection: TextDirection.rtl,
+      style: const TextStyle(fontFamily: 'Qatar'),
       decoration: InputDecoration(
         labelText: label,
+        labelStyle: const TextStyle(fontFamily: 'Qatar'),
         hintText: hint,
+        hintStyle: const TextStyle(fontFamily: 'Qatar'),
         prefixIcon: Icon(icon, color: AppTheme.primaryColor),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
