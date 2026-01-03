@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lottie/lottie.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -31,6 +32,9 @@ class _HomePageState extends State<HomePage> {
   // Next Lessons state
   List<Map<String, dynamic>> _nextLessons = [];
   bool _isLoadingSchedule = true; // Start loading initially
+
+  // Tab state: 0 = upcoming lessons, 1 = previous reports
+  int _activeTab = 0;
 
   @override
   void initState() {
@@ -1398,17 +1402,171 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Next Lessons Section (New)
-              _buildNextLessonsSection(),
+              // Quick Action Buttons Section - Two centered buttons
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildQuickActionButton(
+                      imagePath: 'assets/images/Calender.json',
+                      label: 'الحصص القادمة',
+                      isActive: _activeTab == 0,
+                      onTap: () {
+                        setState(() {
+                          _activeTab = 0;
+                        });
+                      },
+                    ),
+                    // White border separator
+                    Container(
+                      width: 2,
+                      height: 60,
+                      margin: const EdgeInsets.symmetric(horizontal: 40),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                    _buildQuickActionButton(
+                      imagePath: 'assets/images/lottie.json',
+                      label: 'الحصص السابقة',
+                      isActive: _activeTab == 1,
+                      onTap: () {
+                        setState(() {
+                          _activeTab = 1;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
 
-              const SizedBox(height: 16),
-
-              // Reports Section
-              _buildReportsSection(),
+              // Show section based on active tab
+              if (_activeTab == 0) ...[
+                // Next Lessons Section
+                _buildNextLessonsSection(),
+              ] else ...[
+                // Reports Section
+                _buildReportsSection(),
+              ],
 
               // Add extra padding at the bottom
               const SizedBox(height: 80),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActionButton({
+    required String imagePath,
+    required String label,
+    required VoidCallback onTap,
+    bool isActive = true,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: isActive ? 1.0 : 0.65,
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 200),
+          scale: isActive ? 1.0 : 0.92,
+          child: SizedBox(
+            width: 110,
+            height: 100,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // White card - positioned in the middle
+                Positioned(
+                  top: 35,
+                  left: 0,
+                  right: 0,
+                  bottom: 20,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color.fromARGB(255, 255, 255, 255),
+                          Color.fromARGB(255, 234, 234, 234),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      border: isActive
+                          ? Border.all(
+                              color: const Color(0xFFf6c302),
+                              width: 2,
+                            )
+                          : null,
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              Colors.black.withOpacity(isActive ? 0.15 : 0.08),
+                          blurRadius: isActive ? 10 : 6,
+                          spreadRadius: 0,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Lottie animation at TOP
+                Positioned(
+                  top: -25,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Lottie.asset(
+                      imagePath,
+                      width: 130,
+                      height: 130,
+                      fit: BoxFit.contain,
+                      repeat: true,
+                      animate: true,
+                    ),
+                  ),
+                ),
+                // Yellow pill at BOTTOM
+                Positioned(
+                  bottom: 8,
+                  left: 12,
+                  right: 12,
+                  child: Container(
+                    height: 25,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFf6c302),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color.fromARGB(135, 0, 0, 0)
+                              .withOpacity(0.2),
+                          blurRadius: 5,
+                          spreadRadius: 3,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontFamily: 'Qatar',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
