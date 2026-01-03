@@ -986,6 +986,81 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildReportCard(StudentReport report) {
+    // Get student details from Bloc
+    String teacherName = 'المعلم';
+    String lessonName = 'درس';
+
+    try {
+      final authState = context.read<AuthBloc>().state;
+      if (authState is AuthAuthenticated && authState.student != null) {
+        teacherName = authState.student!.teacherName ?? 'المعلم';
+        lessonName = authState.student!.displayLessonName;
+      }
+    } catch (e) {
+      // safe fallback
+    }
+
+    // Parse date for display
+    String dayName = '';
+    String dayNumber = '';
+    String monthName = '';
+
+    try {
+      final date = DateTime.parse(report.date);
+      final Map<int, String> dayNames = {
+        DateTime.sunday: 'الأحد',
+        DateTime.monday: 'الاثنين',
+        DateTime.tuesday: 'الثلاثاء',
+        DateTime.wednesday: 'الأربعاء',
+        DateTime.thursday: 'الخميس',
+        DateTime.friday: 'الجمعة',
+        DateTime.saturday: 'السبت',
+      };
+      final Map<int, String> monthNames = {
+        1: 'يناير',
+        2: 'فبراير',
+        3: 'مارس',
+        4: 'أبريل',
+        5: 'مايو',
+        6: 'يونيو',
+        7: 'يوليو',
+        8: 'أغسطس',
+        9: 'سبتمبر',
+        10: 'أكتوبر',
+        11: 'نوفمبر',
+        12: 'ديسمبر'
+      };
+      dayName = dayNames[date.weekday] ?? '';
+      dayNumber = date.day.toString();
+      monthName = monthNames[date.month] ?? '';
+    } catch (e) {
+      dayNumber = report.date;
+    }
+
+    // Format time to 12-hour format
+    String displayTime = '--:--';
+    if (report.time.isNotEmpty) {
+      try {
+        final timeParts = report.time.split(':');
+        if (timeParts.length >= 2) {
+          int hour = int.parse(timeParts[0]);
+          final int minute = int.parse(timeParts[1]);
+          final String period = hour >= 12 ? 'PM' : 'AM';
+          if (hour > 12) hour -= 12;
+          if (hour == 0) hour = 12;
+          displayTime = '$hour:${minute.toString().padLeft(2, '0')} $period';
+        }
+      } catch (e) {
+        displayTime = report.time;
+      }
+    }
+
+    // Clean teacher first name
+    String teacherFirstName = teacherName;
+    if (teacherName.contains(' ')) {
+      teacherFirstName = teacherName.split(' ')[0];
+    }
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -996,103 +1071,292 @@ class _HomePageState extends State<HomePage> {
         );
       },
       child: Container(
-        width: double.infinity,
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x1A000000), // 0.1 opacity grey
-              spreadRadius: 1,
-              blurRadius: 4,
-              offset: Offset(0, 2),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white, width: 1.2),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'الحصة رقم ${report.sessionNumber}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
-                    ),
+              // Right Side: Date/Time (Placed first for RTL)
+              Container(
+                width: 120,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: const BoxDecoration(
+                  borderRadius: BorderRadius.only(
+                    topRight: Radius.circular(18),
+                    bottomRight: Radius.circular(18),
                   ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _getEvaluationColor(report.evaluation),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      report.evaluation.isEmpty
-                          ? 'غير متوفر'
-                          : report.evaluation,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        dayName,
+                        style: const TextStyle(
+                          fontFamily: 'Qatar',
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'تاريخ: ${report.date}',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[700],
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.access_time,
+                            color: Color(0xFFF0BF0C), size: 16),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            displayTime,
+                            style: const TextStyle(
+                              fontFamily: 'Qatar',
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.calendar_month,
+                            color: Color(0xFFF0BF0C), size: 16),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            '$dayNumber $monthName',
+                            style: const TextStyle(
+                              fontFamily: 'Qatar',
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'مدة الدرس: ${report.lessonDuration} دقيقة',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[700],
-                ),
-              ),
-              if (report.nextTasmii.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'التسميع القادم: ${report.nextTasmii}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[700],
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              const SizedBox(height: 12),
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    'عرض الإنجاز',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.secondaryColor,
-                      fontWeight: FontWeight.bold,
+
+              // Left Side: Main Card (Gradient BG)
+              Expanded(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color.fromARGB(255, 255, 255, 255), // Warm cream white
+                        Color.fromARGB(255, 234, 234, 234), // Subtle gold tint
+                      ],
+                    ),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(18),
+                      bottomLeft: Radius.circular(18),
                     ),
                   ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 14,
-                    color: AppTheme.secondaryColor,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Header: Session# (Right) | Evaluation + Avatar (Left)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Session Number & Evaluation
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'الحصة ${report.sessionNumber}',
+                                style: const TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              if (report.evaluation.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        _getEvaluationColor(report.evaluation),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    report.evaluation,
+                                    style: const TextStyle(
+                                      fontFamily: 'Qatar',
+                                      fontSize: 10,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    'الاستاذة',
+                                    style: TextStyle(
+                                      fontFamily: 'Qatar',
+                                      fontSize: 10,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  Text(
+                                    teacherFirstName,
+                                    style: const TextStyle(
+                                      fontFamily: 'Qatar',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: const Color(0xFFD4AF37),
+                                      width: 1.5),
+                                ),
+                                child: CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: Colors.grey[200],
+                                  backgroundImage: const AssetImage(
+                                      'assets/images/male_avatar.webp'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Footer: LessonName (Right) | Button (Left)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.circle_outlined,
+                                        size: 8, color: Color(0xFFF0BF0C)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'درس',
+                                      style: TextStyle(
+                                        fontFamily: 'Qatar',
+                                        fontSize: 10,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  lessonName,
+                                  style: const TextStyle(
+                                    fontFamily: 'Qatar',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            height: 30,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color.fromARGB(
+                                      255, 255, 198, 12), // Dark/Gold Yellow
+                                  Color.fromARGB(
+                                      255, 206, 158, 1), // Light Yellow
+                                ],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 3,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        ReportDetailsPage(report: report),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: const Text(
+                                'عرض الإنجاز',
+                                style: TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ],
           ),
