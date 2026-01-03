@@ -231,11 +231,11 @@ class _HomePageState extends State<HomePage> {
           }
         }
 
-        // Iterate through future weeks to find a slot without a report
-        // Check up to 8 weeks ahead
+        // Iterate through future weeks to find all slots without a report within 30 days
         final regularLessonTimeStr = _normalizeTimeForComparison(schedule.hour);
+        final thirtyDaysFromNow = now.add(const Duration(days: 30));
 
-        for (int weekOffset = 0; weekOffset < 8; weekOffset++) {
+        for (int weekOffset = 0; weekOffset < 5; weekOffset++) {
           final candidateDateTime = DateTime(
             now.year,
             now.month,
@@ -243,6 +243,11 @@ class _HomePageState extends State<HomePage> {
             lessonTime.hour,
             lessonTime.minute,
           );
+
+          // Stop if beyond 30 days
+          if (candidateDateTime.isAfter(thirtyDaysFromNow)) {
+            break;
+          }
 
           // Calculate the date string for comparison with reports
           final candidateDateStr =
@@ -265,7 +270,7 @@ class _HomePageState extends State<HomePage> {
               'dateStr': lessonDateStr,
             });
           }
-          break; // Found the next lesson for this schedule, move to next schedule
+          // Continue checking for more lessons within 30 days
         }
 
         // Skip the logic below since we added to upcomingLessons inside the loop
@@ -350,12 +355,12 @@ class _HomePageState extends State<HomePage> {
         }
       }
 
-      // Take up to 2 lessons
-      final nextTwo = upcomingLessons.take(2).toList();
+      // Take all lessons within 30 days (no limit)
+      final allLessons = upcomingLessons.toList();
 
       if (mounted) {
         setState(() {
-          _nextLessons = nextTwo;
+          _nextLessons = allLessons;
         });
       }
     } else {
@@ -638,6 +643,7 @@ class _HomePageState extends State<HomePage> {
               lessonData['schedule'] as Schedule,
               lessonData['dateTime'] as DateTime,
               lessonData['sessionNumber'] as int? ?? 0,
+              showRescheduleButton: index == 0, // Only show for first card
             );
           },
         ),
@@ -646,7 +652,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildNextLessonCard(
-      Schedule schedule, DateTime dateTime, int sessionNumber) {
+      Schedule schedule, DateTime dateTime, int sessionNumber,
+      {bool showRescheduleButton = true}) {
     // Get student details from Bloc
     String teacherName = 'المعلم';
     String lessonName = 'درس';
@@ -897,48 +904,62 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Container(
-                          height: 30,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [
-                                Color.fromARGB(
-                                    255, 255, 198, 12), // Dark/Gold Yellow
-                                Color.fromARGB(
-                                    255, 206, 158, 1), // Light Yellow
+                        Opacity(
+                          opacity: showRescheduleButton ? 1.0 : 0.4,
+                          child: Container(
+                            height: 30,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: showRescheduleButton
+                                    ? [
+                                        const Color.fromARGB(
+                                            255, 255, 198, 12), // Gold Yellow
+                                        const Color.fromARGB(
+                                            255, 206, 158, 1), // Light Yellow
+                                      ]
+                                    : [
+                                        const Color.fromARGB(
+                                            255, 208, 208, 208)!,
+                                        const Color.fromARGB(
+                                            255, 167, 167, 167)!,
+                                      ],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 3,
+                                  offset: Offset(0, 2),
+                                ),
                               ],
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
                             ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 3,
-                                offset: Offset(0, 2),
+                            child: ElevatedButton(
+                              onPressed: showRescheduleButton
+                                  ? () => _openPostponePage(schedule, dateTime)
+                                  : null, // Disabled when not first
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                disabledBackgroundColor: Colors.transparent,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            onPressed: () =>
-                                _openPostponePage(schedule, dateTime),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: const Text(
-                              'إعادة الجدولة',
-                              style: TextStyle(
-                                fontFamily: 'Qatar',
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
+                              child: Text(
+                                'إعادة الجدولة',
+                                style: TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: showRescheduleButton
+                                      ? Colors.black
+                                      : const Color.fromARGB(255, 0, 0, 0),
+                                ),
                               ),
                             ),
                           ),
