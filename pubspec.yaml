@@ -127,6 +127,7 @@ flutter:
     - assets/images/male_avatar.webp
     - assets/images/female_avatar.webp
     - assets/images/Calender.json
+    - assets/images/Bell.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

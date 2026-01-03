@@ -143,51 +143,116 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                     ),
                   ),
 
-                  // Left: Student Avatar
+                  // Left: Notification Icon + Student Avatar
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: BlocBuilder<AuthBloc, AuthState>(
-                      builder: (context, state) {
-                        String? imageUrl;
-                        if (state is AuthAuthenticated &&
-                            state.student != null) {
-                          imageUrl = state.student!.profileImageUrl;
-                        }
-                        return Container(
-                          // Avatar Container
-                          width: 40, // Smaller as requested
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xFFD4AF37),
-                              width: 2,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x26D4AF37),
-                                blurRadius: 4,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: ClipOval(
-                            child: imageUrl != null && imageUrl.isNotEmpty
-                                ? Image.network(
-                                    imageUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Image.asset(
-                                      'assets/images/male_avatar.webp',
-                                      fit: BoxFit.cover,
-                                    ),
-                                  )
-                                : Image.asset(
-                                    'assets/images/male_avatar.webp',
-                                    fit: BoxFit.cover,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Notification Icon
+                        Builder(builder: (context) {
+                          const int notificationCount =
+                              3; // Change this to 0 to test
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const PlaceholderPage(
+                                    title: 'الإشعارات',
+                                    icon: Icons.notifications_rounded,
                                   ),
-                          ),
-                        );
-                      },
+                                ),
+                              );
+                            },
+                            child: Transform.translate(
+                              offset: const Offset(-10, -5),
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Lottie.asset(
+                                    'assets/images/Bell.json',
+                                    width: 60,
+                                    height: 60,
+                                    fit: BoxFit.cover,
+                                    animate: notificationCount > 0,
+                                  ),
+                                  if (notificationCount > 0)
+                                    Positioned(
+                                      top: 0,
+                                      right: 10,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(5),
+                                        decoration: BoxDecoration(
+                                          color: const Color(
+                                              0xFF820c22), // Burgundy
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                              color: Colors.white, width: 1.5),
+                                        ),
+                                        child: Text(
+                                          '$notificationCount',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            fontFamily: 'Qatar',
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+                        const SizedBox(width: 12),
+                        // Student Avatar
+                        BlocBuilder<AuthBloc, AuthState>(
+                          builder: (context, state) {
+                            String? imageUrl;
+                            if (state is AuthAuthenticated &&
+                                state.student != null) {
+                              imageUrl = state.student!.profileImageUrl;
+                            }
+                            return Container(
+                              // Avatar Container
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFFD4AF37),
+                                  width: 2,
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x26D4AF37),
+                                    blurRadius: 4,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                              child: ClipOval(
+                                child: imageUrl != null && imageUrl.isNotEmpty
+                                    ? Image.network(
+                                        imageUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            Image.asset(
+                                          'assets/images/male_avatar.webp',
+                                          fit: BoxFit.cover,
+                                        ),
+                                      )
+                                    : Image.asset(
+                                        'assets/images/male_avatar.webp',
+                                        fit: BoxFit.cover,
+                                      ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
 
