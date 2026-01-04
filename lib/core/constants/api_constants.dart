@@ -125,6 +125,11 @@ class ApiConstants {
       '$v2BaseUrl/teacher/notifications/count';
 
   // ============================================
+  // Devices Endpoints (Push Notifications)
+  // ============================================
+  static String get devicesRegisterEndpoint => '$v2BaseUrl/devices/register';
+
+  // ============================================
   // Competition Endpoints
   // ============================================
   static String get competitionsEndpoint => '$v2BaseUrl/competitions';

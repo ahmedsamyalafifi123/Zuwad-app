@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../../../../core/services/secure_storage_service.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../../core/api/wordpress_api.dart';
 import '../../domain/models/student.dart';
 
@@ -14,7 +15,19 @@ class AuthRepository {
     try {
       final response = await _api.loginWithPhone(phone, password, role: role);
       // Response is already handled by WordPressApi, just check if we got user data
-      return response.containsKey('user');
+      final success = response.containsKey('user');
+
+      // Register device token for push notifications after successful login
+      if (success) {
+        // Do this async without blocking login
+        NotificationService().registerTokenWithBackend().then((registered) {
+          if (kDebugMode) {
+            print('Device token registration after login: $registered');
+          }
+        });
+      }
+
+      return success;
     } catch (e) {
       rethrow; // Let the caller handle the exception with proper message
     }

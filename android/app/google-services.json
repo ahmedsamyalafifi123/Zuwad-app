@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "85257832115",
+    "project_id": "maan-nataalam",
+    "storage_bucket": "maan-nataalam.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:85257832115:android:baa45f07602506f02e92c6",
+        "android_client_info": {
+          "package_name": "com.zuwad"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCtE98FVsvMpCF-TTCqIWRNiydT_48u3R4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Add this import
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
 import 'dart:async';
+import '../../../../core/services/notification_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/loading_widget.dart';
 import '../../../../core/widgets/custom_button.dart';
@@ -562,6 +563,19 @@ class _DashboardContentState extends State<_DashboardContent> {
                     Timer.periodic(const Duration(seconds: 1), (_) {
                   _updateCountdown();
                 });
+
+                // Schedule lesson reminders at 6h, 1h, and 15min before
+                if (_nextLessonDateTime != null) {
+                  // Generate a stable notification ID from the lesson datetime
+                  final lessonNotificationId =
+                      _nextLessonDateTime!.millisecondsSinceEpoch ~/ 1000;
+                  NotificationService().scheduleLessonReminder(
+                    lessonTime: _nextLessonDateTime!,
+                    lessonName: _lessonName,
+                    teacherName: _teacherName,
+                    lessonId: lessonNotificationId,
+                  );
+                }
               }
             } else {
               _nextLesson = null;

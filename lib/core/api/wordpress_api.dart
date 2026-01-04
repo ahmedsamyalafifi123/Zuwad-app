@@ -923,6 +923,48 @@ class WordPressApi {
   }
 
   // ============================================
+  // Device Registration (Push Notifications)
+  // ============================================
+
+  /// Register device token for push notifications.
+  Future<bool> registerDeviceToken(String deviceToken,
+      {String platform = 'android'}) async {
+    try {
+      if (kDebugMode) {
+        print('Registering device token: $deviceToken, platform: $platform');
+      }
+
+      final response = await _dio.post(
+        ApiConstants.devicesRegisterEndpoint,
+        data: jsonEncode({
+          'device_token': deviceToken,
+          'platform': platform,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          if (kDebugMode) {
+            print('Device token registered successfully');
+          }
+          return true;
+        }
+      }
+
+      if (kDebugMode) {
+        print('Failed to register device token: ${response.data}');
+      }
+      return false;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error registering device token: $e');
+      }
+      return false; // Don't throw - registration failure shouldn't break the app
+    }
+  }
+
+  // ============================================
   // Utility Methods
   // ============================================
 
