@@ -120,7 +120,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                 offset: Offset(0, 6),
               ),
             ],
-            borderRadius: const BorderRadius.only(
+            borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(20),
               bottomRight: Radius.circular(20),
             ),
@@ -1230,7 +1230,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                 side: BorderSide(
                   color: canPostpone
                       ? Colors.white
-                      : const Color.fromARGB(255, 117, 117, 117)!,
+                      : const Color.fromARGB(255, 117, 117, 117),
                   width: 1.5,
                 ),
                 padding: EdgeInsets.symmetric(

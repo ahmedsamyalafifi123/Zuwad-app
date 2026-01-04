@@ -919,9 +919,9 @@ class _HomePageState extends State<HomePage> {
                                       ]
                                     : [
                                         const Color.fromARGB(
-                                            255, 208, 208, 208)!,
+                                            255, 208, 208, 208),
                                         const Color.fromARGB(
-                                            255, 167, 167, 167)!,
+                                            255, 167, 167, 167),
                                       ],
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
