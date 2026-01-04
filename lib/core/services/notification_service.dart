@@ -255,27 +255,55 @@ class NotificationService {
   /// Call this after user logs in
   Future<bool> registerTokenWithBackend() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('fcm_token');
+      if (kDebugMode) {
+        print('=== Starting device token registration ===');
+      }
 
-      if (token == null) {
+      final prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('fcm_token');
+
+      // If no token in prefs, try to get it directly
+      if (token == null || token.isEmpty) {
         if (kDebugMode) {
-          print('No FCM token to register');
+          print('No FCM token in prefs, trying to get directly...');
+        }
+        token = await _firebaseMessaging.getToken();
+        if (token != null) {
+          await prefs.setString('fcm_token', token);
+          if (kDebugMode) {
+            print('Got FCM token directly: ${token.substring(0, 20)}...');
+          }
+        }
+      }
+
+      if (token == null || token.isEmpty) {
+        if (kDebugMode) {
+          print('ERROR: No FCM token available to register');
         }
         return false;
       }
 
+      if (kDebugMode) {
+        print('FCM Token to register: ${token.substring(0, 20)}...');
+      }
+
       final platform = Platform.isAndroid ? 'android' : 'ios';
+      if (kDebugMode) {
+        print('Platform: $platform');
+        print('Calling API to register device token...');
+      }
+
       final result = await _api.registerDeviceToken(token, platform: platform);
 
       if (kDebugMode) {
-        print('Device token registration result: $result');
+        print('=== Device token registration result: $result ===');
       }
 
       return result;
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (kDebugMode) {
-        print('Error registering token with backend: $e');
+        print('ERROR registering token with backend: $e');
+        print('Stack trace: $stackTrace');
       }
       return false;
     }
@@ -420,8 +448,9 @@ class NotificationService {
 
   /// Generate a unique notification ID based on lesson ID and suffix
   int _generateNotificationId(int lessonId, String suffix) {
-    // Create a unique ID by combining lesson ID with suffix hash
-    return lessonId * 10 + suffix.hashCode % 10;
+    // Use hashCode ensures it fits in 32-bit integer
+    // & 0x7FFFFFFF ensures it's always positive '
+    return ('$lessonId$suffix').hashCode & 0x7FFFFFFF;
   }
 
   /// Store scheduled notification IDs for later cancellation

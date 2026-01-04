@@ -927,19 +927,43 @@ class WordPressApi {
   // ============================================
 
   /// Register device token for push notifications.
+  /// Note: This uses a separate Dio instance to avoid the auto-retry loop
+  /// when the endpoint doesn't exist yet (404) or returns 401.
   Future<bool> registerDeviceToken(String deviceToken,
       {String platform = 'android'}) async {
     try {
       if (kDebugMode) {
-        print('Registering device token: $deviceToken, platform: $platform');
+        print(
+            'Registering device token: ${deviceToken.substring(0, 20)}..., platform: $platform');
       }
 
-      final response = await _dio.post(
+      // Get current auth token
+      final token = await _secureStorage.getToken();
+      if (token == null) {
+        if (kDebugMode) {
+          print('No auth token available for device registration');
+        }
+        return false;
+      }
+
+      // Use a fresh Dio instance without interceptors to avoid retry loops
+      final simpleDio = Dio();
+      simpleDio.options.connectTimeout = const Duration(seconds: 10);
+      simpleDio.options.receiveTimeout = const Duration(seconds: 10);
+
+      final response = await simpleDio.post(
         ApiConstants.devicesRegisterEndpoint,
         data: jsonEncode({
           'device_token': deviceToken,
           'platform': platform,
         }),
+        options: Options(
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -956,6 +980,16 @@ class WordPressApi {
         print('Failed to register device token: ${response.data}');
       }
       return false;
+    } on DioException catch (e) {
+      if (kDebugMode) {
+        print(
+            'DioException registering device token: ${e.response?.statusCode} - ${e.message}');
+        if (e.response?.statusCode == 404) {
+          print(
+              'NOTE: /devices/register endpoint not found. WordPress developer needs to add it.');
+        }
+      }
+      return false; // Don't throw - registration failure shouldn't break the app
     } catch (e) {
       if (kDebugMode) {
         print('Error registering device token: $e');
