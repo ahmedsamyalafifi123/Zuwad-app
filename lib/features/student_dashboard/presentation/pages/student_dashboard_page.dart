@@ -25,6 +25,7 @@ import 'report_details_page.dart';
 import 'placeholder_page.dart';
 import 'home_page.dart';
 import 'settings_page.dart';
+import '../../../auth/presentation/pages/login_page.dart';
 
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key});
@@ -208,7 +209,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                           );
                         }),
                         const SizedBox(width: 12),
-                        // Student Avatar
+                        // Student Avatar with dropdown menu
                         BlocBuilder<AuthBloc, AuthState>(
                           builder: (context, state) {
                             String? imageUrl;
@@ -216,39 +217,141 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                                 state.student != null) {
                               imageUrl = state.student!.profileImageUrl;
                             }
-                            return Container(
-                              // Avatar Container
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: const Color(0xFFD4AF37),
-                                  width: 2,
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x26D4AF37),
-                                    blurRadius: 4,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
+                            return PopupMenuButton<String>(
+                              offset: const Offset(0, 45),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              child: ClipOval(
-                                child: imageUrl != null && imageUrl.isNotEmpty
-                                    ? Image.network(
-                                        imageUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            Image.asset(
+                              onSelected: (value) {
+                                if (value == 'logout') {
+                                  // Show confirmation dialog
+                                  showDialog(
+                                    context: context,
+                                    builder: (dialogContext) => AlertDialog(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      title: const Text(
+                                        'تسجيل الخروج',
+                                        style: TextStyle(
+                                          fontFamily: 'Qatar',
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      content: const Text(
+                                        'هل أنت متأكد من رغبتك في تسجيل الخروج؟',
+                                        style: TextStyle(fontFamily: 'Qatar'),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      actionsAlignment:
+                                          MainAxisAlignment.center,
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(dialogContext),
+                                          child: const Text(
+                                            'إلغاء',
+                                            style: TextStyle(
+                                              fontFamily: 'Qatar',
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            Navigator.pop(dialogContext);
+                                            context
+                                                .read<AuthBloc>()
+                                                .add(LogoutEvent());
+                                            Navigator.of(context)
+                                                .pushAndRemoveUntil(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const LoginPage(),
+                                              ),
+                                              (route) => false,
+                                            );
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                const Color(0xFF820c22),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'تسجيل الخروج',
+                                            style: TextStyle(
+                                              fontFamily: 'Qatar',
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                PopupMenuItem<String>(
+                                  value: 'logout',
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: const [
+                                      Text(
+                                        'تسجيل الخروج',
+                                        style: TextStyle(
+                                          fontFamily: 'Qatar',
+                                          color: Color(0xFF820c22),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Icon(
+                                        Icons.logout_rounded,
+                                        color: Color(0xFF820c22),
+                                        size: 20,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              child: Container(
+                                // Avatar Container
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: const Color(0xFFD4AF37),
+                                    width: 2,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x26D4AF37),
+                                      blurRadius: 4,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                                child: ClipOval(
+                                  child: imageUrl != null && imageUrl.isNotEmpty
+                                      ? Image.network(
+                                          imageUrl,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              Image.asset(
+                                            'assets/images/male_avatar.webp',
+                                            fit: BoxFit.cover,
+                                          ),
+                                        )
+                                      : Image.asset(
                                           'assets/images/male_avatar.webp',
                                           fit: BoxFit.cover,
                                         ),
-                                      )
-                                    : Image.asset(
-                                        'assets/images/male_avatar.webp',
-                                        fit: BoxFit.cover,
-                                      ),
+                                ),
                               ),
                             );
                           },
