@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
 import 'dart:async';
-import '../../../../core/services/notification_service.dart';
+
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/loading_widget.dart';
 import '../../../../core/widgets/custom_button.dart';
@@ -22,10 +22,12 @@ import '../../domain/models/schedule.dart';
 import '../../domain/models/student_report.dart';
 import 'postpone_page.dart';
 import 'report_details_page.dart';
+
 import 'placeholder_page.dart';
 import 'home_page.dart';
 import 'settings_page.dart';
 import '../../../auth/presentation/pages/login_page.dart';
+import '../widgets/islamic_bottom_nav_bar.dart';
 
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key});
@@ -40,14 +42,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
   late final List<Widget> _pages;
 
   // Navigation items configuration for cleaner code
-  static const List<Map<String, dynamic>> _navItems = [
-    {'icon': Icons.home_rounded, 'label': 'الرئيسة'},
-    {'icon': Icons.emoji_events_rounded, 'label': 'الانجازات'},
-    {'icon': Icons.calendar_month_rounded, 'label': 'الجدول'},
-    {'icon': Icons.chat_bubble_rounded, 'label': 'المراسلة'},
-    {'icon': Icons.sports_esports_rounded, 'label': 'العاب'},
-    {'icon': Icons.settings_rounded, 'label': 'الاعدادات'},
-  ];
+  // Navigation items handled by IslamicBottomNavBar
 
   @override
   void initState() {
@@ -135,7 +130,8 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                 children: [
                   // Center: Title
                   Text(
-                    _navItems[_currentIndex]['label'] as String,
+                    IslamicBottomNavBar.navItems[_currentIndex]['label']
+                        as String,
                     style: const TextStyle(
                       // Title Style
                       fontFamily: 'Qatar',
@@ -365,7 +361,8 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                     alignment: Alignment.centerRight,
                     child: Icon(
                       // Page Icon
-                      _navItems[_currentIndex]['icon'] as IconData,
+                      IslamicBottomNavBar.navItems[_currentIndex]['icon']
+                          as IconData,
                       color:
                           Colors.black.withOpacity(0.30), // Black 30% opacity
                       size: 28,
@@ -380,195 +377,12 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
       body: _pages[_currentIndex],
       extendBody: true,
       extendBodyBehindAppBar: true, // Allow body to show behind rounded corners
-      bottomNavigationBar: _buildIslamicModernNavBar(),
-    );
-  }
-
-  Widget _buildIslamicModernNavBar() {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      heightFactor: 1.0,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 500),
-        child: Container(
-          margin:
-              const EdgeInsets.fromLTRB(12, 0, 12, 28), // Moved up as requested
-          child: Stack(
-            alignment: Alignment.topCenter,
-            clipBehavior: Clip.none,
-            children: [
-              // Main nav bar container with Islamic modern design
-              Container(
-                // Removed fixed height to prevent overflow
-                margin: const EdgeInsets.only(top: 25),
-                decoration: BoxDecoration(
-                  // Gradient background for premium look
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color.fromARGB(255, 255, 255, 255), // Warm cream white
-                      Color.fromARGB(255, 234, 234, 234), // Subtle gold tint
-                    ],
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black26, // Black shadow
-                      blurRadius: 10,
-                      offset: Offset(0, 2),
-                    ),
-                    BoxShadow(
-                      color: Colors.black12, // Softer black shadow
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                    ),
-                  ],
-                  borderRadius:
-                      BorderRadius.circular(15), // Reduced border radius
-                ),
-                child: ClipRRect(
-                  borderRadius:
-                      BorderRadius.circular(15), // Reduced border radius
-                  child: Stack(
-                    children: [
-                      // Subtle Islamic geometric pattern overlay
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: _IslamicPatternPainter(),
-                        ),
-                      ),
-                      // Navigation items
-                      Row(
-                        children: [
-                          // Left side: 3 nav items
-                          Expanded(
-                            flex: 3,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                _buildNavItem(0),
-                                _buildNavItem(1),
-                                _buildNavItem(2),
-                              ],
-                            ),
-                          ),
-                          // Center spacer for logo
-                          const SizedBox(width: 70),
-                          // Right side: 3 nav items
-                          Expanded(
-                            flex: 3,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                _buildNavItem(3),
-                                _buildNavItem(4),
-                                _buildNavItem(5),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Decorative centered logo (non-clickable)
-              Positioned(
-                top: -15,
-                child: SizedBox(
-                  width: 80,
-                  height: 80,
-                  child: Image.asset(
-                    'assets/images/zuwad.png',
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      bottomNavigationBar: IslamicBottomNavBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
       ),
     );
   }
-
-  Widget _buildNavItem(int index) {
-    final isSelected = _currentIndex == index;
-    final item = _navItems[index];
-
-    return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(
-            horizontal: 4, vertical: 8), // Reduced padding
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                item['icon'] as IconData,
-                size: isSelected ? 22 : 20,
-                color: isSelected
-                    ? const Color.fromARGB(
-                        255, 224, 173, 5) // Black when selected (requested)
-                    : const Color(0xFF8B0628), // Burgundy when not selected
-              ),
-            ),
-            const SizedBox(height: 2),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: TextStyle(
-                fontFamily: 'Qatar', // Use custom font
-                fontSize: isSelected ? 10 : 9,
-                fontWeight: isSelected
-                    ? FontWeight.bold // Qatar Bold
-                    : FontWeight.w500, // Qatar Medium
-                color: isSelected
-                    ? const Color.fromARGB(
-                        255, 0, 0, 0) // Black when selected (requested)
-                    : const Color(0xFF8B0628), // Burgundy when not selected
-              ),
-              child: Text(item['label'] as String),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Custom painter for subtle Islamic geometric pattern
-class _IslamicPatternPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0x0AD4AF37) // 4% opacity
-      ..strokeWidth = 0.5
-      ..style = PaintingStyle.stroke;
-
-    // Draw subtle geometric lines
-    const spacing = 20.0;
-    for (double x = 0; x < size.width; x += spacing) {
-      for (double y = 0; y < size.height; y += spacing) {
-        // Draw small diamond shapes
-        final path = Path()
-          ..moveTo(x, y - 5)
-          ..lineTo(x + 5, y)
-          ..lineTo(x, y + 5)
-          ..lineTo(x - 5, y)
-          ..close();
-        canvas.drawPath(path, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _DashboardContent extends StatefulWidget {
@@ -587,7 +401,6 @@ class _DashboardContentState extends State<_DashboardContent> {
   String _lessonName = '';
   bool _isLoading = true;
   Duration? _timeUntilNextLesson;
-  Timer? _countdownTimer;
 
   final AuthRepository _authRepository = AuthRepository();
   StudentReport? _lastReport;
@@ -603,7 +416,6 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   @override
   void dispose() {
-    _countdownTimer?.cancel();
     super.dispose();
   }
 
@@ -660,25 +472,7 @@ class _DashboardContentState extends State<_DashboardContent> {
             if (nextSchedule.schedules.isNotEmpty) {
               _findNextLesson(nextSchedule.schedules, reports);
               if (_nextLesson != null) {
-                _updateCountdown();
-                _countdownTimer?.cancel();
-                _countdownTimer =
-                    Timer.periodic(const Duration(seconds: 1), (_) {
-                  _updateCountdown();
-                });
-
                 // Schedule lesson reminders at 6h, 1h, and 15min before
-                if (_nextLessonDateTime != null) {
-                  // Generate a stable notification ID from the lesson datetime
-                  final lessonNotificationId =
-                      _nextLessonDateTime!.millisecondsSinceEpoch ~/ 1000;
-                  NotificationService().scheduleLessonReminder(
-                    lessonTime: _nextLessonDateTime!,
-                    lessonName: _lessonName,
-                    teacherName: _teacherName,
-                    lessonId: lessonNotificationId,
-                  );
-                }
               }
             } else {
               _nextLesson = null;
@@ -929,27 +723,6 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
   }
 
-  void _updateCountdown() {
-    // Use the stored _nextLessonDateTime directly instead of recalculating
-    // This ensures the countdown uses the correct date that accounts for reports
-    if (_nextLessonDateTime != null) {
-      final now = DateTime.now();
-      final previousDuration = _timeUntilNextLesson;
-      Duration? newDuration;
-
-      if (_nextLessonDateTime!.isAfter(now)) {
-        newDuration = _nextLessonDateTime!.difference(now);
-      }
-
-      if (previousDuration == null ||
-          previousDuration.inSeconds != newDuration?.inSeconds) {
-        setState(() {
-          _timeUntilNextLesson = newDuration;
-        });
-      }
-    }
-  }
-
   DateTime? _parseTimeString(String timeString) {
     try {
       final parts = timeString.trim().split(' ');
@@ -1197,87 +970,6 @@ class _DashboardContentState extends State<_DashboardContent> {
                   ),
                 ],
               ),
-              // Countdown section
-              if (_timeUntilNextLesson != null) ...[
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 60,
-                  child: Stack(
-                    alignment: Alignment.centerRight,
-                    children: [
-                      // Background Text Layer
-                      Transform.translate(
-                        offset:
-                            const Offset(0, -2), // Slight vertical adjustment
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Text(
-                              'الوقــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــت', // Extended line
-                              style: TextStyle(
-                                fontFamily: 'Qatar',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black,
-                                height: 1.0,
-                                letterSpacing:
-                                    0.3, // Tighten slightly to connect
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.visible,
-                            ),
-                            SizedBox(
-                                height:
-                                    8), // Space between lines to match boxes
-                            Text(
-                              'المتبقــــــــــــــــــــــــــــــــــــــــــــــــــــــــــي', // Extended line
-                              style: TextStyle(
-                                fontFamily: 'Qatar',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black,
-                                height: 1.0,
-                                letterSpacing: 0.3,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.visible,
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Foreground Countdown Layer
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          // Padding to avoid covering the words "الوقت/المتبقي"
-                          // Adjust this width based on the visual length of "الوقـ/المتبقـ"
-                          const SizedBox(width: 50),
-
-                          // Days (shown if > 0)
-                          if (_timeUntilNextLesson!.inDays > 0) ...[
-                            _buildCountdownItem(
-                                _timeUntilNextLesson!.inDays, 'يوم'),
-                            const SizedBox(width: 8),
-                          ],
-                          // Hours
-                          _buildCountdownItem(
-                              _timeUntilNextLesson!.inHours % 24, 'ساعة'),
-                          const SizedBox(width: 8),
-                          // Minutes
-                          _buildCountdownItem(
-                              _timeUntilNextLesson!.inMinutes % 60, 'دقيقة'),
-                          const SizedBox(width: 8),
-                          // Seconds
-                          _buildCountdownItem(
-                              _timeUntilNextLesson!.inSeconds % 60, 'ثانية'),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -1427,50 +1119,6 @@ class _DashboardContentState extends State<_DashboardContent> {
           thickness: 1,
         ),
       ],
-    );
-  }
-
-  Widget _buildCountdownItem(int value, String label) {
-    return Container(
-      width: 40, // Fixed width for consistency
-      padding: const EdgeInsets.symmetric(
-          vertical: 10), // horizontal padding removed as width is fixed
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value.toString().padLeft(2, '0'),
-            style: const TextStyle(
-              fontFamily: 'Qatar',
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-              height: 1.0, // Reduced line height
-            ),
-          ),
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Qatar',
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: Colors.black,
-              height: 1.2,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1639,7 +1287,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         _lastReport = null;
         _familyMembers = []; // Clear family members so they reload
         _timeUntilNextLesson = null;
-        _countdownTimer?.cancel();
+
         _isLoading = true;
       });
 

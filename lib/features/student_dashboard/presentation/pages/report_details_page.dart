@@ -1,312 +1,467 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+
 import '../../domain/models/student_report.dart';
+import '../widgets/islamic_bottom_nav_bar.dart';
 
 class ReportDetailsPage extends StatelessWidget {
   final StudentReport report;
 
   const ReportDetailsPage({super.key, required this.report});
 
-  /// Format time from 24h (HH:mm:ss) to 12h format (Arabic)
-  String _formatTime(String time) {
-    if (time.isEmpty) return 'غير متوفر';
+  // Calculate rating based on evaluation string or grade
+  int _calculateRating() {
+    // Try to map evaluation text
+    final evaluation = report.evaluation.toLowerCase().trim();
+    if (evaluation.contains('ممتاز') || evaluation.contains('excellent'))
+      return 5;
+    if (evaluation.contains('جيد جدا') || evaluation.contains('very good'))
+      return 4;
+    if (evaluation.contains('جيد') || evaluation.contains('good')) return 3;
+    if (evaluation.contains('مقبول') ||
+        evaluation.contains('fair') ||
+        evaluation.contains('acceptable')) return 2;
+    if (evaluation.contains('ضعيف') ||
+        evaluation.contains('weak') ||
+        evaluation.contains('poor')) return 1;
 
-    try {
-      // Parse the time string (expected format: HH:mm:ss or HH:mm)
-      final parts = time.split(':');
-      if (parts.isEmpty) return time;
-
-      int hour = int.tryParse(parts[0]) ?? 0;
-      int minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
-
-      String period = hour >= 12 ? 'مساءً' : 'صباحاً';
-      int displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-
-      return '$displayHour:${minute.toString().padLeft(2, '0')} $period';
-    } catch (e) {
-      return time; // Return original if parsing fails
+    // Fallback to grade if available (assuming 10 or 100 scale?)
+    // If grade is 0, default to 5 stars for positive UX or 0?
+    // Let's default to 5 if unknown or maybe 0.
+    if (report.grade > 0) {
+      if (report.grade <= 5) return report.grade;
+      if (report.grade <= 10) return (report.grade / 2).ceil();
+      if (report.grade <= 100) return (report.grade / 20).ceil();
     }
-  }
 
-  /// Get display value - show "غير متوفر" if empty
-  String _getDisplayValue(String value) {
-    return value.trim().isEmpty ? 'غير متوفر' : value;
+    return 5; // Default to 5 stars if no negative info
   }
 
   @override
   Widget build(BuildContext context) {
+    // Determine overall rating to use for all categories
+    final int rating = _calculateRating();
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        title: const Text(
-          'تفاصيل التقرير',
-          style: TextStyle(color: Colors.black),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+      backgroundColor: const Color(0xFF8b0628), // Deep Red Background
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(50),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color.fromARGB(255, 255, 255, 255), // Warm cream white
+                Color.fromARGB(255, 234, 234, 234), // Subtle gold tint
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Color.fromARGB(85, 0, 0, 0),
+                blurRadius: 10,
+                offset: Offset(0, 6),
+              ),
+            ],
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(20),
+              bottomRight: Radius.circular(20),
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Center: Title
+                  const Text(
+                    'تقرير اليوم',
+                    style: TextStyle(
+                      fontFamily: 'Qatar',
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+
+                  // Right: Back Button instead of Page Icon
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back,
+                          color: Color(0xFF8B0628), size: 28),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+
+                  // Left: Avatar
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFD4AF37),
+                          width: 2,
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x26D4AF37),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                        image: const DecorationImage(
+                          image: AssetImage('assets/images/male_avatar.webp'),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
+
+                  // Session Number Header
+                  _buildSessionHeader(),
+
+                  const SizedBox(height: 24),
+
+                  // Evaluation Section
+                  _buildSectionHeader('التقييم والأداء', Icons.star),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildStarColumn('التجويد', rating),
+                      _buildStarColumn('المراجعة', rating),
+                      _buildStarColumn('الحفظ', rating),
+                    ],
+                  ),
+                  const Divider(
+                      color: Colors.white30, thickness: 1, height: 30),
+
+                  // Achievements Section
+                  _buildSectionHeader('ما تم إنجازه', Icons.access_time),
+                  const SizedBox(height: 16),
+                  _buildLabelAndField('التسميع', report.tasmii),
+                  _buildLabelAndField('التحفيظ', report.tahfiz),
+                  _buildLabelAndField('المراجعة', report.mourajah),
+                  const Divider(
+                      color: Colors.white30, thickness: 1, height: 30),
+
+                  // Next Achievement Section
+                  _buildSectionHeader('الإنجاز القادم', Icons.calendar_month),
+                  const SizedBox(height: 16),
+                  _buildLabelAndField('التسميع', report.nextTasmii),
+                  _buildLabelAndField('المراجعة', report.nextMourajah),
+                  // Moved Notes here
+                  if (report.notes.isNotEmpty)
+                    _buildLabelAndField('ملاحظات', report.notes),
+
+                  const Divider(
+                      color: Colors.white30, thickness: 1, height: 30),
+
+                  // Image Section "From Our Class"
+                  if (report.zoomImageUrl.isNotEmpty) ...[
+                    _buildSectionHeader('من حصتنا', Icons.image),
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      height: 200, // Good height for image
+                      decoration: BoxDecoration(
+                        color: Colors.black12,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white24, width: 1),
+                        image: DecorationImage(
+                          image: NetworkImage(report.zoomImageUrl),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+                  ],
+
+                  // "Go to Top" Button
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                    },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white60),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.arrow_upward,
+                                  color: Colors.white, size: 16),
+                              SizedBox(width: 4),
+                              Text(
+                                'اذهب للأعلى',
+                                style: TextStyle(
+                                  fontFamily: 'Qatar',
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Add enough bottom padding to clear the floating nav bar
+                  const SizedBox(height: 100),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      extendBody: true,
+      bottomNavigationBar: IslamicBottomNavBar(
+        currentIndex: 1, // Achievements tab index (Index 1 based on map)
+        onTap: (index) {
+          Navigator.pop(context); // Return to dashboard
+        },
+      ),
+    );
+  }
+
+  Widget _buildSessionHeader() {
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        // Main Pill
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Text(
+            'تقرير الحصة رقم ${report.sessionNumber}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Qatar',
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+        // Folder Icon (Positioned Top Right relative to pill, or floating)
+        // Image shows a folder icon floating on the top-left (RTL: top-right visually?)
+        // Let's place it at the top-left of the container due to RTL text.
+        // Folder Icon (Positioned Top Right relative to pill, or floating)
+        Positioned(
+          top: -15,
+          right: 30, // RTL: Icon on Right
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: const BoxDecoration(
+              color: Colors.transparent,
+            ),
+            child: const Icon(
+              Icons.folder_copy,
+              size: 40,
+              color: Color(0xFFF6C302),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF6C302), // Gold
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFF6C302).withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _buildHeaderSection(),
-            const SizedBox(height: 24),
-            _buildDetailsCard('تفاصيل الحصة', [
-              DetailItem(
-                  label: 'رقم الجلسة', value: report.sessionNumber.toString()),
-              DetailItem(
-                  label: 'التاريخ', value: _getDisplayValue(report.date)),
-              DetailItem(label: 'الوقت', value: _formatTime(report.time)),
-              DetailItem(
-                  label: 'مدة الدرس', value: '${report.lessonDuration} دقيقة'),
-              DetailItem(
-                  label: 'الحضور', value: _getDisplayValue(report.attendance)),
-            ]),
-            const SizedBox(height: 16),
-            _buildDetailsCard('التقييم', [
-              DetailItem(
-                  label: 'التقييم', value: _getDisplayValue(report.evaluation)),
-              DetailItem(label: 'الدرجة', value: '${report.grade}'),
-            ]),
-            const SizedBox(height: 16),
-            _buildDetailsCard('محتوى الدرس', [
-              DetailItem(
-                  label: 'التسميع', value: _getDisplayValue(report.tasmii)),
-              DetailItem(
-                  label: 'التحفيظ', value: _getDisplayValue(report.tahfiz)),
-              DetailItem(
-                  label: 'المراجعة', value: _getDisplayValue(report.mourajah)),
-            ]),
-            const SizedBox(height: 16),
-            _buildDetailsCard('الواجب القادم', [
-              DetailItem(
-                  label: 'التسميع القادم',
-                  value: _getDisplayValue(report.nextTasmii)),
-              DetailItem(
-                  label: 'المراجعة القادمة',
-                  value: _getDisplayValue(report.nextMourajah)),
-            ]),
-            if (report.notes.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _buildDetailsCard('ملاحظات', [
-                DetailItem(label: 'ملاحظات المعلم', value: report.notes),
-              ]),
-            ],
-            if (report.zoomImageUrl.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              _buildZoomImage(),
-            ],
+            // White Star/Icon badge (Right in RTL = First child)
+            Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 14, color: const Color(0xFFF6C302)),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontFamily: 'Qatar',
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeaderSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0x1A8B0628), // 0.1 opacity primary
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.assignment,
-                  color: AppTheme.primaryColor, size: 28),
-              const SizedBox(width: 12),
-              Text(
-                'تقرير الحصة رقم ${report.sessionNumber.toString()}',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
-            ],
+  Widget _buildStarColumn(String label, int rating) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Qatar',
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
           ),
-          const SizedBox(height: 8),
-          Text(
-            'تاريخ: ${report.date}',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[700],
-            ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailsCard(String title, List<DetailItem> details) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1A000000), // 0.1 opacity grey
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
-              ),
-            ),
-          ),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: details.length,
-            separatorBuilder: (context, index) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final detail = details[index];
-              final isNotAvailable = detail.value == 'غير متوفر';
-              return Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      detail.label,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                    Flexible(
-                      child: Text(
-                        detail.value,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: isNotAvailable ? Colors.grey : Colors.black,
-                          fontStyle: isNotAvailable
-                              ? FontStyle.italic
-                              : FontStyle.normal,
-                        ),
-                        textAlign: TextAlign.end,
-                      ),
-                    ),
-                  ],
-                ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(5, (index) {
+              // RTL: index 0 is rightmost? No, Row lays out LTR by default unless localized.
+              // Assuming Directionality is RTL in app.
+              return Icon(
+                Icons.star,
+                size: 14,
+                // Color filled for rating, grey/outlined for rest
+                // Assuming rating 5 means 5 filled.
+                color: index < rating
+                    ? const Color(0xFFA01A36)
+                    : const Color(0xFFD4AF37),
+                // Wait, image shows RED stars on WHITE background?
+                // The image shows filled red stars (dark red) and maybe yellow outlines?
+                // Let's use the dark red from the background for filled stars.
               );
-            },
+            }),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildZoomImage() {
-    // Clean up the URL
-    String imageUrl =
-        report.zoomImageUrl.replaceAll(r'\\', '').replaceAll(r'\/', '/').trim();
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1A000000), // 0.1 opacity grey
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'صورة الحصة',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
+  Widget _buildLabelAndField(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Label Section (Right in RTL - Physical Right)
+            Container(
+              width: 100,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                // Border on Top, Right, Bottom only. Left open.
+                border: const Border(
+                  top: BorderSide(color: Colors.white, width: 1.5),
+                  bottom: BorderSide(color: Colors.white, width: 1.5),
+                  right: BorderSide(color: Colors.white, width: 1.5),
+                ),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(10),
+                  bottomRight: Radius.circular(10),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: 'Qatar',
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
-          ),
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(
-              bottom: Radius.circular(12),
-            ),
-            child: Image.network(
-              imageUrl,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  height: 200,
-                  color: Colors.grey[100],
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
-                          : null,
-                      color: AppTheme.primaryColor,
-                    ),
+
+            // No spacing to ensure seamless connection
+
+            // Value Section (Left in RTL - Physical Left)
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(10),
+                    bottomLeft: Radius.circular(10),
                   ),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  height: 200,
-                  color: Colors.grey[200],
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.image_not_supported,
-                        color: Colors.grey,
-                        size: 48,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'تعذر تحميل الصورة',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                    ],
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                alignment: Alignment.centerRight, // RTL Text Alignment
+                child: Text(
+                  _getDisplayValue(value),
+                  style: const TextStyle(
+                    fontFamily: 'Qatar',
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
                   ),
-                );
-              },
+                  textAlign: TextAlign.right,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
-}
 
-class DetailItem {
-  final String label;
-  final String value;
-
-  DetailItem({required this.label, required this.value});
+  String _getDisplayValue(String value) {
+    return value.trim().isEmpty ? '' : value;
+  }
 }
