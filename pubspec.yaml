@@ -78,6 +78,7 @@ dependencies:
   timezone: ^0.10.1
   timeago: ^3.7.1
   flutter_local_notifications: ^19.5.0
+  firebase_analytics: ^12.1.0
 
 dev_dependencies:
   flutter_test:

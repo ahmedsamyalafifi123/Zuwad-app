@@ -30,6 +30,7 @@ import '../../../auth/presentation/pages/login_page.dart';
 import '../widgets/islamic_bottom_nav_bar.dart';
 import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../notifications/data/repositories/notification_repository.dart';
+import '../../../../core/services/notification_service.dart';
 
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key});
@@ -342,10 +343,22 @@ class _NotificationButtonState extends State<_NotificationButton> {
   final NotificationRepository _repository = NotificationRepository();
   int _notificationCount = 0;
 
+  StreamSubscription? _subscription;
+  final NotificationService _notificationService = NotificationService();
+
   @override
   void initState() {
     super.initState();
     _loadUnreadCount();
+    _subscription = _notificationService.onNotificationReceived.listen((_) {
+      _loadUnreadCount();
+    });
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadUnreadCount() async {

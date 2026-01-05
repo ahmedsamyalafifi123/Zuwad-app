@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../../features/notifications/domain/models/notification.dart';
+import 'database_service.dart';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -15,9 +18,24 @@ import '../api/wordpress_api.dart';
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  if (kDebugMode) {
-    print('Handling a background message: ${message.messageId}');
-    print('Message data: ${message.data}');
+  // Save to local database
+  try {
+    if (message.notification != null) {
+      final notification = AppNotification(
+        id: 0, // Auto-increment
+        title: message.notification?.title ?? '',
+        body: message.notification?.body ?? '',
+        type: message.data['type'] ?? 'general',
+        isRead: false,
+        createdAt: DateTime.now(),
+        data: message.data,
+      );
+
+      await DatabaseService().insertNotification(notification);
+      if (kDebugMode) print('Background notification saved to DB');
+    }
+  } catch (e) {
+    if (kDebugMode) print('Error saving background notification to DB: $e');
   }
 }
 
@@ -31,6 +49,7 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
   final WordPressApi _api = WordPressApi();
+  final DatabaseService _databaseService = DatabaseService();
 
   bool _isInitialized = false;
 
@@ -134,6 +153,10 @@ class NotificationService {
     _checkInitialMessage();
   }
 
+  final _notificationsStreamController = StreamController<void>.broadcast();
+  Stream<void> get onNotificationReceived =>
+      _notificationsStreamController.stream;
+
   /// Handle foreground FCM message
   void _handleForegroundMessage(RemoteMessage message) {
     if (kDebugMode) {
@@ -146,6 +169,23 @@ class NotificationService {
     RemoteNotification? notification = message.notification;
     AndroidNotification? android = message.notification?.android;
 
+    // Save to local database
+    if (notification != null) {
+      final appNotification = AppNotification(
+        id: 0, // Auto-increment
+        title: notification.title ?? '',
+        body: notification.body ?? '',
+        type: message.data['type'] ?? 'general',
+        isRead: false,
+        createdAt: DateTime.now(),
+        data: message.data,
+      );
+
+      _databaseService.insertNotification(appNotification).then((_) {
+        if (kDebugMode) print('Foreground notification saved to DB');
+        _notificationsStreamController.add(null); // Notify listeners
+      });
+    }
     // Show local notification if valid notification data exists
     if (notification != null && android != null) {
       _localNotifications.show(
