@@ -401,6 +401,7 @@ class _DashboardContentState extends State<_DashboardContent> {
   String _lessonName = '';
   bool _isLoading = true;
   Duration? _timeUntilNextLesson;
+  Timer? _countdownTimer;
 
   final AuthRepository _authRepository = AuthRepository();
   StudentReport? _lastReport;
@@ -416,6 +417,7 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     super.dispose();
   }
 
@@ -472,7 +474,12 @@ class _DashboardContentState extends State<_DashboardContent> {
             if (nextSchedule.schedules.isNotEmpty) {
               _findNextLesson(nextSchedule.schedules, reports);
               if (_nextLesson != null) {
-                // Schedule lesson reminders at 6h, 1h, and 15min before
+                _updateCountdown();
+                _countdownTimer?.cancel();
+                _countdownTimer =
+                    Timer.periodic(const Duration(seconds: 1), (_) {
+                  _updateCountdown();
+                });
               }
             } else {
               _nextLesson = null;
@@ -723,6 +730,27 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
   }
 
+  void _updateCountdown() {
+    // Use the stored _nextLessonDateTime directly instead of recalculating
+    // This ensures the countdown uses the correct date that accounts for reports
+    if (_nextLessonDateTime != null) {
+      final now = DateTime.now();
+      final previousDuration = _timeUntilNextLesson;
+      Duration? newDuration;
+
+      if (_nextLessonDateTime!.isAfter(now)) {
+        newDuration = _nextLessonDateTime!.difference(now);
+      }
+
+      if (previousDuration == null ||
+          previousDuration.inSeconds != newDuration?.inSeconds) {
+        setState(() {
+          _timeUntilNextLesson = newDuration;
+        });
+      }
+    }
+  }
+
   DateTime? _parseTimeString(String timeString) {
     try {
       final parts = timeString.trim().split(' ');
@@ -970,9 +998,92 @@ class _DashboardContentState extends State<_DashboardContent> {
                   ),
                 ],
               ),
+
+              // Countdown section
+              if (_timeUntilNextLesson != null) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 60,
+                  child: Stack(
+                    alignment: Alignment.centerRight,
+                    children: [
+                      // Background Text Layer
+                      Transform.translate(
+                        offset:
+                            const Offset(0, -2), // Slight vertical adjustment
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Text(
+                              'الوقــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــت', // Extended line
+                              style: TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black,
+                                height: 1.0,
+                                letterSpacing:
+                                    0.3, // Tighten slightly to connect
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.visible,
+                            ),
+                            SizedBox(
+                                height:
+                                    8), // Space between lines to match boxes
+                            Text(
+                              'المتبقــــــــــــــــــــــــــــــــــــــــــــــــــــــــــي', // Extended line
+                              style: TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black,
+                                height: 1.0,
+                                letterSpacing: 0.3,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.visible,
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Foreground Countdown Layer
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          // Padding to avoid covering the words "الوقت/المتبقي"
+                          // Adjust this width based on the visual length of "الوقـ/المتبقـ"
+                          const SizedBox(width: 50),
+
+                          // Days (shown if > 0)
+                          if (_timeUntilNextLesson!.inDays > 0) ...[
+                            _buildCountdownItem(
+                                _timeUntilNextLesson!.inDays, 'يوم'),
+                            const SizedBox(width: 8),
+                          ],
+                          // Hours
+                          _buildCountdownItem(
+                              _timeUntilNextLesson!.inHours % 24, 'ساعة'),
+                          const SizedBox(width: 8),
+                          // Minutes
+                          _buildCountdownItem(
+                              _timeUntilNextLesson!.inMinutes % 60, 'دقيقة'),
+                          const SizedBox(width: 8),
+                          // Seconds
+                          _buildCountdownItem(
+                              _timeUntilNextLesson!.inSeconds % 60, 'ثانية'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
+
         // Buttons below the box - smaller and aligned to right side
         SizedBox(height: isSmallScreen ? 8 : 12),
         Row(
@@ -1119,6 +1230,50 @@ class _DashboardContentState extends State<_DashboardContent> {
           thickness: 1,
         ),
       ],
+    );
+  }
+
+  Widget _buildCountdownItem(int value, String label) {
+    return Container(
+      width: 40, // Fixed width for consistency
+      padding: const EdgeInsets.symmetric(
+          vertical: 10), // horizontal padding removed as width is fixed
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value.toString().padLeft(2, '0'),
+            style: const TextStyle(
+              fontFamily: 'Qatar',
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+              height: 1.0, // Reduced line height
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Qatar',
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: Colors.black,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1287,7 +1442,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         _lastReport = null;
         _familyMembers = []; // Clear family members so they reload
         _timeUntilNextLesson = null;
-
+        _countdownTimer?.cancel();
         _isLoading = true;
       });
 

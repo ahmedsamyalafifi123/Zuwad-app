@@ -18,11 +18,11 @@ class LiveKitConfig {
   // For now, using environment variables if available
   static const String apiKey = String.fromEnvironment(
     'LIVEKIT_API_KEY',
-    defaultValue: 'APIjTeJvsRwm8Fb',
+    defaultValue: 'APIzvnvodudghco',
   );
   static const String apiSecret = String.fromEnvironment(
     'LIVEKIT_API_SECRET',
-    defaultValue: '1QiaedSSZBeQukQPB1FB6dYeg2EePzsq1lWlmIrw9tNA',
+    defaultValue: 'ag94xq3v8trrktv0ylqm8psk4kqraas6tkebuotu9olt',
   );
 
   // Meeting configuration

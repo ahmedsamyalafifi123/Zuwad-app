@@ -21,7 +21,7 @@ class EnvConfig {
   // LiveKit configuration
   static const String livekitUrl = String.fromEnvironment(
     'LIVEKIT_URL',
-    defaultValue: 'wss://tajruba-rkrmuadd.livekit.cloud',
+    defaultValue: 'wss://livekit.zuwad-academy.com',
   );
 
   // Debug mode helper
