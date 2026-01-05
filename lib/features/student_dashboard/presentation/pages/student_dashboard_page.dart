@@ -1086,9 +1086,13 @@ class _DashboardContentState extends State<_DashboardContent> {
 
         // Buttons below the box - smaller and aligned to right side
         SizedBox(height: isSmallScreen ? 8 : 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.start, // Start = right in RTL
-          children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          reverse: true, // Scroll from right to left (RTL)
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start, // Start = right in RTL
+            mainAxisSize: MainAxisSize.min,
+            children: [
             // إنضم للدرس button - green gradient when can join, light yellow when can't
             Container(
               decoration: BoxDecoration(
@@ -1222,6 +1226,7 @@ class _DashboardContentState extends State<_DashboardContent> {
               ),
             ],
           ],
+        ),
         ),
         const SizedBox(height: 18),
         const Divider(
