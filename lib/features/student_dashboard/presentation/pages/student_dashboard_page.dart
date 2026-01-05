@@ -28,6 +28,8 @@ import 'home_page.dart';
 import 'settings_page.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../widgets/islamic_bottom_nav_bar.dart';
+import '../../../notifications/presentation/pages/notifications_page.dart';
+import '../../../notifications/data/repositories/notification_repository.dart';
 
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key});
@@ -147,63 +149,8 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Notification Icon
-                        Builder(builder: (context) {
-                          const int notificationCount =
-                              3; // Change this to 0 to test
-                          return GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const PlaceholderPage(
-                                    title: 'الإشعارات',
-                                    icon: Icons.notifications_rounded,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Transform.translate(
-                              offset: const Offset(-10, -5),
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Lottie.asset(
-                                    'assets/images/Bell.json',
-                                    width: 60,
-                                    height: 60,
-                                    fit: BoxFit.cover,
-                                    animate: notificationCount > 0,
-                                  ),
-                                  if (notificationCount > 0)
-                                    Positioned(
-                                      top: 0,
-                                      right: 10,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(5),
-                                        decoration: BoxDecoration(
-                                          color: const Color(
-                                              0xFF820c22), // Burgundy
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                              color: Colors.white, width: 1.5),
-                                        ),
-                                        child: Text(
-                                          '$notificationCount',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            fontFamily: 'Qatar',
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
+                        // Notification Icon with real unread count
+                        _NotificationButton(),
                         const SizedBox(width: 12),
                         // Student Avatar with dropdown menu
                         BlocBuilder<AuthBloc, AuthState>(
@@ -380,6 +327,89 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
       bottomNavigationBar: IslamicBottomNavBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
+      ),
+    );
+  }
+}
+
+/// Notification button widget that shows unread count and navigates to NotificationsPage.
+class _NotificationButton extends StatefulWidget {
+  @override
+  State<_NotificationButton> createState() => _NotificationButtonState();
+}
+
+class _NotificationButtonState extends State<_NotificationButton> {
+  final NotificationRepository _repository = NotificationRepository();
+  int _notificationCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUnreadCount();
+  }
+
+  Future<void> _loadUnreadCount() async {
+    try {
+      final count = await _repository.getUnreadCount();
+      if (mounted) {
+        setState(() {
+          _notificationCount = count;
+        });
+      }
+    } catch (e) {
+      // Silently fail - notification count is not critical
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const NotificationsPage(),
+          ),
+        );
+        // Refresh count when returning from notifications page
+        _loadUnreadCount();
+      },
+      child: Transform.translate(
+        offset: const Offset(-10, -5),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Lottie.asset(
+              'assets/images/Bell.json',
+              width: 60,
+              height: 60,
+              fit: BoxFit.cover,
+              animate: _notificationCount > 0,
+            ),
+            if (_notificationCount > 0)
+              Positioned(
+                top: 0,
+                right: 10,
+                child: Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF820c22), // Burgundy
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                  child: Text(
+                    _notificationCount > 99 ? '99+' : '$_notificationCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Qatar',
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1088,123 +1118,41 @@ class _DashboardContentState extends State<_DashboardContent> {
         SizedBox(height: isSmallScreen ? 8 : 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          reverse: true, // Scroll from right to left (RTL)
           child: Row(
             mainAxisAlignment: MainAxisAlignment.start, // Start = right in RTL
             mainAxisSize: MainAxisSize.min,
             children: [
-            // إنضم للدرس button - green gradient when can join, light yellow when can't
-            Container(
-              decoration: BoxDecoration(
-                gradient: canJoin
-                    ? const LinearGradient(
-                        colors: [
-                          Color.fromARGB(255, 157, 231, 161), // Light green
-                          Color.fromARGB(255, 85, 194, 88), // Green
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      )
-                    : const LinearGradient(
-                        colors: [
-                          Color.fromARGB(0, 253, 247, 89), // Light yellow
-                          Color.fromARGB(0, 240, 191, 12) // Lighter yellow
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: Color.fromARGB(157, 255, 255, 255), width: 1.5),
-              ),
-              child: ElevatedButton(
-                onPressed: canJoin ? _joinLesson : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  foregroundColor: Colors.black,
-                  disabledForegroundColor: Colors.black,
-                  padding: EdgeInsets.symmetric(
-                      vertical: buttonPaddingV, horizontal: buttonPaddingH),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Text(
-                  'إنضم للدرس',
-                  style: TextStyle(
-                    fontFamily: 'Qatar',
-                    fontSize: buttonFontSize,
-                    fontWeight: FontWeight.bold,
-                    color: canJoin
-                        ? Colors.white
-                        : const Color.fromARGB(157, 255, 255, 255),
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(width: isSmallScreen ? 6 : 10),
-            // تأجيل الدرس (white border only) - smaller button
-            OutlinedButton(
-              onPressed: canPostpone ? _openPostponePage : null,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: BorderSide(
-                  color: canPostpone
-                      ? Colors.white
-                      : const Color.fromARGB(255, 117, 117, 117),
-                  width: 1.5,
-                ),
-                padding: EdgeInsets.symmetric(
-                    vertical: buttonPaddingV, horizontal: buttonPaddingH),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: Text(
-                'تأجيل الدرس',
-                style: TextStyle(
-                  fontFamily: 'Qatar',
-                  fontSize: buttonFontSize,
-                  fontWeight: FontWeight.bold,
-                  color: canPostpone ? Colors.white : Colors.grey[600],
-                ),
-              ),
-            ),
-
-            // الانجاز السابق button
-            if (_lastReport != null) ...[
-              SizedBox(width: isSmallScreen ? 6 : 10),
+              // إنضم للدرس button - green gradient when can join, light yellow when can't
               Container(
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color.fromARGB(255, 253, 247, 89), // Light yellow
-                      Color.fromARGB(255, 240, 191, 12) // Lighter yellow
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
+                  gradient: canJoin
+                      ? const LinearGradient(
+                          colors: [
+                            Color.fromARGB(255, 157, 231, 161), // Light green
+                            Color.fromARGB(255, 85, 194, 88), // Green
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        )
+                      : const LinearGradient(
+                          colors: [
+                            Color.fromARGB(0, 253, 247, 89), // Light yellow
+                            Color.fromARGB(0, 240, 191, 12) // Lighter yellow
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: Color.fromARGB(157, 255, 255, 255), width: 1.5),
                 ),
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            ReportDetailsPage(report: _lastReport!),
-                      ),
-                    );
-                  },
+                  onPressed: canJoin ? _joinLesson : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
-                    foregroundColor: Colors.black, // darker text for yellow bg
+                    foregroundColor: Colors.black,
+                    disabledForegroundColor: Colors.black,
                     padding: EdgeInsets.symmetric(
                         vertical: buttonPaddingV, horizontal: buttonPaddingH),
                     minimumSize: Size.zero,
@@ -1214,19 +1162,101 @@ class _DashboardContentState extends State<_DashboardContent> {
                     ),
                   ),
                   child: Text(
-                    'الانجاز السابق',
+                    'إنضم للدرس',
                     style: TextStyle(
                       fontFamily: 'Qatar',
                       fontSize: buttonFontSize,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      color: canJoin
+                          ? Colors.white
+                          : const Color.fromARGB(157, 255, 255, 255),
                     ),
                   ),
                 ),
               ),
+              SizedBox(width: isSmallScreen ? 6 : 10),
+              // تأجيل الدرس (white border only) - smaller button
+              OutlinedButton(
+                onPressed: canPostpone ? _openPostponePage : null,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(
+                    color: canPostpone
+                        ? Colors.white
+                        : const Color.fromARGB(255, 117, 117, 117),
+                    width: 1.5,
+                  ),
+                  padding: EdgeInsets.symmetric(
+                      vertical: buttonPaddingV, horizontal: buttonPaddingH),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(
+                  'تأجيل الدرس',
+                  style: TextStyle(
+                    fontFamily: 'Qatar',
+                    fontSize: buttonFontSize,
+                    fontWeight: FontWeight.bold,
+                    color: canPostpone ? Colors.white : Colors.grey[600],
+                  ),
+                ),
+              ),
+
+              // الانجاز السابق button
+              if (_lastReport != null) ...[
+                SizedBox(width: isSmallScreen ? 6 : 10),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color.fromARGB(255, 253, 247, 89), // Light yellow
+                        Color.fromARGB(255, 240, 191, 12) // Lighter yellow
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              ReportDetailsPage(report: _lastReport!),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor:
+                          Colors.black, // darker text for yellow bg
+                      padding: EdgeInsets.symmetric(
+                          vertical: buttonPaddingV, horizontal: buttonPaddingH),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      'الانجاز السابق',
+                      style: TextStyle(
+                        fontFamily: 'Qatar',
+                        fontSize: buttonFontSize,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
-        ),
+          ),
         ),
         const SizedBox(height: 18),
         const Divider(

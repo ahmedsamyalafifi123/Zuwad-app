@@ -1,10 +1,11 @@
 import 'dart:async';
-
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/wordpress_api.dart';
@@ -27,6 +28,8 @@ class NotificationService {
   NotificationService._internal();
 
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
   final WordPressApi _api = WordPressApi();
 
   bool _isInitialized = false;
@@ -38,6 +41,9 @@ class NotificationService {
     try {
       // Request permission
       await _requestPermission();
+
+      // Initialize Local Notifications
+      await _initializeLocalNotifications();
 
       // Set up FCM message handlers
       _setupFCMHandlers();
@@ -54,6 +60,49 @@ class NotificationService {
         print('Error initializing NotificationService: $e');
       }
     }
+  }
+
+  /// Initialize Local Notifications plugin
+  Future<void> _initializeLocalNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/launcher_icon');
+
+    final DarwinInitializationSettings initializationSettingsDarwin =
+        DarwinInitializationSettings();
+
+    final InitializationSettings initializationSettings =
+        InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsDarwin,
+    );
+
+    await _localNotifications.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse details) {
+        if (details.payload != null) {
+          try {
+            final data = jsonDecode(details.payload!);
+            _navigateBasedOnPayload(data);
+          } catch (e) {
+            if (kDebugMode) print('Error parsing payload: $e');
+          }
+        }
+      },
+    );
+
+    // Create a high priority channel for Android
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'high_importance_channel', // id
+      'High Importance Notifications', // title
+      description:
+          'This channel is used for important notifications.', // description
+      importance: Importance.max,
+    );
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
   }
 
   /// Request notification permissions
@@ -93,7 +142,30 @@ class NotificationService {
       print('Body: ${message.notification?.body}');
       print('Data: ${message.data}');
     }
-    // Local notifications removed. Foreground messages are now silent in UI unless handled custom.
+
+    RemoteNotification? notification = message.notification;
+    AndroidNotification? android = message.notification?.android;
+
+    // Show local notification if valid notification data exists
+    if (notification != null && android != null) {
+      _localNotifications.show(
+        notification.hashCode,
+        notification.title,
+        notification.body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'high_importance_channel',
+            'High Importance Notifications',
+            channelDescription:
+                'This channel is used for important notifications.',
+            icon: '@mipmap/launcher_icon',
+            importance: Importance.max,
+            priority: Priority.high,
+          ),
+        ),
+        payload: jsonEncode(message.data),
+      );
+    }
   }
 
   /// Handle notification tap when app is opened from background/terminated

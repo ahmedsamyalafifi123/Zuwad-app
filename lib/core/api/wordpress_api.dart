@@ -999,6 +999,101 @@ class WordPressApi {
   }
 
   // ============================================
+  // Notifications Methods
+  // ============================================
+
+  /// Get list of notifications for the current user.
+  Future<List<dynamic>> getNotifications(
+      {int page = 1, int perPage = 50}) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.notificationsEndpoint,
+        queryParameters: {
+          'page': page,
+          'per_page': perPage,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'] as List<dynamic>? ?? [];
+        }
+      }
+      return [];
+    } catch (e) {
+      if (kDebugMode) {
+        print('Get notifications failed: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Mark a single notification as read.
+  Future<bool> markNotificationAsRead(int notificationId) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.notificationReadEndpoint(notificationId),
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        return jsonData['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Mark notification as read failed: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Mark all notifications as read.
+  Future<bool> markAllNotificationsAsRead() async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.notificationMarkAllReadEndpoint,
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        return jsonData['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Mark all notifications as read failed: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Get unread notification count.
+  Future<int> getUnreadNotificationCount() async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.notificationCountEndpoint,
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data']?['count'] ??
+              jsonData['data']?['unread_count'] ??
+              0;
+        }
+      }
+      return 0;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Get unread notification count failed: $e');
+      }
+      return 0;
+    }
+  }
+
+  // ============================================
   // Utility Methods
   // ============================================
 

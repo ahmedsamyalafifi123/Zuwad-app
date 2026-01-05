@@ -76,6 +76,8 @@ dependencies:
   firebase_core: ^4.3.0
   firebase_messaging: ^16.1.0
   timezone: ^0.10.1
+  timeago: ^3.7.1
+  flutter_local_notifications: ^19.5.0
 
 dev_dependencies:
   flutter_test:
