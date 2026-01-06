@@ -56,14 +56,18 @@ class DatabaseService {
         );
 
         if (existing.isNotEmpty) {
-          // Update existing notification if needed (e.g. read status changed on server)
-          // For now, we prefer local state for is_read if strictly syncing,
-          // but if we want to sync read status FROM server, we should update.
-          // Let's update everything except maybe is_read if local is already read?
-          // Simpler approach: Overwrite with server data to ensure sync.
+          // If the local notification is already marked as read, preserve that status
+          // regardless of what the server says (since server might lag behind).
+          // Otherwise, accept the server's status.
+          var newMap = _toDbMap(notification);
+
+          if (existing.first['is_read'] == 1) {
+            newMap['is_read'] = 1;
+          }
+
           return await db.update(
             'notifications',
-            _toDbMap(notification),
+            newMap,
             where: 'server_id = ?',
             whereArgs: [notification.id],
           );

@@ -26,7 +26,7 @@ class AppNotification {
       type: json['type'] ?? 'general',
       isRead: json['is_read'] == true || json['is_read'] == 1,
       createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          ? DateTime.parse('${json['created_at']}Z').toLocal()
           : DateTime.now(),
       data: json['data'] is Map<String, dynamic> ? json['data'] : null,
     );
