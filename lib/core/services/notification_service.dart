@@ -22,7 +22,10 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
     if (message.notification != null) {
       final notification = AppNotification(
-        id: 0, // Auto-increment
+        // Try to get server ID from data payload
+        id: int.tryParse(message.data['id']?.toString() ?? '0') ??
+            int.tryParse(message.data['notification_id']?.toString() ?? '0') ??
+            0,
         title: message.notification?.title ?? '',
         body: message.notification?.body ?? '',
         type: message.data['type'] ?? 'general',
@@ -172,7 +175,10 @@ class NotificationService {
     // Save to local database
     if (notification != null) {
       final appNotification = AppNotification(
-        id: 0, // Auto-increment
+        // Try to get server ID from data payload to avoid duplicates when syncing with API
+        id: int.tryParse(message.data['id']?.toString() ?? '0') ??
+            int.tryParse(message.data['notification_id']?.toString() ?? '0') ??
+            0,
         title: notification.title ?? '',
         body: notification.body ?? '',
         type: message.data['type'] ?? 'general',

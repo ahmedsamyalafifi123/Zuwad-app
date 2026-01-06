@@ -8,11 +8,6 @@ class NotificationRepository {
   final WordPressApi _api = WordPressApi();
   final DatabaseService _databaseService = DatabaseService();
 
-  // Cache for notifications
-  List<AppNotification>? _cachedNotifications;
-  DateTime? _lastFetchTime;
-  static const _cacheValidityDuration = Duration(minutes: 5);
-
   /// Get all notifications with optional pagination.
   /// Merges local DB data with API data (sync strategy).
   Future<List<AppNotification>> getNotifications({
@@ -99,11 +94,5 @@ class NotificationRepository {
       }
       return false;
     }
-  }
-
-  /// Clear the cache.
-  void clearCache() {
-    _cachedNotifications = null;
-    _lastFetchTime = null;
   }
 }
