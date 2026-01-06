@@ -1523,6 +1523,213 @@ class Message {
 
 ---
 
+## 🔔 Student Notifications API
+
+Student notifications system for receiving and managing in-app notifications.
+
+### Notification Types
+
+| Type           | Description                         |
+| -------------- | ----------------------------------- |
+| `report`       | New lesson report added             |
+| `schedule`     | Schedule changes or postponements   |
+| `payment`      | Payment reminders or status changes |
+| `announcement` | General announcements               |
+| `reminder`     | Lesson or event reminders           |
+| `system`       | System notifications                |
+
+### List Notifications
+
+Get paginated notifications for the authenticated student.
+
+```http
+GET /student/notifications?page=1&per_page=50&status=unread&type=report
+Authorization: Bearer {token}
+```
+
+**Query Parameters:**
+
+| Parameter  | Type    | Default | Description                     |
+| ---------- | ------- | ------- | ------------------------------- |
+| `page`     | integer | 1       | Page number                     |
+| `per_page` | integer | 50      | Items per page                  |
+| `status`   | string  | all     | Filter: `unread`, `read`, `all` |
+| `type`     | string  | -       | Filter by notification type     |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "title": "تقرير جديد",
+      "message": "تم إضافة تقرير حصة جديد من المعلم أحمد",
+      "type": "report",
+      "data": {
+        "report_id": 456,
+        "teacher_id": 789
+      },
+      "is_read": false,
+      "created_at": "2024-01-15 14:30:00",
+      "read_at": null
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 50,
+    "total": 10,
+    "total_pages": 1
+  }
+}
+```
+
+### Get Single Notification
+
+```http
+GET /student/notifications/{id}
+Authorization: Bearer {token}
+```
+
+### Mark Notification as Read
+
+```http
+POST /student/notifications/{id}/read
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Marked as read",
+    "id": 1
+  }
+}
+```
+
+### Mark All as Read
+
+```http
+POST /student/notifications/mark-all-read
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "All notifications marked as read",
+    "count": 5
+  }
+}
+```
+
+### Get Unread Count
+
+```http
+GET /student/notifications/count
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "unread_count": 3
+  }
+}
+```
+
+### Flutter Implementation Example
+
+```dart
+class NotificationService {
+  final Dio _dio;
+
+  NotificationService(this._dio);
+
+  // Get notifications with pagination
+  Future<List<Notification>> getNotifications({
+    int page = 1,
+    int perPage = 50,
+    String? status,
+    String? type,
+  }) async {
+    final response = await _dio.get('/student/notifications', queryParameters: {
+      'page': page,
+      'per_page': perPage,
+      if (status != null) 'status': status,
+      if (type != null) 'type': type,
+    });
+
+    return (response.data['data'] as List)
+        .map((json) => Notification.fromJson(json))
+        .toList();
+  }
+
+  // Get unread count for badge
+  Future<int> getUnreadCount() async {
+    final response = await _dio.get('/student/notifications/count');
+    return response.data['data']['unread_count'];
+  }
+
+  // Mark single notification as read
+  Future<void> markAsRead(int id) async {
+    await _dio.post('/student/notifications/$id/read');
+  }
+
+  // Mark all as read
+  Future<void> markAllAsRead() async {
+    await _dio.post('/student/notifications/mark-all-read');
+  }
+}
+
+class Notification {
+  final int id;
+  final String title;
+  final String message;
+  final String type;
+  final Map<String, dynamic>? data;
+  final bool isRead;
+  final DateTime createdAt;
+  final DateTime? readAt;
+
+  Notification({
+    required this.id,
+    required this.title,
+    required this.message,
+    required this.type,
+    this.data,
+    required this.isRead,
+    required this.createdAt,
+    this.readAt,
+  });
+
+  factory Notification.fromJson(Map<String, dynamic> json) {
+    return Notification(
+      id: json['id'],
+      title: json['title'],
+      message: json['message'],
+      type: json['type'],
+      data: json['data'],
+      isRead: json['is_read'],
+      createdAt: DateTime.parse(json['created_at']),
+      readAt: json['read_at'] != null ? DateTime.parse(json['read_at']) : null,
+    );
+  }
+}
+```
+
+---
+
 ## 🏆 Competition API
 
 ### List Competitions
@@ -1779,10 +1986,15 @@ For API issues, contact the development team with:
 
 ---
 
-**API Version:** 2.0.1  
-**Last Updated:** December 2024
+**API Version:** 2.0.2  
+**Last Updated:** January 2026
 
-### Recent Changes (v2.0.1)
+### Recent Changes (v2.0.2)
+
+- **Student Notifications:** New `/student/notifications` endpoints for in-app notifications
+- **Helper Functions:** Added `zuwad_send_student_notification()` for easy integration
+
+### Previous Changes (v2.0.1)
 
 - **Free Slots:** Now excludes/splits slots around scheduled postponed lessons
 - **Student Schedules:** Returns both regular and future postponed schedules

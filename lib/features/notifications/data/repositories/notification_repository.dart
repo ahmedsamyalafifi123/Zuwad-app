@@ -31,27 +31,16 @@ class NotificationRepository {
         final apiNotifications =
             apiData.map((json) => AppNotification.fromJson(json)).toList();
 
-        // Save new API notifications to DB (avoid duplicates based on Logic)
-        // For simplicity, we just insert. refactor later for dedup logic using server_id
+        // Save new API notifications to DB
         for (var n in apiNotifications) {
-          // We might need a check here to avoid duplicates if we want perfection,
-          // but given the urgency, we just ensure recent ones are there.
-          // Ideally, DatabaseService.insertNotification handles conflict if we had unique server_id constraint.
-          // Since we use autoincrement ID, we rely on the specific flow.
-          // For now, let's just return API data if we fetched it, merging is complex without unique constraints.
+          await _databaseService.insertNotification(n);
         }
 
-        // If we got data from API, let's use it to populate/refresh local DB?
-        // Actually, the user's issue is MISSING data from API.
-        // So we should prioritze LOCAL data which captures the push notifications that API missed.
-
-        // Strategy: Combine both?
-        // Let's assume the local DB has the accurate "Push History".
-        if (localNotifications.isNotEmpty) {
-          return localNotifications;
-        }
-
-        return apiNotifications;
+        // Return the fresh cached data
+        // We ideally fetch again from DB to ensure consistency,
+        // OR just return the apiNotifications if they are valid.
+        // Returning API notifications is faster for UI response.
+        return await _databaseService.getNotifications();
       } catch (e) {
         if (kDebugMode) print('Error fetching API notifications: $e');
         // Fallback to local if API fails

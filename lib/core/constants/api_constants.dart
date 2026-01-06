@@ -112,7 +112,7 @@ class ApiConstants {
   // ============================================
   // Notifications Endpoints
   // ============================================
-  static String get notificationsEndpoint => '$v2BaseUrl/notifications';
+  static String get notificationsEndpoint => '$v2BaseUrl/student/notifications';
   static String notificationReadEndpoint(int id) =>
       '$v2BaseUrl/notifications/$id/read';
   static String get notificationMarkAllReadEndpoint =>

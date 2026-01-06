@@ -47,6 +47,29 @@ class DatabaseService {
   Future<int> insertNotification(AppNotification notification) async {
     final db = await database;
     try {
+      // Check if notification with this server_id already exists
+      if (notification.id > 0) {
+        final List<Map<String, dynamic>> existing = await db.query(
+          'notifications',
+          where: 'server_id = ?',
+          whereArgs: [notification.id],
+        );
+
+        if (existing.isNotEmpty) {
+          // Update existing notification if needed (e.g. read status changed on server)
+          // For now, we prefer local state for is_read if strictly syncing,
+          // but if we want to sync read status FROM server, we should update.
+          // Let's update everything except maybe is_read if local is already read?
+          // Simpler approach: Overwrite with server data to ensure sync.
+          return await db.update(
+            'notifications',
+            _toDbMap(notification),
+            where: 'server_id = ?',
+            whereArgs: [notification.id],
+          );
+        }
+      }
+
       return await db.insert(
         'notifications',
         _toDbMap(notification),
@@ -94,15 +117,16 @@ class DatabaseService {
   Future<void> markAsRead(int id) async {
     final db = await database;
     try {
+      // We try to match by server_id first (preferred) or local id
+      // Since UI usually uses the model's ID which we mapped to server_id if available...
+      // Wait, _fromDbMap uses 'id' (local) as the model ID?
+      // Let's check _fromDbMap.
+      // If the model ID is the local DB ID, then we should match by 'id'.
       await db.update(
         'notifications',
         {'is_read': 1},
-        // We use the local ID or server ID depending on what's available
-        // For simplicity, let's assume we might pass local ID here,
-        // but typically the UI operates on Notification models which have IDs.
-        // If the 'id' passed is the local auto-increment ID:
-        where: 'id = ?',
-        whereArgs: [id],
+        where: 'id = ? OR server_id = ?',
+        whereArgs: [id, id],
       );
     } catch (e) {
       if (kDebugMode) print('Error marking as read: $e');
@@ -126,8 +150,7 @@ class DatabaseService {
   // Helper to convert AppNotification to DB Map
   Map<String, dynamic> _toDbMap(AppNotification n) {
     return {
-      'server_id': n.id, // Store official server ID separately
-      // If server_id is 0 (local generation), we just store it as 0
+      'server_id': n.id, // Store official server ID
       'title': n.title,
       'body': n.body,
       'type': n.type,
@@ -139,8 +162,14 @@ class DatabaseService {
 
   // Helper to convert DB Map to AppNotification
   AppNotification _fromDbMap(Map<String, dynamic> map) {
+    // Prefer server_id (if > 0) so that API operations like 'mark as read' work with the correct ID.
+    // If server_id is missing or 0 (local only), fallback to local auto-increment id.
+    final int effectiveId = (map['server_id'] != null && map['server_id'] > 0)
+        ? map['server_id']
+        : map['id'];
+
     return AppNotification(
-      id: map['id'], // Use local ID for UI operations
+      id: effectiveId,
       title: map['title'],
       body: map['body'],
       type: map['type'] ?? 'general',
