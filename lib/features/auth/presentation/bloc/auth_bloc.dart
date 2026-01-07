@@ -6,14 +6,14 @@ import 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository _authRepository = AuthRepository();
-  
+
   AuthBloc() : super(AuthInitial()) {
     on<CheckAuthStatusEvent>(_onCheckAuthStatus);
     on<LoginWithPhoneEvent>(_onLoginWithPhone);
     on<LogoutEvent>(_onLogout);
     on<GetStudentProfileEvent>(_onGetStudentProfile);
   }
-  
+
   Future<void> _onCheckAuthStatus(
     CheckAuthStatusEvent event,
     Emitter<AuthState> emit,
@@ -24,7 +24,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (kDebugMode) {
         print('Check auth status - isLoggedIn: $isLoggedIn');
       }
-      
+
       if (isLoggedIn) {
         try {
           final student = await _authRepository.getStudentProfile();
@@ -49,7 +49,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthError('فشل في التحقق من حالة المصادقة'));
     }
   }
-  
+
   Future<void> _onLoginWithPhone(
     LoginWithPhoneEvent event,
     Emitter<AuthState> emit,
@@ -59,16 +59,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (kDebugMode) {
         print('Attempting login with phone: ${event.phone}');
       }
-      
+
       final success = await _authRepository.login(
         event.phone,
         event.password,
+        role: 'student', // Always login as student in this app
       );
-      
+
       if (kDebugMode) {
         print('Login success: $success');
       }
-      
+
       if (success) {
         try {
           final student = await _authRepository.getStudentProfile();
@@ -93,7 +94,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthError('فشل تسجيل الدخول: ${e.toString()}'));
     }
   }
-  
+
   Future<void> _onLogout(
     LogoutEvent event,
     Emitter<AuthState> emit,
@@ -106,7 +107,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthError('فشل تسجيل الخروج: ${e.toString()}'));
     }
   }
-  
+
   Future<void> _onGetStudentProfile(
     GetStudentProfileEvent event,
     Emitter<AuthState> emit,
