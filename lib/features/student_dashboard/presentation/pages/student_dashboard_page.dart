@@ -782,7 +782,27 @@ class _DashboardContentState extends State<_DashboardContent> {
       Duration? newDuration;
 
       if (_nextLessonDateTime!.isAfter(now)) {
+        // Lesson hasn't started yet - show countdown
         newDuration = _nextLessonDateTime!.difference(now);
+      } else {
+        // Lesson has started or is in progress
+        // Get lesson duration to determine when to stop showing zeros
+        int lessonDuration = 30;
+        if (_nextSchedule != null && _nextSchedule!.lessonDuration.isNotEmpty) {
+          lessonDuration = int.tryParse(_nextSchedule!.lessonDuration) ?? 30;
+        }
+
+        // Calculate lesson end time + 10 minutes
+        final lessonEndPlusTenMin =
+            _nextLessonDateTime!.add(Duration(minutes: lessonDuration + 10));
+
+        if (now.isBefore(lessonEndPlusTenMin)) {
+          // Within the lesson period (lesson start to 10 min after end) - show 0:0:0
+          newDuration = Duration.zero;
+        } else {
+          // Past the lesson period - set to null to trigger next lesson load
+          newDuration = null;
+        }
       }
 
       if (previousDuration == null ||
@@ -899,15 +919,31 @@ class _DashboardContentState extends State<_DashboardContent> {
       lessonDuration =
           int.tryParse(_nextSchedule!.lessonDuration) ?? lessonDuration;
     }
+
     bool canJoin = false;
+    bool canPostpone = true;
+
     if (_timeUntilNextLesson != null) {
       final minutesUntilStart = _timeUntilNextLesson!.inMinutes;
       final minutesAfterStart = -minutesUntilStart;
-      if (minutesUntilStart <= 15 && minutesAfterStart <= lessonDuration) {
+
+      // إنضم للدرس (Join Lesson):
+      // Active from 15 minutes BEFORE lesson start until 10 minutes AFTER lesson ends
+      // Lesson ends at: lessonDuration minutes after start
+      // So active when: minutesUntilStart <= 15 AND minutesAfterStart <= (lessonDuration + 10)
+      if (minutesUntilStart <= 15 &&
+          minutesAfterStart <= (lessonDuration + 10)) {
         canJoin = true;
       }
+
+      // تأجيل الدرس (Postpone Lesson):
+      // Disabled from 1 hour (60 minutes) BEFORE lesson until 10 minutes AFTER lesson ends
+      // So disabled when: minutesUntilStart <= 60 AND minutesAfterStart <= (lessonDuration + 10)
+      if (minutesUntilStart <= 60 &&
+          minutesAfterStart <= (lessonDuration + 10)) {
+        canPostpone = false;
+      }
     }
-    final canPostpone = !canJoin;
 
     // Get screen size for responsive design
     final screenWidth = MediaQuery.of(context).size.width;
