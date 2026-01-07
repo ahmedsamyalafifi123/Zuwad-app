@@ -1223,15 +1223,15 @@ class _DashboardContentState extends State<_DashboardContent> {
                   gradient: canJoin
                       ? const LinearGradient(
                           colors: [
-                            Color.fromARGB(255, 157, 231, 161), // Light green
-                            Color.fromARGB(255, 85, 194, 88), // Green
+                            Color.fromARGB(255, 101, 206, 107), // Light green
+                            Color.fromARGB(255, 63, 151, 66), // Green
                           ],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                         )
                       : const LinearGradient(
                           colors: [
-                            Color.fromARGB(0, 253, 247, 89), // Light yellow
+                            Color.fromARGB(0, 255, 255, 255), // Light yellow
                             Color.fromARGB(0, 240, 191, 12) // Lighter yellow
                           ],
                           begin: Alignment.topCenter,
