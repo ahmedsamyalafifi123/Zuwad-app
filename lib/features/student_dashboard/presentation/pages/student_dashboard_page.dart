@@ -671,11 +671,25 @@ class _DashboardContentState extends State<_DashboardContent> {
         // Calculate days until the scheduled day (using Egypt time)
         int daysUntil = (scheduledDay - now.weekday) % 7;
         if (daysUntil == 0) {
-          // If it's today, check if the time has already passed (in Egypt time)
-          if (lessonTime.hour < now.hour ||
-              (lessonTime.hour == now.hour &&
-                  lessonTime.minute <= now.minute)) {
-            // If time has passed, schedule is for next week
+          // If it's today, check if we're past the lesson window
+          // Get lesson duration for the window check (default to 45 minutes for generous check)
+          int lessonDurationForCheck = 45;
+          if (_nextSchedule != null &&
+              _nextSchedule!.lessonDuration.isNotEmpty) {
+            lessonDurationForCheck =
+                int.tryParse(_nextSchedule!.lessonDuration) ?? 45;
+          }
+
+          // Calculate when today's lesson window ends (10 min after lesson ends)
+          final lessonMinutesFromMidnight =
+              lessonTime.hour * 60 + lessonTime.minute;
+          final nowMinutesFromMidnight = now.hour * 60 + now.minute;
+          final lessonWindowEndMinutes =
+              lessonMinutesFromMidnight + lessonDurationForCheck + 10;
+
+          // Only push to next week if we're PAST the lesson window, not just past the start time
+          if (nowMinutesFromMidnight > lessonWindowEndMinutes) {
+            // Lesson window has ended, schedule is for next week
             daysUntil = 7;
           }
         }
@@ -725,21 +739,36 @@ class _DashboardContentState extends State<_DashboardContent> {
           continue; // Skip this schedule if no slot found
         }
       }
-
-      // Only include future lessons
-      if (lessonDateTime != null && lessonDateTime.isAfter(now)) {
-        if (kDebugMode) {
-          print(
-              'Adding upcoming lesson: ${schedule.day} at ${schedule.hour}, dateTime: $lessonDateTime, isPostponed: ${schedule.isPostponed}');
+      // Include future lessons AND lessons currently in progress
+      // A lesson is "in progress" if it started within (lessonDuration + 10) minutes ago
+      if (lessonDateTime != null) {
+        // Get lesson duration - use _nextSchedule if available, default to 45 minutes
+        // for generous window filtering (we'll use the actual duration later for button logic)
+        int scheduleLessonDuration = 45; // Default generous window
+        if (_nextSchedule != null && _nextSchedule!.lessonDuration.isNotEmpty) {
+          scheduleLessonDuration =
+              int.tryParse(_nextSchedule!.lessonDuration) ?? 45;
         }
-        upcomingLessons.add({
-          'schedule': schedule,
-          'dateTime': lessonDateTime,
-        });
-      } else if (lessonDateTime != null) {
-        if (kDebugMode) {
-          print(
-              'Skipping past lesson: ${schedule.day} at ${schedule.hour}, dateTime: $lessonDateTime');
+
+        // Calculate when the lesson window ends (10 min after lesson ends)
+        final lessonWindowEnd =
+            lessonDateTime.add(Duration(minutes: scheduleLessonDuration + 10));
+
+        // Include if lesson is in the future OR if we're within the lesson window
+        if (lessonDateTime.isAfter(now) || now.isBefore(lessonWindowEnd)) {
+          if (kDebugMode) {
+            print(
+                'Adding upcoming/in-progress lesson: ${schedule.day} at ${schedule.hour}, dateTime: $lessonDateTime, isPostponed: ${schedule.isPostponed}');
+          }
+          upcomingLessons.add({
+            'schedule': schedule,
+            'dateTime': lessonDateTime,
+          });
+        } else {
+          if (kDebugMode) {
+            print(
+                'Skipping past lesson: ${schedule.day} at ${schedule.hour}, dateTime: $lessonDateTime (window ended at: $lessonWindowEnd)');
+          }
         }
       }
     }
@@ -935,9 +964,14 @@ class _DashboardContentState extends State<_DashboardContent> {
     bool canJoin = false;
     bool canPostpone = true;
 
-    if (_timeUntilNextLesson != null) {
-      final minutesUntilStart = _timeUntilNextLesson!.inMinutes;
-      final minutesAfterStart = -minutesUntilStart;
+    // Calculate actual time difference from lesson start time directly
+    // Don't use _timeUntilNextLesson as it's set to 0 during the lesson for display purposes
+    if (_nextLessonDateTime != null) {
+      final now = DateTime.now();
+      final actualDifference = _nextLessonDateTime!.difference(now);
+      final minutesUntilStart = actualDifference.inMinutes;
+      final minutesAfterStart =
+          -minutesUntilStart; // Positive after lesson starts
 
       // إنضم للدرس (Join Lesson):
       // Active from 15 minutes BEFORE lesson start until 10 minutes AFTER lesson ends
