@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -13,6 +14,12 @@ import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/pages/splash_screen.dart';
 import 'firebase_options.dart';
 
+/// Check if FCM is supported on the current platform
+bool get _isFcmSupported {
+  if (kIsWeb) return true;
+  return Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+}
+
 void main() async {
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,8 +29,10 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Set up FCM background message handler
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  // Set up FCM background message handler (only on supported platforms)
+  if (_isFcmSupported) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
 
   // Initialize notification service
   await NotificationService().initialize();
@@ -75,17 +84,8 @@ void main() async {
     SystemUiMode.edgeToEdge,
   );
 
-  // Run the app within an error zone
-  runZonedGuarded(
-    () => runApp(const MyApp()),
-    (error, stack) {
-      if (kDebugMode) {
-        print('Caught error in zone: $error');
-        print('Stack trace: $stack');
-      }
-      // In production, send to error reporting service
-    },
-  );
+  // Run the app
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {

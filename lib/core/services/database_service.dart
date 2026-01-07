@@ -1,13 +1,35 @@
+import 'dart:io';
+
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import '../../features/notifications/domain/models/notification.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'dart:convert';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
   factory DatabaseService() => _instance;
-  DatabaseService._internal();
+  static bool _ffiInitialized = false;
+
+  DatabaseService._internal() {
+    _initializeFfi();
+  }
+
+  /// Initialize FFI for desktop platforms (Windows/Linux)
+  void _initializeFfi() {
+    if (_ffiInitialized) return;
+    if (!kIsWeb) {
+      if (Platform.isWindows || Platform.isLinux) {
+        sqfliteFfiInit();
+        databaseFactory = databaseFactoryFfi;
+        if (kDebugMode) {
+          print('DatabaseService: Initialized sqflite_common_ffi for desktop');
+        }
+      }
+    }
+    _ffiInitialized = true;
+  }
 
   static Database? _database;
 

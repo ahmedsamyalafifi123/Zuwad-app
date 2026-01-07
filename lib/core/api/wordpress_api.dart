@@ -109,6 +109,11 @@ class WordPressApi {
         if (jsonData['success'] == true) {
           final data = jsonData['data'];
 
+          if (kDebugMode) {
+            print('Login successful, saving auth data...');
+            print('User ID to save: ${data['user']['id']}');
+          }
+
           // Save all auth data
           await _secureStorage.saveAuthData(
             token: data['token'],
@@ -119,6 +124,12 @@ class WordPressApi {
             userRole: data['user']['role'],
             userMId: data['user']['m_id'],
           );
+
+          // Verify data was saved correctly
+          if (kDebugMode) {
+            final savedUserId = await _secureStorage.getUserId();
+            print('Verified saved User ID: $savedUserId');
+          }
 
           return data;
         } else {

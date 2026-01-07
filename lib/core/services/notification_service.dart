@@ -7,7 +7,7 @@ import 'database_service.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -48,30 +48,49 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
   final WordPressApi _api = WordPressApi();
   final DatabaseService _databaseService = DatabaseService();
 
+  // Only initialize FirebaseMessaging on supported platforms
+  FirebaseMessaging? _firebaseMessaging;
+
   bool _isInitialized = false;
+
+  /// Check if FCM is supported on the current platform
+  /// FCM is NOT supported on Windows and Linux desktop
+  bool get _isFcmSupported {
+    if (kIsWeb) return true; // Web supports FCM
+    return Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+  }
 
   /// Initialize the notification service
   Future<void> initialize() async {
     if (_isInitialized) return;
 
     try {
-      // Request permission
-      await _requestPermission();
-
-      // Initialize Local Notifications
+      // Initialize local notifications (works on all platforms)
       await _initializeLocalNotifications();
 
-      // Set up FCM message handlers
-      _setupFCMHandlers();
+      // FCM is only supported on mobile and macOS
+      if (_isFcmSupported) {
+        _firebaseMessaging = FirebaseMessaging.instance;
 
-      // Get and store FCM token
-      await getDeviceToken();
+        // Request permission
+        await _requestPermission();
+
+        // Set up FCM message handlers
+        _setupFCMHandlers();
+
+        // Get and store FCM token
+        await getDeviceToken();
+      } else {
+        if (kDebugMode) {
+          print(
+              'NotificationService: FCM not supported on this platform (Windows/Linux). Push notifications disabled.');
+        }
+      }
 
       _isInitialized = true;
       if (kDebugMode) {
@@ -85,7 +104,16 @@ class NotificationService {
   }
 
   /// Initialize Local Notifications plugin
+  /// Skips initialization on Windows/Linux as they require additional setup
   Future<void> _initializeLocalNotifications() async {
+    // Skip on Windows/Linux as flutter_local_notifications requires additional setup
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
+      if (kDebugMode) {
+        print('Skipping local notifications initialization on desktop');
+      }
+      return;
+    }
+
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/launcher_icon');
 
@@ -129,7 +157,9 @@ class NotificationService {
 
   /// Request notification permissions
   Future<void> _requestPermission() async {
-    final settings = await _firebaseMessaging.requestPermission(
+    if (_firebaseMessaging == null) return;
+
+    final settings = await _firebaseMessaging!.requestPermission(
       alert: true,
       announcement: false,
       badge: true,
@@ -227,7 +257,9 @@ class NotificationService {
 
   /// Check if app was opened from a notification
   Future<void> _checkInitialMessage() async {
-    final message = await _firebaseMessaging.getInitialMessage();
+    if (_firebaseMessaging == null) return;
+
+    final message = await _firebaseMessaging!.getInitialMessage();
     if (message != null) {
       if (kDebugMode) {
         print('App opened from terminated state via notification');
@@ -252,8 +284,15 @@ class NotificationService {
 
   /// Get FCM device token
   Future<String?> getDeviceToken() async {
+    if (!_isFcmSupported || _firebaseMessaging == null) {
+      if (kDebugMode) {
+        print('FCM not supported on this platform, skipping token retrieval');
+      }
+      return null;
+    }
+
     try {
-      final token = await _firebaseMessaging.getToken();
+      final token = await _firebaseMessaging!.getToken();
       if (kDebugMode) {
         print('FCM Token: $token');
       }
@@ -265,7 +304,7 @@ class NotificationService {
       }
 
       // Listen for token refresh
-      _firebaseMessaging.onTokenRefresh.listen((newToken) {
+      _firebaseMessaging!.onTokenRefresh.listen((newToken) {
         if (kDebugMode) {
           print('FCM Token refreshed: $newToken');
         }
@@ -292,6 +331,15 @@ class NotificationService {
   /// Register device token with backend API
   /// Call this after user logs in
   Future<bool> registerTokenWithBackend() async {
+    // Skip on unsupported platforms (Windows/Linux)
+    if (!_isFcmSupported) {
+      if (kDebugMode) {
+        print(
+            'FCM not supported on this platform, skipping token registration');
+      }
+      return false;
+    }
+
     try {
       if (kDebugMode) {
         print('=== Starting device token registration ===');
@@ -305,7 +353,7 @@ class NotificationService {
         if (kDebugMode) {
           print('No FCM token in prefs, trying to get directly...');
         }
-        token = await _firebaseMessaging.getToken();
+        token = await _firebaseMessaging?.getToken();
         if (token != null) {
           await prefs.setString('fcm_token', token);
           if (kDebugMode) {
@@ -349,7 +397,10 @@ class NotificationService {
 
   /// Check if notifications are enabled
   Future<bool> areNotificationsEnabled() async {
-    final settings = await _firebaseMessaging.getNotificationSettings();
+    if (!_isFcmSupported || _firebaseMessaging == null) {
+      return false; // Not supported on this platform
+    }
+    final settings = await _firebaseMessaging!.getNotificationSettings();
     return settings.authorizationStatus == AuthorizationStatus.authorized;
   }
 }

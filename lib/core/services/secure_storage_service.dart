@@ -18,6 +18,9 @@ class SecureStorageService {
     iOptions: IOSOptions(
       accessibility: KeychainAccessibility.first_unlock_this_device,
     ),
+    // Windows and Linux use encrypted file storage internally
+    wOptions: WindowsOptions(),
+    lOptions: LinuxOptions(),
   );
 
   // Keys
@@ -177,6 +180,7 @@ class SecureStorageService {
   // ============================================
 
   /// Save all authentication data at once (for login response)
+  /// Uses sequential writes to avoid file locking issues on Windows
   Future<void> saveAuthData({
     required String token,
     required String refreshToken,
@@ -186,15 +190,15 @@ class SecureStorageService {
     String? userRole,
     String? userMId,
   }) async {
-    await Future.wait([
-      saveToken(token),
-      saveRefreshToken(refreshToken),
-      saveTokenExpiry(expiresIn),
-      saveUserId(userId),
-      if (userName != null) saveUserName(userName),
-      if (userRole != null) saveUserRole(userRole),
-      if (userMId != null) saveUserMId(userMId),
-    ]);
+    // Use sequential writes instead of Future.wait to avoid
+    // potential file locking issues on Windows
+    await saveToken(token);
+    await saveRefreshToken(refreshToken);
+    await saveTokenExpiry(expiresIn);
+    await saveUserId(userId);
+    if (userName != null) await saveUserName(userName);
+    if (userRole != null) await saveUserRole(userRole);
+    if (userMId != null) await saveUserMId(userMId);
   }
 
   // ============================================
