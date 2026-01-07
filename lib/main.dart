@@ -10,6 +10,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
+import 'core/utils/timezone_helper.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/pages/splash_screen.dart';
 import 'firebase_options.dart';
@@ -37,7 +38,8 @@ void main() async {
   // Initialize notification service
   await NotificationService().initialize();
 
-  // Set up global error handlers
+  // Initialize timezone helper for schedule time conversions
+  await TimezoneHelper.initialize();
   FlutterError.onError = (FlutterErrorDetails details) {
     if (kDebugMode) {
       // In debug mode, print the error

@@ -31,6 +31,7 @@ import '../widgets/islamic_bottom_nav_bar.dart';
 import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../notifications/data/repositories/notification_repository.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/utils/timezone_helper.dart';
 
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key});
@@ -556,7 +557,13 @@ class _DashboardContentState extends State<_DashboardContent> {
       return;
     }
 
-    final now = DateTime.now();
+    // Use Egypt time for comparisons since schedules are stored in Egypt time
+    final nowLocal = DateTime.now();
+    final now = TimezoneHelper.localToEgypt(nowLocal);
+
+    if (kDebugMode) {
+      print('Timezone: Local time: $nowLocal, Egypt time: $now');
+    }
 
     // Create a set of report date+time keys for quick lookup
     // Format: "YYYY-MM-DD|HH:MM" to uniquely identify each lesson
@@ -661,10 +668,10 @@ class _DashboardContentState extends State<_DashboardContent> {
         final lessonTime = _parseTimeString(schedule.hour);
         if (lessonTime == null) continue;
 
-        // Calculate days until the scheduled day
+        // Calculate days until the scheduled day (using Egypt time)
         int daysUntil = (scheduledDay - now.weekday) % 7;
         if (daysUntil == 0) {
-          // If it's today, check if the time has already passed
+          // If it's today, check if the time has already passed (in Egypt time)
           if (lessonTime.hour < now.hour ||
               (lessonTime.hour == now.hour &&
                   lessonTime.minute <= now.minute)) {
@@ -758,11 +765,16 @@ class _DashboardContentState extends State<_DashboardContent> {
       }
 
       _nextLesson = upcomingLessons.first['schedule'] as Schedule;
-      _nextLessonDateTime = upcomingLessons.first['dateTime']
-          as DateTime; // Store the calculated date
+      // The dateTime from upcomingLessons is in Egypt time
+      // Convert to local time for countdown display
+      final egyptDateTime = upcomingLessons.first['dateTime'] as DateTime;
+      _nextLessonDateTime = TimezoneHelper.egyptToLocal(egyptDateTime);
       if (kDebugMode) {
         print(
-            'Selected next lesson: ${_nextLesson!.day} at ${_nextLesson!.hour}, dateTime: $_nextLessonDateTime, isPostponed: ${_nextLesson!.isPostponed}');
+            'Selected next lesson: ${_nextLesson!.day} at ${_nextLesson!.hour}');
+        print('  Egypt time: $egyptDateTime');
+        print('  Local time: $_nextLessonDateTime');
+        print('  isPostponed: ${_nextLesson!.isPostponed}');
       }
     } else {
       if (kDebugMode) {
