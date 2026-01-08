@@ -14,28 +14,35 @@ class NotificationRepository {
     int page = 1,
     int perPage = 50,
     bool forceRefresh = false,
+    int? studentId,
   }) async {
     // 1. Fetch from Local DB first (fastest)
-    final localNotifications = await _databaseService.getNotifications();
+    // Now with studentId filtering support
+    final localNotifications =
+        await _databaseService.getNotifications(studentId: studentId);
 
     // 2. If force refresh or empty, try to sync from API
-    if (forceRefresh || localNotifications.isEmpty) {
+    // Always sync if studentId is provided to ensure we get that student's specific data
+    // (though logic below handles merging)
+    if (forceRefresh || localNotifications.isEmpty || studentId != null) {
       try {
-        final apiData =
-            await _api.getNotifications(page: page, perPage: perPage);
+        final apiData = await _api.getNotifications(
+          page: page,
+          perPage: perPage,
+          studentId: studentId,
+        );
         final apiNotifications =
             apiData.map((json) => AppNotification.fromJson(json)).toList();
 
         // Save new API notifications to DB
         for (var n in apiNotifications) {
-          await _databaseService.insertNotification(n);
+          // Pass studentId to insert helper if available, to ensure association
+          await _databaseService.insertNotification(n, studentId: studentId);
         }
 
-        // Return the fresh cached data
-        // We ideally fetch again from DB to ensure consistency,
-        // OR just return the apiNotifications if they are valid.
-        // Returning API notifications is faster for UI response.
-        return await _databaseService.getNotifications();
+        // Return the fresh cached data from DB
+        // This ensures checking local DB for 'read' status even if API returns 'unread'
+        return await _databaseService.getNotifications(studentId: studentId);
       } catch (e) {
         if (kDebugMode) print('Error fetching API notifications: $e');
         // Fallback to local if API fails

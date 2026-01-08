@@ -10,7 +10,8 @@ import '../../domain/models/notification.dart';
 /// Notifications page displaying all push notifications.
 /// Matches the design style of the dashboard and other pages.
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key});
+  final int? studentId;
+  const NotificationsPage({super.key, this.studentId});
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -41,6 +42,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     try {
       final notifications = await _repository.getNotifications(
         forceRefresh: forceRefresh,
+        studentId: widget.studentId,
       );
       if (mounted) {
         setState(() {

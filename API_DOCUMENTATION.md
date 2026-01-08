@@ -1549,12 +1549,13 @@ Authorization: Bearer {token}
 
 **Query Parameters:**
 
-| Parameter  | Type    | Default | Description                     |
-| ---------- | ------- | ------- | ------------------------------- |
-| `page`     | integer | 1       | Page number                     |
-| `per_page` | integer | 50      | Items per page                  |
-| `status`   | string  | all     | Filter: `unread`, `read`, `all` |
-| `type`     | string  | -       | Filter by notification type     |
+| Parameter    | Type    | Default      | Description                                    |
+| ------------ | ------- | ------------ | ---------------------------------------------- |
+| `page`       | integer | 1            | Page number                                    |
+| `per_page`   | integer | 50           | Items per page                                 |
+| `status`     | string  | all          | Filter: `unread`, `read`, `all`                |
+| `type`       | string  | -            | Filter by notification type                    |
+| `student_id` | integer | current user | Optional student ID to fetch notifications for |
 
 **Response:**
 

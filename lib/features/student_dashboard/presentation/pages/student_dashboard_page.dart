@@ -379,10 +379,17 @@ class _NotificationButtonState extends State<_NotificationButton> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () async {
+        // Get current student ID
+        int? studentId;
+        final authState = context.read<AuthBloc>().state;
+        if (authState is AuthAuthenticated && authState.student != null) {
+          studentId = authState.student!.id;
+        }
+
         await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => const NotificationsPage(),
+            builder: (context) => NotificationsPage(studentId: studentId),
           ),
         );
         // Refresh count when returning from notifications page

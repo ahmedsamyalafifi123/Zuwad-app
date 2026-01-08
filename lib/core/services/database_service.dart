@@ -43,11 +43,36 @@ class DatabaseService {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'zuwad_notifications.db');
 
-    return await openDatabase(
+    final db = await openDatabase(
       path,
-      version: 1,
+      version: 3, // Bump version to force upgrade check
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
+
+    // Extra safety: active check if column exists (handles weird migration states)
+    await _ensureSchema(db);
+
+    return db;
+  }
+
+  Future<void> _ensureSchema(Database db) async {
+    try {
+      final result = await db.rawQuery('PRAGMA table_info(notifications)');
+      final hasStudentId = result.any((col) => col['name'] == 'student_id');
+
+      if (!hasStudentId) {
+        if (kDebugMode)
+          print(
+              'DatabaseService: student_id column missing, adding manually...');
+        await db
+            .execute('ALTER TABLE notifications ADD COLUMN student_id INTEGER');
+        await db.execute(
+            'CREATE INDEX idx_student_id ON notifications(student_id)');
+      }
+    } catch (e) {
+      if (kDebugMode) print('Schema integrity check error: $e');
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -55,6 +80,7 @@ class DatabaseService {
       CREATE TABLE notifications(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         server_id INTEGER,
+        student_id INTEGER,
         title TEXT,
         body TEXT,
         type TEXT,
@@ -63,10 +89,34 @@ class DatabaseService {
         data TEXT
       )
     ''');
+    // Add index for faster filtering
+    await db
+        .execute('CREATE INDEX idx_student_id ON notifications(student_id)');
+  }
+
+  /// Helper to upgrade DB - for dev/production safety
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // Cover all versions < 3 (including 1 and potentially failed 2)
+    if (oldVersion < 3) {
+      try {
+        // We use a try-catch block here because if version 2 'partially' ran or
+        // if we are in a weird state, adding column might fail if it exists.
+        // We rely on the error to skip if it exists, or one could check PRAGMA.
+        // But _ensureSchema is the ultimate fallback now.
+        await db
+            .execute('ALTER TABLE notifications ADD COLUMN student_id INTEGER');
+        await db.execute(
+            'CREATE INDEX idx_student_id ON notifications(student_id)');
+      } catch (e) {
+        // Ignore "duplicate column" errors safely
+        if (kDebugMode) print('Migration warning (likely column exists): $e');
+      }
+    }
   }
 
   // Insert a notification
-  Future<int> insertNotification(AppNotification notification) async {
+  Future<int> insertNotification(AppNotification notification,
+      {int? studentId}) async {
     final db = await database;
     try {
       // Check if notification with this server_id already exists
@@ -81,10 +131,15 @@ class DatabaseService {
           // If the local notification is already marked as read, preserve that status
           // regardless of what the server says (since server might lag behind).
           // Otherwise, accept the server's status.
-          var newMap = _toDbMap(notification);
+          var newMap = _toDbMap(notification, studentId: studentId);
 
           if (existing.first['is_read'] == 1) {
             newMap['is_read'] = 1;
+          }
+
+          // Preserve existing student_id if not provided in update
+          if (studentId == null && existing.first['student_id'] != null) {
+            newMap['student_id'] = existing.first['student_id'];
           }
 
           return await db.update(
@@ -98,7 +153,7 @@ class DatabaseService {
 
       return await db.insert(
         'notifications',
-        _toDbMap(notification),
+        _toDbMap(notification, studentId: studentId),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     } catch (e) {
@@ -108,11 +163,21 @@ class DatabaseService {
   }
 
   // Get all notifications
-  Future<List<AppNotification>> getNotifications() async {
+  Future<List<AppNotification>> getNotifications({int? studentId}) async {
     final db = await database;
     try {
+      String? whereClause;
+      List<dynamic> whereArgs = [];
+
+      if (studentId != null) {
+        whereClause = 'student_id = ?';
+        whereArgs = [studentId];
+      }
+
       final List<Map<String, dynamic>> maps = await db.query(
         'notifications',
+        where: whereClause,
+        whereArgs: whereArgs,
         orderBy: 'created_at DESC',
       );
 
@@ -126,11 +191,20 @@ class DatabaseService {
   }
 
   // Get unread count
-  Future<int> getUnreadCount() async {
+  Future<int> getUnreadCount({int? studentId}) async {
     final db = await database;
     try {
+      String whereClause = 'is_read = 0';
+      List<dynamic> whereArgs = [];
+
+      if (studentId != null) {
+        whereClause += ' AND student_id = ?';
+        whereArgs.add(studentId);
+      }
+
       final result = await db.rawQuery(
-        'SELECT COUNT(*) as count FROM notifications WHERE is_read = 0',
+        'SELECT COUNT(*) as count FROM notifications WHERE $whereClause',
+        whereArgs,
       );
       return Sqflite.firstIntValue(result) ?? 0;
     } catch (e) {
@@ -143,11 +217,6 @@ class DatabaseService {
   Future<void> markAsRead(int id) async {
     final db = await database;
     try {
-      // We try to match by server_id first (preferred) or local id
-      // Since UI usually uses the model's ID which we mapped to server_id if available...
-      // Wait, _fromDbMap uses 'id' (local) as the model ID?
-      // Let's check _fromDbMap.
-      // If the model ID is the local DB ID, then we should match by 'id'.
       await db.update(
         'notifications',
         {'is_read': 1},
@@ -160,13 +229,22 @@ class DatabaseService {
   }
 
   // Mark all as read
-  Future<void> markAllAsRead() async {
+  Future<void> markAllAsRead({int? studentId}) async {
     final db = await database;
     try {
+      String whereClause = 'is_read = 0';
+      List<dynamic> whereArgs = [];
+
+      if (studentId != null) {
+        whereClause += ' AND student_id = ?';
+        whereArgs.add(studentId);
+      }
+
       await db.update(
         'notifications',
         {'is_read': 1},
-        where: 'is_read = 0',
+        where: whereClause,
+        whereArgs: whereArgs,
       );
     } catch (e) {
       if (kDebugMode) print('Error marking all as read: $e');
@@ -174,8 +252,8 @@ class DatabaseService {
   }
 
   // Helper to convert AppNotification to DB Map
-  Map<String, dynamic> _toDbMap(AppNotification n) {
-    return {
+  Map<String, dynamic> _toDbMap(AppNotification n, {int? studentId}) {
+    final map = {
       'server_id': n.id, // Store official server ID
       'title': n.title,
       'body': n.body,
@@ -184,6 +262,12 @@ class DatabaseService {
       'created_at': n.createdAt.toIso8601String(),
       'data': n.data != null ? jsonEncode(n.data) : null,
     };
+
+    if (studentId != null) {
+      map['student_id'] = studentId;
+    }
+
+    return map;
   }
 
   // Helper to convert DB Map to AppNotification

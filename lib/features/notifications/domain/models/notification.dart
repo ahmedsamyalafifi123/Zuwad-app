@@ -25,11 +25,34 @@ class AppNotification {
       body: json['body'] ?? json['message'] ?? '',
       type: json['type'] ?? 'general',
       isRead: json['is_read'] == true || json['is_read'] == 1,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse('${json['created_at']}Z').toLocal()
-          : DateTime.now(),
+      createdAt: _parseDate(json['created_at']),
       data: json['data'] is Map<String, dynamic> ? json['data'] : null,
     );
+  }
+
+  static DateTime _parseDate(dynamic date) {
+    if (date == null) return DateTime.now();
+    try {
+      String dateStr = date.toString();
+      // Remove trailing Z if present and re-add to ensure standard format if needed,
+      // or just trust DateTime.parse to handle ISO8601 correctly.
+      // The error "2026-01-08T14:16:58ZZ" suggests the API returns "2026-01-08T14:16:58Z"
+      // and we were appending another Z.
+
+      // If existing code was appending 'Z', and the API returns 'Z', we get 'ZZ'.
+      // Fix: Don't append 'Z' blindly.
+      if (dateStr.endsWith('Z')) {
+        return DateTime.parse(dateStr).toLocal();
+      }
+      return DateTime.parse('${dateStr}Z').toLocal();
+    } catch (e) {
+      // Fallback for simple date format "YYYY-MM-DD HH:MM:SS"
+      try {
+        return DateTime.parse(date.toString()).toLocal();
+      } catch (_) {
+        return DateTime.now();
+      }
+    }
   }
 
   Map<String, dynamic> toJson() {

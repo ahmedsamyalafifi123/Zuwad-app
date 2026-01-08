@@ -1015,14 +1015,20 @@ class WordPressApi {
 
   /// Get list of notifications for the current user.
   Future<List<dynamic>> getNotifications(
-      {int page = 1, int perPage = 50}) async {
+      {int page = 1, int perPage = 50, int? studentId}) async {
     try {
+      final queryParams = {
+        'page': page,
+        'per_page': perPage,
+      };
+
+      if (studentId != null) {
+        queryParams['student_id'] = studentId;
+      }
+
       final response = await _dio.get(
         ApiConstants.notificationsEndpoint,
-        queryParameters: {
-          'page': page,
-          'per_page': perPage,
-        },
+        queryParameters: queryParams,
       );
 
       if (response.statusCode == 200) {

@@ -34,7 +34,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         data: message.data,
       );
 
-      await DatabaseService().insertNotification(notification);
+      // Try to get student_id from data payload
+      int? studentId;
+      if (message.data.containsKey('student_id')) {
+        studentId = int.tryParse(message.data['student_id'].toString());
+      } else if (message.data.containsKey('studentId')) {
+        studentId = int.tryParse(message.data['studentId'].toString());
+      }
+
+      await DatabaseService()
+          .insertNotification(notification, studentId: studentId);
       if (kDebugMode) print('Background notification saved to DB');
     }
   } catch (e) {
@@ -217,7 +226,17 @@ class NotificationService {
         data: message.data,
       );
 
-      _databaseService.insertNotification(appNotification).then((_) {
+      // Try to get student_id from data payload
+      int? studentId;
+      if (message.data.containsKey('student_id')) {
+        studentId = int.tryParse(message.data['student_id'].toString());
+      } else if (message.data.containsKey('studentId')) {
+        studentId = int.tryParse(message.data['studentId'].toString());
+      }
+
+      _databaseService
+          .insertNotification(appNotification, studentId: studentId)
+          .then((_) {
         if (kDebugMode) print('Foreground notification saved to DB');
         _notificationsStreamController.add(null); // Notify listeners
       });
