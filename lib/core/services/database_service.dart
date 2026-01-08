@@ -119,27 +119,26 @@ class DatabaseService {
       {int? studentId}) async {
     final db = await database;
     try {
-      // Check if notification with this server_id already exists
+      // First, check if notification with this server_id already exists
       if (notification.id > 0) {
-        final List<Map<String, dynamic>> existing = await db.query(
+        final List<Map<String, dynamic>> existingById = await db.query(
           'notifications',
           where: 'server_id = ?',
           whereArgs: [notification.id],
         );
 
-        if (existing.isNotEmpty) {
-          // If the local notification is already marked as read, preserve that status
-          // regardless of what the server says (since server might lag behind).
-          // Otherwise, accept the server's status.
+        if (existingById.isNotEmpty) {
+          // Update existing record by server_id
           var newMap = _toDbMap(notification, studentId: studentId);
 
-          if (existing.first['is_read'] == 1) {
+          // Preserve read status if already marked as read locally
+          if (existingById.first['is_read'] == 1) {
             newMap['is_read'] = 1;
           }
 
           // Preserve existing student_id if not provided in update
-          if (studentId == null && existing.first['student_id'] != null) {
-            newMap['student_id'] = existing.first['student_id'];
+          if (studentId == null && existingById.first['student_id'] != null) {
+            newMap['student_id'] = existingById.first['student_id'];
           }
 
           return await db.update(
@@ -151,6 +150,64 @@ class DatabaseService {
         }
       }
 
+      // Check for duplicate by title + body + student_id (prevents FCM + API sync duplicates)
+      // This catches cases where FCM saved with server_id=0 and API tries to save with server_id>0
+      String whereClause = 'title = ? AND body = ?';
+      List<dynamic> whereArgs = [notification.title, notification.body];
+
+      if (studentId != null) {
+        whereClause += ' AND student_id = ?';
+        whereArgs.add(studentId);
+      }
+
+      final List<Map<String, dynamic>> existingByContent = await db.query(
+        'notifications',
+        where: whereClause,
+        whereArgs: whereArgs,
+        orderBy: 'created_at DESC',
+        limit: 1,
+      );
+
+      if (existingByContent.isNotEmpty) {
+        final existing = existingByContent.first;
+        final existingCreatedAt = DateTime.parse(existing['created_at']);
+        final timeDiff = DateTime.now().difference(existingCreatedAt).inMinutes;
+
+        // If same content exists within last 5 minutes, it's a duplicate
+        if (timeDiff < 5) {
+          if (kDebugMode) {
+            print(
+                'Duplicate notification detected (title: ${notification.title}), updating existing record');
+          }
+
+          // Update the existing record with server_id if we have one
+          var updateMap = <String, dynamic>{};
+
+          // Update server_id if the new notification has one and existing doesn't
+          if (notification.id > 0 &&
+              (existing['server_id'] == null || existing['server_id'] == 0)) {
+            updateMap['server_id'] = notification.id;
+          }
+
+          // Update student_id if provided and not already set
+          if (studentId != null && existing['student_id'] == null) {
+            updateMap['student_id'] = studentId;
+          }
+
+          if (updateMap.isNotEmpty) {
+            await db.update(
+              'notifications',
+              updateMap,
+              where: 'id = ?',
+              whereArgs: [existing['id']],
+            );
+          }
+
+          return 0; // Skip duplicate insert
+        }
+      }
+
+      // No duplicate found, insert new notification
       return await db.insert(
         'notifications',
         _toDbMap(notification, studentId: studentId),
