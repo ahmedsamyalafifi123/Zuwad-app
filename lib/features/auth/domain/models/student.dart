@@ -8,6 +8,7 @@ class Student {
   final int? supervisorId;
   final String? supervisorName;
   final int? lessonsNumber;
+  final int? remainingLessons;
   final String? lessonDuration;
   final String? paymentStatus;
   final double? amount;
@@ -29,6 +30,7 @@ class Student {
     this.supervisorId,
     this.supervisorName,
     this.lessonsNumber,
+    this.remainingLessons,
     this.lessonDuration,
     this.paymentStatus,
     this.amount,
@@ -55,6 +57,8 @@ class Student {
       supervisorName: userMeta['supervisor_name']?.toString() ?? '',
       lessonsNumber:
           int.tryParse(userMeta['lessons_number']?.toString() ?? '0'),
+      remainingLessons:
+          int.tryParse(userMeta['remaining_lessons']?.toString() ?? '0'),
       lessonDuration: userMeta['lesson_duration']?.toString() ?? '',
       paymentStatus: userMeta['payment_status']?.toString(),
       amount: double.tryParse(userMeta['amount']?.toString() ?? '0'),
@@ -86,6 +90,8 @@ class Student {
       supervisorId: int.tryParse(json['supervisor_id']?.toString() ?? '0'),
       supervisorName: json['supervisor_name']?.toString(),
       lessonsNumber: int.tryParse(json['lessons_number']?.toString() ?? '0'),
+      remainingLessons:
+          int.tryParse(json['remaining_lessons']?.toString() ?? '0'),
       lessonDuration: json['lesson_duration']?.toString(),
       paymentStatus: json['payment_status']?.toString(),
       amount: double.tryParse(json['amount']?.toString() ?? '0'),
@@ -109,6 +115,7 @@ class Student {
     int? supervisorId,
     String? supervisorName,
     int? lessonsNumber,
+    int? remainingLessons,
     String? lessonDuration,
     String? paymentStatus,
     double? amount,
@@ -130,6 +137,7 @@ class Student {
       supervisorId: supervisorId ?? this.supervisorId,
       supervisorName: supervisorName ?? this.supervisorName,
       lessonsNumber: lessonsNumber ?? this.lessonsNumber,
+      remainingLessons: remainingLessons ?? this.remainingLessons,
       lessonDuration: lessonDuration ?? this.lessonDuration,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       amount: amount ?? this.amount,
@@ -180,6 +188,7 @@ class Student {
       'supervisor_id': supervisorId,
       'supervisor_name': supervisorName,
       'lessons_number': lessonsNumber,
+      'remaining_lessons': remainingLessons,
       'lesson_duration': lessonDuration,
       'payment_status': paymentStatus,
       'amount': amount,

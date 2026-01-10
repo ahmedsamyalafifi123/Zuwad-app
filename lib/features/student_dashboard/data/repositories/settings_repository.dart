@@ -161,6 +161,9 @@ class SettingsRepository {
             modifiableMembers[i] =
                 Map<String, dynamic>.from(modifiableMembers[i]);
             modifiableMembers[i]['amount'] = profile['amount'];
+            // Map remaining_lessons from profile to the family member map
+            modifiableMembers[i]['remaining_lessons'] =
+                profile['remaining_lessons'];
             if (profile['currency'] != null) {
               modifiableMembers[i]['currency'] = profile['currency'];
             }

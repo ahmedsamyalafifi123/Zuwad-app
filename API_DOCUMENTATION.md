@@ -206,22 +206,23 @@ Content-Type: application/json
 
 #### Available Fields
 
-| Field             | Type    | Description                       |
-| ----------------- | ------- | --------------------------------- |
-| `display_name`    | string  | Student's display name            |
-| `phone`           | string  | Student's phone number            |
-| `payment_phone`   | string  | Payment contact phone             |
-| `email`           | string  | Email address                     |
-| `lessons_number`  | integer | Number of lessons in package      |
-| `lesson_duration` | integer | Duration of each lesson (minutes) |
-| `amount`          | float   | Package price                     |
-| `currency`        | string  | Currency (EGP, OMR, etc.)         |
-| `payment_status`  | string  | Payment status                    |
-| `country`         | string  | Country                           |
-| `gender`          | string  | Gender (ذكر/أنثى)                 |
-| `age`             | integer | Age                               |
-| `dob`             | string  | Date of birth (YYYY-MM-DD format) |
-| `notes`           | string  | Notes                             |
+| Field               | Type    | Description                            |
+| ------------------- | ------- | -------------------------------------- |
+| `display_name`      | string  | Student's display name                 |
+| `phone`             | string  | Student's phone number                 |
+| `payment_phone`     | string  | Payment contact phone                  |
+| `email`             | string  | Email address                          |
+| `lessons_number`    | integer | Number of lessons in package           |
+| `lesson_duration`   | integer | Duration of each lesson (minutes)      |
+| `amount`            | float   | Package price                          |
+| `currency`          | string  | Currency (EGP, OMR, etc.)              |
+| `payment_status`    | string  | Payment status                         |
+| `country`           | string  | Country                                |
+| `gender`            | string  | Gender (ذكر/أنثى)                      |
+| `age`               | integer | Age                                    |
+| `dob`               | string  | Date of birth (YYYY-MM-DD format)      |
+| `notes`             | string  | Notes                                  |
+| `remaining_lessons` | integer | Number of remaining lessons in package |
 
 #### Balance Calculation (Automatic)
 
@@ -274,6 +275,7 @@ This transaction appears in **سجل المعاملات** (Transaction History) 
     "id": 123,
     "display_name": "Updated Name",
     "lessons_number": 8,
+    "remaining_lessons": 4,
     "lesson_duration": 60,
     "amount": 500,
     ...

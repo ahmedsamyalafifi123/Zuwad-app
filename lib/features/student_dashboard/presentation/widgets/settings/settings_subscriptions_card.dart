@@ -91,11 +91,8 @@ class SettingsSubscriptionsCard extends StatelessWidget {
                     final amount = member['amount']?.toString() ?? '0';
                     final currency = member['currency'] ?? 'SAR';
                     final lessonsName = member['lessons_name'] ?? '-';
-                    // Note: 'remaining_lessons' might not be in the simple family list response
-                    // We might need to fetch it or use placeholder if not available.
-                    // Assuming API returns basic info. Using '0' as placeholder if missing.
                     final remaining =
-                        member['remaining_lessons']?.toString() ?? '-';
+                        member['remaining_lessons']?.toString() ?? '0';
 
                     return DataRow(cells: [
                       DataCell(Row(

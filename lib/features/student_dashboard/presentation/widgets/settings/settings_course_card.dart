@@ -76,7 +76,7 @@ class SettingsCourseCard extends StatelessWidget {
                     _buildStatItem(
                       Icons.hourglass_bottom_rounded,
                       'المتبقي',
-                      '0', // Placeholder or calculation
+                      '${student.remainingLessons ?? 0}',
                       isHighlighted: true,
                     ),
                   ],
