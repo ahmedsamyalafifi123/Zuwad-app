@@ -43,14 +43,16 @@ class LiveKitService {
       'name': participantName,
     };
 
-    final headerEncoded = base64Url.encode(utf8.encode(json.encode(header)));
-    final payloadEncoded = base64Url.encode(utf8.encode(json.encode(payload)));
+    final headerEncoded =
+        base64Url.encode(utf8.encode(json.encode(header))).replaceAll('=', '');
+    final payloadEncoded =
+        base64Url.encode(utf8.encode(json.encode(payload))).replaceAll('=', '');
     final message = '$headerEncoded.$payloadEncoded';
 
     final key = utf8.encode(LiveKitConfig.apiSecret);
     final hmac = Hmac(sha256, key);
     final digest = hmac.convert(utf8.encode(message));
-    final signature = base64Url.encode(digest.bytes);
+    final signature = base64Url.encode(digest.bytes).replaceAll('=', '');
 
     return '$message.$signature';
   }

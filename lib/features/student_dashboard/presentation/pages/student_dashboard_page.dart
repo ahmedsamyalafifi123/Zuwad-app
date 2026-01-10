@@ -1455,7 +1455,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         currentLessonTime = _nextLesson!.hour;
 
         // Calculate the date of the current lesson
-        final now = DateTime.now();
+        final now = TimezoneHelper.nowInEgypt();
         final dayMap = {
           'الأحد': DateTime.sunday % 7,
           'الاثنين': DateTime.monday % 7,
@@ -1847,7 +1847,7 @@ class _DashboardContentState extends State<_DashboardContent> {
   }
 
   DateTime _createLessonDateTime(Schedule schedule) {
-    final now = DateTime.now();
+    final now = TimezoneHelper.nowInEgypt();
 
     if (schedule.isPostponed && schedule.postponedDate != null) {
       // Handle postponed schedules with specific dates
