@@ -32,6 +32,7 @@ import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../notifications/data/repositories/notification_repository.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/utils/timezone_helper.dart';
+import '../utils/timezone_utils.dart';
 
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key});
@@ -1108,7 +1109,10 @@ class _DashboardContentState extends State<_DashboardContent> {
                           CrossAxisAlignment.end, // Push to far left in RTL
                       children: [
                         Text(
-                          _nextLesson!.day,
+                          _nextLessonDateTime != null
+                              ? TimezoneUtils.getArabicDayName(
+                                  _nextLessonDateTime!)
+                              : _nextLesson!.day,
                           style: TextStyle(
                             fontFamily: 'Qatar',
                             fontSize: dayFontSize,
@@ -1118,7 +1122,9 @@ class _DashboardContentState extends State<_DashboardContent> {
                         ),
                         const SizedBox(height: 2), // Reduced spacing
                         Text(
-                          _nextLesson!.hour,
+                          _nextLessonDateTime != null
+                              ? TimezoneUtils.formatTime(_nextLessonDateTime!)
+                              : _nextLesson!.hour,
                           style: TextStyle(
                             fontFamily: 'Qatar',
                             fontSize: timeFontSize,

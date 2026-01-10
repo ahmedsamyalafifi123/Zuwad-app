@@ -7,6 +7,8 @@ import '../../../../core/api/wordpress_api.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 
+import '../../../../core/utils/timezone_helper.dart';
+
 class PostponePage extends StatefulWidget {
   final int teacherId;
   final List<FreeSlot> freeSlots;
@@ -38,21 +40,74 @@ class _PostponePageState extends State<PostponePage> {
   String? _selectedStartTime;
   bool _isCreatingEvent = false;
   final WordPressApi _api = WordPressApi();
+  List<ConvertedSlot> _convertedSlots = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeConvertedSlots();
+  }
+
+  void _initializeConvertedSlots() {
+    final now = TimezoneHelper.nowInEgypt();
+    _convertedSlots = widget.freeSlots
+        .map((slot) {
+          // 1. Determine date of next occurrence in Egypt time
+          // Server days: 0=Sunday, 1=Monday... 6=Saturday
+          // Date.weekday: 1=Monday... 7=Sunday
+
+          // key: Map server day (0-6) to Dart weekday (1-7)
+          final serverDayToDart = slot.dayOfWeek == 0 ? 7 : slot.dayOfWeek;
+
+          int daysUntil = (serverDayToDart - now.weekday + 7) % 7;
+          if (daysUntil == 0) daysUntil = 7; // Next occurrence
+
+          final egyptDate = now.add(Duration(days: daysUntil));
+
+          // Parse times
+          final startParts = slot.startTime.split(':');
+          final endParts = slot.endTime.split(':');
+
+          if (startParts.length < 2 || endParts.length < 2) return null;
+
+          final egyptStart = DateTime(
+            egyptDate.year,
+            egyptDate.month,
+            egyptDate.day,
+            int.parse(startParts[0]),
+            int.parse(startParts[1]),
+          );
+
+          final egyptEnd = DateTime(
+            egyptDate.year,
+            egyptDate.month,
+            egyptDate.day,
+            int.parse(endParts[0]),
+            int.parse(endParts[1]),
+          );
+
+          // Convert to local
+          final localStart = TimezoneHelper.egyptToLocal(egyptStart);
+          final localEnd = TimezoneHelper.egyptToLocal(egyptEnd);
+
+          return ConvertedSlot(
+            localStart: localStart,
+            localEnd: localEnd,
+          );
+        })
+        .whereType<ConvertedSlot>()
+        .toList();
+  }
 
   // Filter free slots based on student's lesson duration
-  List<FreeSlot> get filteredFreeSlots {
+  List<ConvertedSlot> get filteredFreeSlots {
     if (widget.studentLessonDuration <= 0) {
-      return widget.freeSlots;
+      return _convertedSlots;
     }
 
-    return widget.freeSlots.where((slot) {
-      // Calculate slot duration in minutes
-      final startTime = _parseTime(slot.startTime);
-      final endTime = _parseTime(slot.endTime);
-
-      if (startTime == null || endTime == null) return false;
-
-      final slotDurationMinutes = endTime.difference(startTime).inMinutes;
+    return _convertedSlots.where((slot) {
+      final slotDurationMinutes =
+          slot.localEnd.difference(slot.localStart).inMinutes;
       return slotDurationMinutes >= widget.studentLessonDuration;
     }).toList();
   }
@@ -72,17 +127,17 @@ class _PostponePageState extends State<PostponePage> {
     if (widget.studentLessonDuration <= 0) {
       return filteredFreeSlots
           .where((s) => s.dayOfWeek == day)
-          .map((s) => s.startTime)
+          .map((s) =>
+              '${s.localStart.hour.toString().padLeft(2, '0')}:${s.localStart.minute.toString().padLeft(2, '0')}:00')
           .toList();
     }
 
     List<String> availableTimes = [];
 
     for (final slot in filteredFreeSlots.where((s) => s.dayOfWeek == day)) {
-      final startTime = _parseTime(slot.startTime);
-      final endTime = _parseTime(slot.endTime);
-
-      if (startTime == null || endTime == null) continue;
+      // Use local properties directly
+      final startTime = slot.localStart;
+      final endTime = slot.localEnd;
 
       // Generate time slots based on lesson duration
       DateTime currentSlotStart = startTime;
@@ -108,22 +163,6 @@ class _PostponePageState extends State<PostponePage> {
     availableTimes.sort();
 
     return availableTimes;
-  }
-
-  DateTime? _parseTime(String timeString) {
-    try {
-      final parts = timeString.split(':');
-      if (parts.length >= 2) {
-        final hour = int.parse(parts[0]);
-        final minute = int.parse(parts[1]);
-        return DateTime(2024, 1, 1, hour, minute);
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error parsing time: $timeString');
-      }
-    }
-    return null;
   }
 
   @override
@@ -345,23 +384,44 @@ class _PostponePageState extends State<PostponePage> {
     try {
       final student = authState.student!;
 
-      // Calculate the event date based on selected day of week
+      // 1. Calculate Local DateTime
       final now = DateTime.now();
       final daysUntilSelected = (_selectedDayOfWeek! - now.weekday + 7) % 7;
-      final eventDate = now
+      final localDate = now
           .add(Duration(days: daysUntilSelected == 0 ? 7 : daysUntilSelected));
 
-      final eventDateStr =
-          '${eventDate.year}-${eventDate.month.toString().padLeft(2, '0')}-${eventDate.day.toString().padLeft(2, '0')}';
+      // Parse time
+      final timeParts = _selectedStartTime!.split(':');
+      final localDateTime = DateTime(
+        localDate.year,
+        localDate.month,
+        localDate.day,
+        int.parse(timeParts[0]),
+        int.parse(timeParts[1]),
+      );
+
+      // 2. Convert back to Egypt DateTime for server
+      final egyptDateTime = TimezoneHelper.localToEgypt(localDateTime);
+
+      final egyptDateStr =
+          '${egyptDateTime.year}-${egyptDateTime.month.toString().padLeft(2, '0')}-${egyptDateTime.day.toString().padLeft(2, '0')}';
+      final egyptTimeStr =
+          '${egyptDateTime.hour.toString().padLeft(2, '0')}:${egyptDateTime.minute.toString().padLeft(2, '0')}:00';
+
+      if (kDebugMode) {
+        print('Creating event:');
+        print('  Local: $localDateTime');
+        print('  Egypt: $egyptDateStr $egyptTimeStr');
+      }
 
       await _api.createPostponedEvent(
         studentId: student.id,
         teacherId: widget.teacherId,
         originalDate: widget.currentLessonDate ??
-            eventDateStr, // Use current lesson date as original
-        originalTime: widget.currentLessonTime ?? _selectedStartTime!,
-        newDate: eventDateStr,
-        newTime: _selectedStartTime!,
+            egyptDateStr, // Use current lesson date or new date if unknown
+        originalTime: widget.currentLessonTime ?? egyptTimeStr,
+        newDate: egyptDateStr,
+        newTime: egyptTimeStr,
       );
 
       // Create student report for the CURRENT lesson being postponed
@@ -493,4 +553,13 @@ extension DateTimeComparison on DateTime {
   bool isAtSameTime(DateTime other) {
     return hour == other.hour && minute == other.minute;
   }
+}
+
+class ConvertedSlot {
+  final DateTime localStart;
+  final DateTime localEnd;
+
+  ConvertedSlot({required this.localStart, required this.localEnd});
+
+  int get dayOfWeek => localStart.weekday % 7; // 0=Sun, 1=Mon...
 }
