@@ -22,14 +22,36 @@ class WalletInfo {
           .toList();
     }
 
+    double pending = 0.0;
+    if (json['pending_balance'] != null) {
+      pending = _parseDouble(json['pending_balance']);
+    } else if (json['recent_transactions'] != null) {
+      final recent = json['recent_transactions'] as List;
+      if (recent.isNotEmpty) {
+        // Fallback: Try to get pending_balance_after from the most recent transaction
+        pending = _parseDouble(recent.first['pending_balance_after']);
+      }
+    }
+
     return WalletInfo(
       familyId: json['family_id'],
-      balance: double.tryParse(json['balance']?.toString() ?? '0') ?? 0,
-      pendingBalance:
-          double.tryParse(json['pending_balance']?.toString() ?? '0') ?? 0,
+      balance: _parseDouble(json['balance']),
+      pendingBalance: pending,
       currency: json['currency']?.toString() ?? 'EGP',
       transactions: transactionsList,
     );
+  }
+
+  static double _parseDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      // Remove any non-numeric characters except dot and minus
+      // This handles cases like "-49.50 SAR" or "EGP 100"
+      final cleaned = value.replaceAll(RegExp(r'[^\d.-]'), '');
+      return double.tryParse(cleaned) ?? 0.0;
+    }
+    return 0.0;
   }
 }
 

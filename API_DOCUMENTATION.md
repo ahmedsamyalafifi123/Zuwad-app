@@ -893,10 +893,48 @@ Content-Type: application/json
 GET /wallet/family/{family_id}
 ```
 
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "family_id": 123,
+    "balance": 500,
+    "pending_balance": -50,
+    "currency": "EGP",
+    "last_updated": "2024-01-15 14:30:00",
+    "members": [
+      {
+        "id": 456,
+        "name": "Ahmed Mohamed",
+        "m_id": "ST-001-456"
+      }
+    ]
+  }
+}
+```
+
 ### Get Student's Wallet
 
 ```http
 GET /wallet/student/{student_id}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "family_id": 123,
+    "balance": 500,
+    "pending_balance": -50,
+    "currency": "EGP",
+    "last_updated": "2024-01-15 14:30:00",
+    "members": [...]
+  }
+}
 ```
 
 ### Get Transactions
@@ -905,6 +943,33 @@ GET /wallet/student/{student_id}
 
 ```http
 GET /wallet/family/{family_id}/transactions?page=1
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 101,
+      "type": "deposit",
+      "amount": 500,
+      "balance_after": 500,
+      "pending_balance_after": -50,
+      "description": "إضافة رصيد",
+      "student_id": null,
+      "student_name": null,
+      "created_at": "2024-01-15 14:30:00"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 50,
+    "total": 1,
+    "total_pages": 1
+  }
+}
 ```
 
 ### Add Balance

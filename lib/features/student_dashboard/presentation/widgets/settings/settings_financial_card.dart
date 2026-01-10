@@ -67,14 +67,14 @@ class SettingsFinancialCard extends StatelessWidget {
                     _buildDivider(),
                     _buildStatItem(
                       Icons.account_balance_wallet_outlined,
-                      'رصيد سابق / متبقي',
-                      '${walletInfo.balance} ${walletInfo.currency}',
+                      'الرصيد المتبقي',
+                      '${walletInfo.pendingBalance} ${walletInfo.currency}',
                     ),
                     _buildDivider(),
                     _buildStatItem(
                       Icons.account_balance_rounded,
                       'الرصيد الحالي',
-                      '${walletInfo.balance + walletInfo.pendingBalance} ${walletInfo.currency}',
+                      '${walletInfo.balance} ${walletInfo.currency}',
                       isHighlighted: true,
                     ),
                   ],

@@ -101,6 +101,9 @@ class SettingsRepository {
     try {
       // First get wallet info (balance, etc.)
       final walletData = await _api.getStudentWallet(userId);
+      if (kDebugMode) {
+        print('DEBUG: Wallet Data: $walletData');
+      }
 
       // Get family_id from wallet data (or use userId as fallback)
       final familyId = walletData['family_id'] ?? userId;
