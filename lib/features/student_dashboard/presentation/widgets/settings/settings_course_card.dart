@@ -179,58 +179,32 @@ class SettingsCourseCard extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: ElevatedButton(
-                onPressed: onEditPackage,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD4AF37),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: const Text(
-                  'تعديل الباقة',
-                  style: TextStyle(
-                      fontFamily: 'Qatar', fontWeight: FontWeight.bold),
-                ),
+              child: _buildActionButton(
+                label: 'تبديل المعلمة',
+                onTap: onChangeTeacher,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: OutlinedButton(
-                onPressed: onCancelRenewal,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Color(0x80FFFFFF)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: const Text(
-                  'الغاء التجديد',
-                  style: TextStyle(fontFamily: 'Qatar'),
-                ),
+              child: _buildActionButton(
+                label: 'الغاء التجديد',
+                onTap: onCancelRenewal,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: OutlinedButton(
-                onPressed: onChangeTeacher,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Color(0x80FFFFFF)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+              child: _buildActionButton(
+                label: 'تعديل الباقة',
+                onTap: onEditPackage,
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFFFFD700), // Lighter Gold
+                    Color(0xFFD4AF37), // Gold
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
-                child: const Text(
-                  'تبديل المعلمة',
-                  style: TextStyle(fontFamily: 'Qatar'),
-                ),
+                textColor: Colors.black,
               ),
             ),
           ],
@@ -276,6 +250,77 @@ class SettingsCourseCard extends StatelessWidget {
       height: 40,
       width: 1,
       color: Colors.grey[200],
+    );
+  }
+
+  Widget _buildActionButton({
+    required String label,
+    required VoidCallback onTap,
+    Gradient? gradient,
+    Color? textColor,
+  }) {
+    if (gradient != null) {
+      return Container(
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: ElevatedButton(
+          onPressed: onTap,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            foregroundColor: textColor ?? Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            elevation: 0,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Qatar',
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              color: textColor ?? Colors.white,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+    }
+
+    return OutlinedButton(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        side: const BorderSide(color: Colors.white, width: 1.5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Qatar',
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+          color: Colors.white,
+        ),
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 }

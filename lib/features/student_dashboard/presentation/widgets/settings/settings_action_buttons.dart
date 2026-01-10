@@ -47,7 +47,7 @@ class SettingsActionButtons extends StatelessWidget {
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.white,
-          side: const BorderSide(color: Color(0xFFD4AF37), width: 1.5),
+          side: const BorderSide(color: Colors.white, width: 1.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -57,7 +57,7 @@ class SettingsActionButtons extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 20, color: const Color(0xFFD4AF37)),
+            Icon(icon, size: 20, color: Colors.white),
             const SizedBox(width: 8),
             Flexible(
               child: Text(

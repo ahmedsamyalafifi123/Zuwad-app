@@ -88,7 +88,7 @@ class SettingsSubscriptionsCard extends StatelessWidget {
                                 color: Colors.grey))),
                   ],
                   rows: familyMembers.map((member) {
-                    final amount = member['amount'] ?? 0;
+                    final amount = member['amount']?.toString() ?? '0';
                     final currency = member['currency'] ?? 'SAR';
                     final lessonsName = member['lessons_name'] ?? '-';
                     // Note: 'remaining_lessons' might not be in the simple family list response

@@ -342,10 +342,13 @@ class _SettingsPageState extends State<SettingsPage> {
                           },
                         ),
 
-                      if (_student != null) const SizedBox(height: 16),
-
-                      // 4. Subscriptions (NEW)
-                      SettingsSubscriptionsCard(familyMembers: _familyMembers),
+                      if (_student != null) const SizedBox(height: 24),
+                      if (_familyMembers.isNotEmpty)
+                        SettingsSubscriptionsCard(
+                          familyMembers: _familyMembers
+                              .where((s) => s['payment_status'] != 'متوقف')
+                              .toList(),
+                        ),
 
                       const SizedBox(height: 16),
 
@@ -353,7 +356,15 @@ class _SettingsPageState extends State<SettingsPage> {
                       if (_walletInfo != null)
                         SettingsFinancialCard(
                           walletInfo: _walletInfo!,
-                          totalSubscriptions: _familyMembers.length,
+                          totalAmount: _familyMembers
+                              .where((s) => s['payment_status'] != 'متوقف')
+                              .fold(
+                                  0.0,
+                                  (sum, s) =>
+                                      sum +
+                                      (double.tryParse(
+                                              s['amount']?.toString() ?? '0') ??
+                                          0.0)),
                           dueAmount: 0.0, // Placeholder
                         ),
 

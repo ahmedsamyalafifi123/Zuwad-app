@@ -145,7 +145,40 @@ class SettingsRepository {
 
     try {
       final members = await _api.getStudentFamily(userId);
-      return List<Map<String, dynamic>>.from(members);
+      // Create a modifiable list
+      final List<Map<String, dynamic>> modifiableMembers =
+          List<Map<String, dynamic>>.from(members);
+
+      // Attempt to populate amount for ALL family members
+      // We fetch the profile for each member to get the correct amount
+      // Family size is typically small, so this N+1 is acceptable for data accuracy
+      try {
+        for (var i = 0; i < modifiableMembers.length; i++) {
+          try {
+            final memberId = modifiableMembers[i]['id'];
+            final profile = await _api.getStudentProfile(memberId);
+
+            modifiableMembers[i] =
+                Map<String, dynamic>.from(modifiableMembers[i]);
+            modifiableMembers[i]['amount'] = profile['amount'];
+            if (profile['currency'] != null) {
+              modifiableMembers[i]['currency'] = profile['currency'];
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print(
+                  'SettingsRepository.getFamilyMembers - Error fetching profile for member ${modifiableMembers[i]['id']}: $e');
+            }
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print(
+              'SettingsRepository.getFamilyMembers - Error in profile fetch loop: $e');
+        }
+      }
+
+      return modifiableMembers;
     } catch (e) {
       if (kDebugMode) {
         print('SettingsRepository.getFamilyMembers - Error: $e');

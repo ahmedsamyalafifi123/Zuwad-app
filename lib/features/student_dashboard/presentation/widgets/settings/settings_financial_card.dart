@@ -5,13 +5,13 @@ import '../../../domain/models/wallet_info.dart';
 class SettingsFinancialCard extends StatelessWidget {
   final WalletInfo walletInfo;
   final double dueAmount;
-  final int totalSubscriptions;
+  final double totalAmount;
 
   const SettingsFinancialCard({
     super.key,
     required this.walletInfo,
     this.dueAmount = 0.0,
-    this.totalSubscriptions = 0,
+    this.totalAmount = 0.0,
   });
 
   @override
@@ -60,9 +60,9 @@ class SettingsFinancialCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     _buildStatItem(
-                      Icons.people_outline,
+                      Icons.monetization_on_outlined,
                       'إجمالي الاشتراكات',
-                      '$totalSubscriptions',
+                      '$totalAmount ${walletInfo.currency}',
                     ),
                     _buildDivider(),
                     _buildStatItem(
