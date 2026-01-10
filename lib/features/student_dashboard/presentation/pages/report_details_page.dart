@@ -12,17 +12,23 @@ class ReportDetailsPage extends StatelessWidget {
   int _calculateRating() {
     // Try to map evaluation text
     final evaluation = report.evaluation.toLowerCase().trim();
-    if (evaluation.contains('ممتاز') || evaluation.contains('excellent'))
+    if (evaluation.contains('ممتاز') || evaluation.contains('excellent')) {
       return 5;
-    if (evaluation.contains('جيد جدا') || evaluation.contains('very good'))
+    }
+    if (evaluation.contains('جيد جدا') || evaluation.contains('very good')) {
       return 4;
+    }
     if (evaluation.contains('جيد') || evaluation.contains('good')) return 3;
     if (evaluation.contains('مقبول') ||
         evaluation.contains('fair') ||
-        evaluation.contains('acceptable')) return 2;
+        evaluation.contains('acceptable')) {
+      return 2;
+    }
     if (evaluation.contains('ضعيف') ||
         evaluation.contains('weak') ||
-        evaluation.contains('poor')) return 1;
+        evaluation.contains('poor')) {
+      return 1;
+    }
 
     // Fallback to grade if available (assuming 10 or 100 scale?)
     // If grade is 0, default to 5 stars for positive UX or 0?

@@ -62,9 +62,10 @@ class DatabaseService {
       final hasStudentId = result.any((col) => col['name'] == 'student_id');
 
       if (!hasStudentId) {
-        if (kDebugMode)
+        if (kDebugMode) {
           print(
               'DatabaseService: student_id column missing, adding manually...');
+        }
         await db
             .execute('ALTER TABLE notifications ADD COLUMN student_id INTEGER');
         await db.execute(
@@ -227,7 +228,9 @@ class DatabaseService {
       List<dynamic> whereArgs = [];
 
       if (studentId != null) {
-        whereClause = 'student_id = ?';
+        // Show notifications for this student OR notifications without a specific student_id
+        // This ensures global notifications and FCM notifications missing student_id are visible
+        whereClause = '(student_id = ? OR student_id IS NULL)';
         whereArgs = [studentId];
       }
 

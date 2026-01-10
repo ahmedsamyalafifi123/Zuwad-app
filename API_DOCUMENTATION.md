@@ -1586,6 +1586,101 @@ Authorization: Bearer {token}
 }
 ```
 
+**Query Parameters:**
+
+| Parameter | Type    | Default | Description |
+| --------- | ------- | ------- | ----------- |
+| `page`    | integer | 1       | Page number |
+
+### GET /student/notifications
+
+- **Description**: Get notifications for the authenticated student
+- **Method**: `GET`
+- **Route**: `/wp-json/zuwad/v2/student/notifications`
+- **Parameters**:
+
+| Name       | Type    | Required | Description                                                    |
+| :--------- | :------ | :------- | :------------------------------------------------------------- |
+| page       | integer | No       | Page number (default: 1)                                       |
+| per_page   | integer | No       | Items per page (default: 50)                                   |
+| type       | string  | No       | Filter by notification type                                    |
+| status     | string  | No       | Filter by status (read, unread, all)                           |
+| student_id | integer | No       | ID of student to fetch notifications for (for family accounts) |
+
+- **Response**:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 123,
+      "title": "Lesson Report",
+      "body": "Your lesson report is ready",
+      "type": "report",
+      "is_read": false,
+      "data": {},
+      "created_at": "2023-01-01 12:00:00"
+    }
+  ],
+  "pagination": {
+    "total": 100,
+    "total_pages": 5,
+    "current_page": 1,
+    "per_page": 20
+  }
+}
+```
+
+## Device Management API
+
+### POST /devices/register
+
+- **Description**: Register a device token for push notifications
+- **Method**: `POST`
+- **Route**: `/wp-json/zuwad/v2/devices/register`
+- **Authentication**: Required
+- **Parameters**:
+
+| Name         | Type   | Required | Description                                            |
+| :----------- | :----- | :------- | :----------------------------------------------------- |
+| device_token | string | Yes      | The FCM registration token                             |
+| platform     | string | No       | Device platform (android, ios, web) - default: android |
+
+- **Response**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Device registered successfully"
+  }
+}
+```
+
+### POST /devices/unregister
+
+- **Description**: Unregister a device token
+- **Method**: `POST`
+- **Route**: `/wp-json/zuwad/v2/devices/unregister`
+- **Authentication**: Required
+- **Parameters**:
+
+| Name         | Type   | Required | Description                          |
+| :----------- | :----- | :------- | :----------------------------------- |
+| device_token | string | Yes      | The FCM registration token to remove |
+
+- **Response**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Device unregistered successfully"
+  }
+}
+```
+
 ### Get Single Notification
 
 ```http
@@ -1987,10 +2082,81 @@ For API issues, contact the development team with:
 
 ---
 
-**API Version:** 2.0.2  
+**API Version:** 2.0.3  
 **Last Updated:** January 2026
 
-### Recent Changes (v2.0.2)
+### Recent Changes (v2.0.3)
+
+#### Push Notifications Enhancements
+
+**1. Wallet Payment Notifications**
+
+When payment reminders are sent to families, push notifications are now triggered:
+
+| Reminder Type  | Title           | Body                                      |
+| -------------- | --------------- | ----------------------------------------- |
+| التنبيه الاول  | تذكير بالدفع 💳 | حان وقت تسديد رسوم الإشتراك.              |
+| التنبيه الثاني | تذكير بالدفع 💳 | حان وقت تسديد رسوم الإشتراك.              |
+| التنبيه التالت | تذكير بالدفع 💳 | حان وقت تسديد رسوم الإشتراك.              |
+| لم يتم الرد    | تنبيه هام ⚠️    | برجاء إضافة رصيد لنستكمل الحصص في موعدها. |
+
+**Payload Data:**
+
+```json
+{
+  "type": "payment_reminder" | "payment_warning",
+  "family_id": "123",
+  "reminder_type": "التنبيه الاول"
+}
+```
+
+**2. Balance Added Notifications**
+
+When balance is added to a family wallet:
+
+| Event      | Title            | Body                                |
+| ---------- | ---------------- | ----------------------------------- |
+| إضافة رصيد | تم إضافة رصيد 💶 | شكرًا لك. 🤩 تم إضافة الرصيد بنجاح. |
+
+**Payload Data:**
+
+```json
+{
+  "type": "balance_added",
+  "family_id": "123",
+  "amount": "500",
+  "currency": "EGP"
+}
+```
+
+**3. Lesson Report Notifications (API)**
+
+Reports created via REST API now send push notifications (same as AJAX):
+
+| Attendance   | Title                | Body                                |
+| ------------ | -------------------- | ----------------------------------- |
+| حضور         | إنجاز جديد 🥳        | تم إضافة تقرير حصة {name}           |
+| غياب         | تنبيه غياب ⚠️        | {name} لاحظنا غيابك اليوم...        |
+| تجريبي       | 🎓 تقرير حصة تجريبية | صدر تقرير الحصة التجريبية لـ {name} |
+| تأجيل المعلم | تغيير موعد 📅        | بسبب ظرف طارئ للمعلمة...            |
+| اجازة معلم   | تنبيه جدول 📅        | المعلمة في إجازة...                 |
+| Other        | 🥳 انجاز جديد        | تم إضافة تقرير حصة {name}           |
+
+**Payload Data:**
+
+```json
+{
+  "type": "lesson_report",
+  "report_id": "456",
+  "attendance": "حضور"
+}
+```
+
+**4. WhatsApp Media Message Handling**
+
+Media messages (images/PDFs) sent via WhatsApp no longer trigger generic "رسالة واتساب جديدة" notifications. This prevents duplicate notifications since report images are handled by the dedicated report notification system.
+
+### Previous Changes (v2.0.2)
 
 - **Student Notifications:** New `/student/notifications` endpoints for in-app notifications
 - **Helper Functions:** Added `zuwad_send_student_notification()` for easy integration
