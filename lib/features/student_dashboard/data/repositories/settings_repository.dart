@@ -135,4 +135,22 @@ class SettingsRepository {
       );
     }
   }
+
+  /// Get family members for the student.
+  Future<List<Map<String, dynamic>>> getFamilyMembers() async {
+    final userId = await _secureStorage.getUserIdAsInt();
+    if (userId == null) {
+      throw Exception('User not logged in');
+    }
+
+    try {
+      final members = await _api.getStudentFamily(userId);
+      return List<Map<String, dynamic>>.from(members);
+    } catch (e) {
+      if (kDebugMode) {
+        print('SettingsRepository.getFamilyMembers - Error: $e');
+      }
+      return [];
+    }
+  }
 }
