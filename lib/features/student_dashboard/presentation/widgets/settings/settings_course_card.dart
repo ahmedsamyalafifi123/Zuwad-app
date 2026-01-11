@@ -64,105 +64,107 @@ class SettingsCourseCard extends StatelessWidget {
                     _buildStatItem(
                       Icons.format_list_numbered_rounded,
                       'عدد الحصص',
-                      '${student.lessonsNumber ?? 0}',
+                      '${student.lessonsNumber ?? 0} حصص',
                     ),
                     _buildDivider(),
                     _buildStatItem(
                       Icons.timer_rounded,
-                      'المدة',
+                      'مدة الحصة',
                       '${student.lessonDuration ?? 0} دقيقة',
                     ),
                     _buildDivider(),
                     _buildStatItem(
                       Icons.hourglass_bottom_rounded,
-                      'المتبقي',
-                      '${student.remainingLessons ?? 0}',
-                      isHighlighted: true,
+                      'حصص المتبقية',
+                      '${student.remainingLessons ?? 0} حصص',
+                      isHighlighted: false,
                     ),
                   ],
                 ),
               ),
 
-              const Divider(height: 1, color: Color(0xFFEEEEEE)),
-
-              // Row 2: Teacher
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: const Color(0xFFD4AF37), width: 1),
-                      ),
-                      child: const Icon(Icons.person,
-                          color: Colors.grey, size: 24),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'المعلم',
-                            style: TextStyle(
-                              fontFamily: 'Qatar',
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                          Text(
-                            student.teacherName ?? 'غير محدد',
-                            style: const TextStyle(
-                              fontFamily: 'Qatar',
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF333333),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const Divider(height: 1, color: Color(0xFFEEEEEE)),
-
-              // Row 3: Price
+              // Combined Teacher and Price Section
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Text(
-                      'سعر الباقة',
-                      style: TextStyle(
-                        fontFamily: 'Qatar',
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    Row(
+                    // Right Side: Price (In RTL, first child is Right)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${student.amount ?? 0} ${student.currency ?? "SAR"}',
-                          style: const TextStyle(
+                        const Text(
+                          'سعر الباقة',
+                          style: TextStyle(
                             fontFamily: 'Qatar',
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryColor,
+                            fontSize: 14,
+                            color: Color.fromARGB(255, 0, 0, 0),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        const Icon(
-                          Icons.account_balance_wallet_outlined,
-                          color: AppTheme.primaryColor,
-                          size: 20,
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.account_balance_wallet_outlined,
+                              color: AppTheme.primaryColor,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${student.amount ?? 0} ${student.currency ?? "SAR"}',
+                              style: const TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    // Left Side: Teacher (In RTL, last child is Left)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 45,
+                          height: 45,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: const Color(0xFFD4AF37), width: 1),
+                          ),
+                          child: const Icon(Icons.person,
+                              color: Colors.grey, size: 28),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'المعلم',
+                              style: TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            Text(
+                              student.teacherName?.split(' ').first ??
+                                  'غير محدد',
+                              style: const TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF333333),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -218,7 +220,7 @@ class SettingsCourseCard extends StatelessWidget {
     return Column(
       children: [
         Icon(icon,
-            color: isHighlighted ? const Color(0xFFD4AF37) : Colors.grey[400],
+            color: isHighlighted ? const Color(0xFFD4AF37) : Color(0xFFD4AF37),
             size: 24),
         const SizedBox(height: 8),
         Text(
@@ -247,9 +249,9 @@ class SettingsCourseCard extends StatelessWidget {
 
   Widget _buildDivider() {
     return Container(
-      height: 40,
-      width: 1,
-      color: Colors.grey[200],
+      height: 70,
+      width: 2,
+      color: const Color(0xFF820c22),
     );
   }
 

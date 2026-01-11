@@ -165,7 +165,7 @@ class SettingsFinancialCard extends StatelessWidget {
   Widget _buildDivider() {
     return Container(
       height: 40,
-      width: 1,
+      width: 2,
       color: Colors.grey[200],
     );
   }

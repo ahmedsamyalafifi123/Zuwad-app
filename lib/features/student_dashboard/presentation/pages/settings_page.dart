@@ -311,9 +311,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         avatar: _buildProfileAvatar(),
                         content: _buildPersonalDataContent(),
                       ),
-
                       const SizedBox(height: 16),
-
                       // 2. Action Buttons (NEW)
                       SettingsActionButtons(
                         onAddStudent: () {
@@ -324,7 +322,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         },
                       ),
 
-                      const SizedBox(height: 16),
+                      _buildDivider(),
 
                       // 3. Course Details (NEW)
                       if (_student != null)
@@ -342,7 +340,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           },
                         ),
 
-                      if (_student != null) const SizedBox(height: 24),
+                      if (_student != null) _buildDivider(),
                       if (_familyMembers.isNotEmpty)
                         SettingsSubscriptionsCard(
                           familyMembers: _familyMembers
@@ -350,7 +348,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               .toList(),
                         ),
 
-                      const SizedBox(height: 16),
+                      if (_familyMembers.isNotEmpty) _buildDivider(),
 
                       // 5. Financial Info (NEW)
                       if (_walletInfo != null)
@@ -392,6 +390,16 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 16.0),
+      child: Divider(
+        color: Colors.white,
+        thickness: 2,
       ),
     );
   }
