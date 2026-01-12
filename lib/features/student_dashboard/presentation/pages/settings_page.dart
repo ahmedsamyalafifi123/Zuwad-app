@@ -1005,21 +1005,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    _buildDropdownField(
-                      label: 'نوع الحصة',
-                      icon: Icons.book_outlined,
-                      value: _lessonsNameController.text.isNotEmpty &&
-                              _lessonsNameOptions
-                                  .contains(_lessonsNameController.text)
-                          ? _lessonsNameController.text
-                          : null,
-                      items: _lessonsNameOptions,
-                      onChanged: (value) {
-                        if (value != null) _lessonsNameController.text = value;
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     _buildDropdownField(
                       label: 'عدد الحصص شهرياً',
                       icon: Icons.format_list_numbered,
@@ -1049,16 +1035,20 @@ class _SettingsPageState extends State<SettingsPage> {
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('إلغاء')),
+                    child: const Text('إلغاء',
+                        style: TextStyle(
+                            fontFamily: 'Qatar', fontWeight: FontWeight.bold))),
                 ElevatedButton(
                   onPressed: () {
                     Navigator.pop(context);
                     _showPackageSaveConfirmation();
                   },
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFD4AF37),
-                      foregroundColor: Colors.white),
-                  child: const Text('تأكيد التعديل'),
+                      backgroundColor: const Color.fromARGB(255, 223, 181, 44),
+                      foregroundColor: const Color.fromARGB(255, 0, 0, 0)),
+                  child: const Text('تأكيد التعديل',
+                      style: TextStyle(
+                          fontFamily: 'Qatar', fontWeight: FontWeight.bold)),
                 ),
               ],
             );
@@ -1069,10 +1059,69 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showPackageSaveConfirmation() {
-    // Reuse existing logic from _savePackageData but wrapped in confirmation
-    _savePackageData(); // For simplicity, just saving directly after previous dialog confirmation or we can add double confirmation if needed.
-    // The original code had a second dialog. I will implement _savePackageData to JUST save, and assume the user confirmed in the edit dialog.
-    // Or I can copy the second dialog logic. Let's effectively reuse _savePackageData.
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'تأكيد التغييرات',
+          style: TextStyle(
+            fontFamily: 'Qatar',
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.warning_amber_rounded,
+                size: 48, color: Colors.orange),
+            const SizedBox(height: 16),
+            const Text(
+              'هل أنت متأكد من تغيير الباقة؟',
+              style: TextStyle(fontFamily: 'Qatar', fontSize: 18),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'سيؤثر هذا التغيير على المبلغ المطلوب والجدول الدراسي للطالب. يرجى التأكد من البيانات قبل الحفظ.',
+              style: TextStyle(
+                fontFamily: 'Qatar',
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء',
+                style: TextStyle(
+                    fontFamily: 'Qatar',
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _savePackageData();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD4AF37),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('نعم، تأكيد الحفظ',
+                style: TextStyle(
+                    fontFamily: 'Qatar', fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _savePackageData() async {
