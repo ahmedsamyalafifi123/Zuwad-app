@@ -24,7 +24,8 @@ class SettingsCourseCard extends StatelessWidget {
         // Header
         Row(
           children: [
-            const Icon(Icons.star_rounded, color: Color(0xFFD4AF37), size: 24),
+            const Icon(Icons.brightness_low_outlined,
+                color: Color(0xFFD4AF37), size: 28),
             const SizedBox(width: 8),
             Text(
               student.displayLessonName,
@@ -47,8 +48,8 @@ class SettingsCourseCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             boxShadow: const [
               BoxShadow(
-                color: Color.fromARGB(25, 0, 0, 0),
-                blurRadius: 10,
+                color: Color.fromARGB(100, 0, 0, 0),
+                blurRadius: 12,
                 offset: Offset(0, 4),
               ),
             ],
@@ -57,7 +58,8 @@ class SettingsCourseCard extends StatelessWidget {
             children: [
               // Row 1: Stats
               Padding(
-                padding: const EdgeInsets.all(20),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
@@ -75,7 +77,7 @@ class SettingsCourseCard extends StatelessWidget {
                     _buildDivider(),
                     _buildStatItem(
                       Icons.hourglass_bottom_rounded,
-                      'حصص المتبقية',
+                      'حصص متبقية',
                       '${student.remainingLessons ?? 0} حصص',
                       isHighlighted: false,
                     ),
@@ -85,7 +87,8 @@ class SettingsCourseCard extends StatelessWidget {
 
               // Combined Teacher and Price Section
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,

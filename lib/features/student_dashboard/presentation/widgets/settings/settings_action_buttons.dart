@@ -42,7 +42,7 @@ class SettingsActionButtons extends StatelessWidget {
     VoidCallback onTap,
   ) {
     return SizedBox(
-      height: 48,
+      height: 40,
       child: OutlinedButton(
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
@@ -53,9 +53,10 @@ class SettingsActionButtons extends StatelessWidget {
           ),
           backgroundColor: Colors.transparent,
           elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Icon(icon, size: 20, color: Colors.white),
             const SizedBox(width: 8),
@@ -64,7 +65,7 @@ class SettingsActionButtons extends StatelessWidget {
                 label,
                 style: const TextStyle(
                   fontFamily: 'Qatar',
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),

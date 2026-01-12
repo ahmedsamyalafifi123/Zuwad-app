@@ -363,7 +363,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       (double.tryParse(
                                               s['amount']?.toString() ?? '0') ??
                                           0.0)),
-                          dueAmount: 0.0, // Placeholder
+                          dueAmount: _walletInfo!.balance + _walletInfo!.pendingBalance,
                         ),
 
                       const SizedBox(height: 16),

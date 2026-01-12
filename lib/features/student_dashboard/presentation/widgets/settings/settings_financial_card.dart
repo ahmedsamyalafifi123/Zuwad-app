@@ -22,7 +22,8 @@ class SettingsFinancialCard extends StatelessWidget {
         // Header
         const Row(
           children: [
-            Icon(Icons.star_rounded, color: Color(0xFFD4AF37), size: 24),
+            Icon(Icons.brightness_low_outlined,
+                color: Color(0xFFD4AF37), size: 28),
             SizedBox(width: 8),
             Text(
               'الحسابات والأرصدة',
@@ -45,8 +46,8 @@ class SettingsFinancialCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             boxShadow: const [
               BoxShadow(
-                color: Color.fromARGB(25, 0, 0, 0),
-                blurRadius: 10,
+                color: Color.fromARGB(100, 0, 0, 0),
+                blurRadius: 12,
                 offset: Offset(0, 4),
               ),
             ],
@@ -85,7 +86,7 @@ class SettingsFinancialCard extends StatelessWidget {
 
               // Row 2: Due Amount
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -93,8 +94,8 @@ class SettingsFinancialCard extends StatelessWidget {
                       'المبلغ المستحق',
                       style: TextStyle(
                         fontFamily: 'Qatar',
-                        fontSize: 14,
-                        color: Colors.grey,
+                        fontSize: 16,
+                        color: Color.fromARGB(255, 0, 0, 0),
                       ),
                     ),
                     Row(
@@ -105,14 +106,8 @@ class SettingsFinancialCard extends StatelessWidget {
                             fontFamily: 'Qatar',
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.red, // Red for due amount
+                            color: Color(0xFF820c22), // Red for due amount
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(
-                          Icons.monetization_on_outlined,
-                          color: Colors.red,
-                          size: 20,
                         ),
                       ],
                     ),
@@ -132,7 +127,8 @@ class SettingsFinancialCard extends StatelessWidget {
       child: Column(
         children: [
           Icon(icon,
-              color: isHighlighted ? const Color(0xFFD4AF37) : Colors.grey[400],
+              color:
+                  isHighlighted ? const Color(0xFFD4AF37) : Color(0xFFD4AF37),
               size: 24),
           const SizedBox(height: 8),
           Text(
@@ -152,7 +148,7 @@ class SettingsFinancialCard extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.bold,
               color: isHighlighted
-                  ? const Color(0xFFD4AF37)
+                  ? const Color(0xFF333333)
                   : const Color(0xFF333333),
             ),
             textAlign: TextAlign.center,
@@ -164,9 +160,9 @@ class SettingsFinancialCard extends StatelessWidget {
 
   Widget _buildDivider() {
     return Container(
-      height: 40,
+      height: 70,
       width: 2,
-      color: Colors.grey[200],
+      color: Color(0xFF820c22),
     );
   }
 }

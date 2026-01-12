@@ -36,8 +36,8 @@ class SettingsBottomActions extends StatelessWidget {
             onTap: onPayFees,
             gradient: const LinearGradient(
               colors: [
-                Color(0xFF66BB6A), // Green 400
-                Color(0xFF43A047), // Green 600
+                Color.fromARGB(255, 57, 189, 64), // Green 400
+                Color.fromARGB(255, 48, 126, 52), // Green 600
               ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -57,7 +57,7 @@ class SettingsBottomActions extends StatelessWidget {
       return Container(
         decoration: BoxDecoration(
           gradient: gradient,
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: ElevatedButton(
           onPressed: onTap,
@@ -66,7 +66,7 @@ class SettingsBottomActions extends StatelessWidget {
             shadowColor: Colors.transparent,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(10),
             ),
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
             minimumSize: Size.zero,
@@ -95,7 +95,7 @@ class SettingsBottomActions extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(10),
         ),
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
         minimumSize: Size.zero,

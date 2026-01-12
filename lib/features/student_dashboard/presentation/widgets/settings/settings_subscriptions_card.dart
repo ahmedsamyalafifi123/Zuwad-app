@@ -18,7 +18,8 @@ class SettingsSubscriptionsCard extends StatelessWidget {
         // Header
         const Row(
           children: [
-            Icon(Icons.star_rounded, color: Color(0xFFD4AF37), size: 24),
+            Icon(Icons.brightness_low_outlined,
+                color: Color(0xFFD4AF37), size: 28),
             SizedBox(width: 8),
             Text(
               'إشتراكات الطلاب',
@@ -44,10 +45,10 @@ class SettingsSubscriptionsCard extends StatelessWidget {
                 isHeader: true,
                 col1: 'اسم الطالب',
                 col2: 'المادة',
-                col3: 'حصص متبقية',
+                col3: 'المتبقي',
                 col4: 'المبلغ',
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
 
               // Data Rows
               ...familyMembers.map((member) {
@@ -58,7 +59,7 @@ class SettingsSubscriptionsCard extends StatelessWidget {
                     member['remaining_lessons']?.toString() ?? '0';
 
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.only(bottom: 6),
                   child: _buildRow(
                     isHeader: false,
                     col1: member['name'] ?? '',
@@ -86,7 +87,7 @@ class SettingsSubscriptionsCard extends StatelessWidget {
       fontFamily: 'Qatar',
       fontWeight: FontWeight.bold,
       color: isHeader ? Colors.black : Colors.black,
-      fontSize: 12, // Adjusted for consistency
+      fontSize: 12,
     );
 
     final nameTextStyle = TextStyle(
@@ -98,85 +99,106 @@ class SettingsSubscriptionsCard extends StatelessWidget {
     final headerTextStyle = TextStyle(
       fontFamily: 'Qatar',
       fontWeight: FontWeight.bold,
-      color: Colors.black, // Header text on white is black
+      color: Colors.black,
       fontSize: 14,
     );
 
-    return Row(
-      children: [
-        // Student Name Header (Right Side - Transparent with White Border)
-        Expanded(
-          flex: 4,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.transparent, // "without bg" as requested
-              border: Border.all(color: Colors.white, width: 1.5),
-              borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(15),
-                bottomRight: Radius.circular(15),
+    return SizedBox(
+      height: 36,
+      child: Stack(
+        children: [
+          // Layer 1: Background (Student Name) - Spans Full Width
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                border: Border.all(color: Colors.white, width: 1),
+                borderRadius: BorderRadius.circular(10),
               ),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              col1,
-              style: nameTextStyle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              child: Row(
+                children: [
+                  // Right Side (RTL Start): Student Name - Visible
+                  Expanded(
+                    flex: 4,
+                    child: Container(
+                      alignment: Alignment.center,
+                      child: Text(
+                        col1,
+                        style: nameTextStyle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  // Left Side (RTL End): Empty - Covered by Layer 2
+                  const Expanded(
+                    flex: 8,
+                    child: SizedBox(),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        // Details Section (Left Side - White BG)
-        Expanded(
-          flex: 8,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              // Add transparent border to match the first column's border width
-              border: Border.all(color: Colors.transparent, width: 1.5),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(15),
-                bottomLeft: Radius.circular(15),
-              ),
-            ),
+
+          // Layer 2: Foreground (Details) - Covers Left Side
+          Positioned.fill(
             child: Row(
               children: [
-                Expanded(
-                  flex: 3,
-                  child: Container(
-                    alignment: Alignment.center,
-                    child: Text(
-                      col2,
-                      style: isHeader ? headerTextStyle : textStyle,
-                    ),
-                  ),
+                // Right Side: Transparent Spacer to show Name below
+                const Expanded(
+                  flex: 4,
+                  child: SizedBox(),
                 ),
+                // Left Side: White Details Box
                 Expanded(
-                  flex: 3,
+                  flex: 8,
                   child: Container(
-                    alignment: Alignment.center,
-                    child: Text(
-                      col3,
-                      style: isHeader ? headerTextStyle : textStyle,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.transparent, width: 1),
                     ),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    alignment: Alignment.center,
-                    child: Text(
-                      col4,
-                      style: isHeader ? headerTextStyle : textStyle,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Container(
+                            alignment: Alignment.center,
+                            child: Text(
+                              col2,
+                              style: isHeader ? headerTextStyle : textStyle,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Container(
+                            alignment: Alignment.center,
+                            child: Text(
+                              col3,
+                              style: isHeader ? headerTextStyle : textStyle,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Container(
+                            alignment: Alignment.center,
+                            child: Text(
+                              col4,
+                              style: isHeader ? headerTextStyle : textStyle,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
