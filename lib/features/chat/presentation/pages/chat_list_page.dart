@@ -537,6 +537,18 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   void _openChat(Contact contact, {String? displayNameOverride}) {
+    // Determine gender to pass - reuse logic from build method or recalculate
+    String gender = 'ذكر';
+    try {
+      final authState = context.read<AuthBloc>().state;
+      if (authState is AuthAuthenticated && authState.student != null) {
+        if (contact.relation.toLowerCase() == 'teacher' ||
+            contact.role.toLowerCase() == 'teacher') {
+          gender = authState.student!.teacherGender ?? 'ذكر';
+        }
+      }
+    } catch (_) {}
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -545,6 +557,9 @@ class _ChatListPageState extends State<ChatListPage> {
           recipientName: displayNameOverride ?? contact.name,
           studentId: widget.studentId,
           studentName: widget.studentName,
+          recipientRole: contact.role,
+          recipientGender: gender,
+          recipientImage: contact.profileImage,
         ),
       ),
     ).then((_) {

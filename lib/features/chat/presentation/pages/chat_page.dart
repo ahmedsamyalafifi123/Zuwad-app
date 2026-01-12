@@ -8,6 +8,8 @@ import 'package:flutter_chat_core/flutter_chat_core.dart' as core;
 import 'package:flutter_chat_core/flutter_chat_core.dart' show ChatTheme;
 import 'package:uuid/uuid.dart';
 
+import 'package:lottie/lottie.dart';
+import '../../../../core/utils/gender_helper.dart'; // Ensure this import exists
 import '../../../../core/theme/app_theme.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../data/models/chat_message.dart' as models;
@@ -26,6 +28,9 @@ class ChatPage extends StatefulWidget {
 
   /// Optional: if provided, use this conversation ID directly
   final String? conversationId;
+  final String? recipientRole;
+  final String? recipientGender;
+  final String? recipientImage;
 
   const ChatPage({
     super.key,
@@ -34,6 +39,9 @@ class ChatPage extends StatefulWidget {
     required this.studentId,
     required this.studentName,
     this.conversationId,
+    this.recipientRole,
+    this.recipientGender,
+    this.recipientImage,
   });
 
   @override
@@ -454,20 +462,7 @@ class _ChatPageState extends State<ChatPage> {
                                 width: 2,
                               ),
                             ),
-                            child: CircleAvatar(
-                              radius: 20,
-                              backgroundColor: AppTheme.primaryColor,
-                              child: Text(
-                                widget.recipientName.isNotEmpty
-                                    ? widget.recipientName[0].toUpperCase()
-                                    : '?',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: 'Qatar',
-                                ),
-                              ),
-                            ),
+                            child: _buildAppBarAvatar(),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -571,6 +566,63 @@ class _ChatPageState extends State<ChatPage> {
                   ],
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildAppBarAvatar() {
+    final role = widget.recipientRole?.toLowerCase() ?? '';
+
+    // Supervisor: Lottie
+    if (role == 'supervisor') {
+      return CircleAvatar(
+        radius: 20,
+        backgroundColor: Colors.transparent, // Transparent for Lottie
+        child: Transform.scale(
+          scale: 1.5, // Match list page scale
+          child: Lottie.asset(
+            'assets/images/customer.json',
+            fit: BoxFit.contain,
+            animate: true,
+            repeat: true,
+          ),
+        ),
+      );
+    }
+
+    // Teacher: Gender Asset
+    if (role == 'teacher') {
+      return CircleAvatar(
+        radius: 20,
+        backgroundImage: AssetImage(
+          GenderHelper.getTeacherImage(widget.recipientGender ?? 'male'),
+        ),
+      );
+    }
+
+    // Others: Network Image or Initials
+    if (widget.recipientImage != null && widget.recipientImage!.isNotEmpty) {
+      return CircleAvatar(
+        radius: 20,
+        backgroundImage: NetworkImage(widget.recipientImage!),
+        child:
+            null, // No fallback text if we have logic to ensure valid url ideally
+      );
+    }
+
+    // Default Fallback
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: AppTheme.primaryColor,
+      child: Text(
+        widget.recipientName.isNotEmpty
+            ? widget.recipientName[0].toUpperCase()
+            : '?',
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'Qatar',
+        ),
       ),
     );
   }
