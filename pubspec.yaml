@@ -136,6 +136,7 @@ flutter:
     - assets/images/Bell.json
     - assets/images/man.png
     - assets/images/woman.png
+    - assets/images/customer.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

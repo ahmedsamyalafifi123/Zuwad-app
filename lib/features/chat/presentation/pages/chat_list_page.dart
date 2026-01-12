@@ -11,6 +11,7 @@ import 'package:zuwad/features/auth/presentation/bloc/auth_state.dart';
 import 'package:zuwad/core/utils/gender_helper.dart';
 import 'chat_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lottie/lottie.dart';
 
 /// Chat list page showing available contacts and recent conversations.
 ///
@@ -175,12 +176,21 @@ class _ChatListPageState extends State<ChatListPage> {
       );
     }
 
+    if (role.toLowerCase() == 'supervisor') {
+      return Transform.scale(
+        scale: 1.5,
+        child: Lottie.asset(
+          'assets/images/customer.json',
+          fit: BoxFit.contain,
+          animate: true,
+          repeat: true,
+        ),
+      );
+    }
+
     // For other roles, use icons
     IconData icon;
     switch (role.toLowerCase()) {
-      case 'supervisor':
-        icon = Icons.support_agent_rounded;
-        break;
       case 'student':
         icon = Icons.person_rounded;
         break;
@@ -221,14 +231,19 @@ class _ChatListPageState extends State<ChatListPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: const Color(0xFF8b0628),
-        body: RefreshIndicator(
-          onRefresh: _loadData,
-          color: AppTheme.primaryColor,
-          child: _buildBody(),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        textTheme: Theme.of(context).textTheme.apply(fontFamily: 'Qatar'),
+      ),
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: const Color(0xFF8b0628),
+          body: RefreshIndicator(
+            onRefresh: _loadData,
+            color: AppTheme.primaryColor,
+            child: _buildBody(),
+          ),
         ),
       ),
     );
@@ -347,9 +362,11 @@ class _ChatListPageState extends State<ChatListPage> {
 
     // Override display name for supervisor
     String displayName = contact.name;
+    bool isSupervisor = false;
     if (contact.role.toLowerCase() == 'supervisor' ||
         contact.relation.toLowerCase() == 'supervisor') {
       displayName = 'خدمة العملاء';
+      isSupervisor = true;
     }
 
     return Container(
@@ -377,12 +394,16 @@ class _ChatListPageState extends State<ChatListPage> {
                 Stack(
                   children: [
                     Container(
-                      width: 56,
-                      height: 56,
+                      width: isSupervisor ? 70 : 56,
+                      height: isSupervisor ? 70 : 56,
                       decoration: BoxDecoration(
-                        color:
-                            AppTheme.primaryColor.withAlpha(25), // ~0.1 opacity
-                        shape: BoxShape.circle,
+                        // Remove background color for supervisor to show lottie clearly if needed
+                        color: isSupervisor
+                            ? Colors.transparent
+                            : AppTheme.primaryColor
+                                .withAlpha(25), // ~0.1 opacity
+                        shape:
+                            isSupervisor ? BoxShape.rectangle : BoxShape.circle,
                       ),
                       child: contact.profileImage != null
                           ? ClipOval(
