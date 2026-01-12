@@ -74,7 +74,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
               teacherId: state.student!.teacherId?.toString() ?? '',
               teacherName: state.student!.teacherName ?? 'المعلم',
               supervisorId: state.student!.supervisorId?.toString() ?? '',
-              supervisorName: state.student!.supervisorName ?? 'المشرف',
+              supervisorName: state.student!.supervisorName ?? 'خدمة العملاء',
             );
           }
           return const Center(child: CircularProgressIndicator());

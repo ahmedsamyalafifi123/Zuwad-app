@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' as core;
+
 import 'package:flutter_chat_core/flutter_chat_core.dart' show ChatTheme;
 import 'package:uuid/uuid.dart';
 
@@ -407,65 +408,118 @@ class _ChatPageState extends State<ChatPage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(
-          elevation: 1,
-          backgroundColor: AppTheme.primaryColor,
-          title: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: const Color(0xFFf6c302),
-                child: Text(
-                  widget.recipientName.isNotEmpty
-                      ? widget.recipientName[0].toUpperCase()
-                      : '?',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(70),
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color.fromARGB(255, 255, 255, 255),
+                  Color.fromARGB(255, 234, 234, 234),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              boxShadow: [
+                BoxShadow(
+                  color: Color.fromARGB(40, 0, 0, 0),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
+              ),
+            ),
+            child: SafeArea(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 5),
+                child: Row(
                   children: [
-                    Text(
-                      widget.recipientName,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                          color: Colors.black),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFD4AF37),
+                                width: 2,
+                              ),
+                            ),
+                            child: CircleAvatar(
+                              radius: 20,
+                              backgroundColor: AppTheme.primaryColor,
+                              child: Text(
+                                widget.recipientName.isNotEmpty
+                                    ? widget.recipientName[0].toUpperCase()
+                                    : '?',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'Qatar',
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  widget.recipientName,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                    fontFamily: 'Qatar',
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (_isLoading || _isInitializing)
+                                  const Text(
+                                    'جاري التحميل...',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                      fontFamily: 'Qatar',
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    if (_isLoading || _isInitializing)
-                      const Text(
-                        'جاري التحميل...',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white70,
-                        ),
-                      ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh_rounded,
+                          color: AppTheme.primaryColor),
+                      onPressed: () {
+                        setState(() {
+                          _currentPage = 1;
+                          _lastMessageId = 0;
+                          _knownServerIds.clear();
+                          _pendingToServerIds.clear();
+                        });
+                        _chatController.setMessages([]);
+                        _loadMessages();
+                      },
+                      tooltip: 'تحديث المحادثة',
+                    ),
                   ],
                 ),
               ),
-            ],
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () {
-                setState(() {
-                  _currentPage = 1;
-                  _lastMessageId = 0;
-                  _knownServerIds.clear();
-                  _pendingToServerIds.clear();
-                });
-                _chatController.setMessages([]);
-                _loadMessages();
-              },
-              tooltip: 'تحديث المحادثة',
             ),
-          ],
+          ),
         ),
         body: _isInitializing
             ? const Center(

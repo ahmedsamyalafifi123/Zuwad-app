@@ -166,9 +166,11 @@ class _ChatListPageState extends State<ChatListPage> {
 
   Widget _buildFallbackAvatar(String role, String gender) {
     if (role.toLowerCase() == 'teacher') {
-      return Image.asset(
-        GenderHelper.getTeacherImage(gender),
-        fit: BoxFit.cover,
+      return ClipOval(
+        child: Image.asset(
+          GenderHelper.getTeacherImage(gender),
+          fit: BoxFit.cover,
+        ),
       );
     }
 
@@ -221,6 +223,7 @@ class _ChatListPageState extends State<ChatListPage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        backgroundColor: const Color(0xFF8b0628),
         body: RefreshIndicator(
           onRefresh: _loadData,
           color: AppTheme.primaryColor,
@@ -251,15 +254,6 @@ class _ChatListPageState extends State<ChatListPage> {
       padding: EdgeInsets.fromLTRB(
           16.0, MediaQuery.of(context).padding.top + 20.0, 16.0, 16.0),
       children: [
-        const Text(
-          'المحادثات',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.primaryColor,
-          ),
-        ),
-        const SizedBox(height: 20),
         ..._contacts.map((contact) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: _buildContactTile(contact),
@@ -354,6 +348,13 @@ class _ChatListPageState extends State<ChatListPage> {
     final roleName =
         _getRoleName(contact.role, contact.relation, gender: gender);
 
+    // Override display name for supervisor
+    String displayName = contact.name;
+    if (contact.role.toLowerCase() == 'supervisor' ||
+        contact.relation.toLowerCase() == 'supervisor') {
+      displayName = 'خدمة العملاء';
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -369,7 +370,7 @@ class _ChatListPageState extends State<ChatListPage> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _openChat(contact),
+          onTap: () => _openChat(contact, displayNameOverride: displayName),
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -384,11 +385,10 @@ class _ChatListPageState extends State<ChatListPage> {
                       decoration: BoxDecoration(
                         color:
                             AppTheme.primaryColor.withAlpha(25), // ~0.1 opacity
-                        borderRadius: BorderRadius.circular(14),
+                        shape: BoxShape.circle,
                       ),
                       child: contact.profileImage != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
+                          ? ClipOval(
                               child: Image.network(
                                 contact.profileImage!,
                                 fit: BoxFit.cover,
@@ -440,7 +440,7 @@ class _ChatListPageState extends State<ChatListPage> {
                         children: [
                           Expanded(
                             child: Text(
-                              contact.name,
+                              displayName,
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: unreadCount > 0
@@ -518,13 +518,13 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-  void _openChat(Contact contact) {
+  void _openChat(Contact contact, {String? displayNameOverride}) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ChatPage(
           recipientId: contact.id.toString(),
-          recipientName: contact.name,
+          recipientName: displayNameOverride ?? contact.name,
           studentId: widget.studentId,
           studentName: widget.studentName,
         ),
