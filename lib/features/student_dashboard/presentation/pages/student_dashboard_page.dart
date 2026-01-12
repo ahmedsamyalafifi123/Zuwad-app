@@ -23,7 +23,6 @@ import '../../domain/models/student_report.dart';
 import 'postpone_page.dart';
 import 'report_details_page.dart';
 
-import 'placeholder_page.dart';
 import 'home_page.dart';
 import 'settings_page.dart';
 import '../../../auth/presentation/pages/login_page.dart';
@@ -53,18 +52,13 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
   @override
   void initState() {
     super.initState();
-    // Initialize pages - 6 pages for the 6 nav items
+    // Initialize pages - 4 pages for the 4 nav items
     _pages = [
       // 0: الرئيسة (Dashboard/Main page)
       _DashboardContent(),
       // 1: جدول الحصص (Schedule)
-      const PlaceholderPage(
-        title: 'جدول الحصص',
-        icon: Icons.calendar_month_rounded,
-      ),
-      // 2: الانجازات (Achievements)
       const HomePage(),
-      // 3: المراسلة (Messages)
+      // 2: المراسلة (Messages)
       BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           if (state is AuthAuthenticated && state.student != null) {
@@ -80,12 +74,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
           return const Center(child: CircularProgressIndicator());
         },
       ),
-      // 4: العاب (Games)
-      const PlaceholderPage(
-        title: 'العاب',
-        icon: Icons.sports_esports_rounded,
-      ),
-      // 5: الاعدادات (Settings)
+      // 3: الاعدادات (Settings)
       const SettingsPage(),
     ];
 

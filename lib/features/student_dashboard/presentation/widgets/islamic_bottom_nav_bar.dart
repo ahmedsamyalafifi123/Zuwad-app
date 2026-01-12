@@ -12,10 +12,8 @@ class IslamicBottomNavBar extends StatelessWidget {
 
   static const List<Map<String, dynamic>> navItems = [
     {'icon': Icons.home_rounded, 'label': 'الرئيسة'},
-    {'icon': Icons.emoji_events_rounded, 'label': 'الانجازات'},
     {'icon': Icons.calendar_month_rounded, 'label': 'الجدول'},
     {'icon': Icons.chat_bubble_rounded, 'label': 'المراسلة'},
-    {'icon': Icons.sports_esports_rounded, 'label': 'العاب'},
     {'icon': Icons.settings_rounded, 'label': 'الاعدادات'},
   ];
 
@@ -71,29 +69,27 @@ class IslamicBottomNavBar extends StatelessWidget {
                       // Navigation items
                       Row(
                         children: [
-                          // Left side: 3 nav items
+                          // Left side: 2 nav items
                           Expanded(
-                            flex: 3,
+                            flex: 2,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
                                 _buildNavItem(0),
                                 _buildNavItem(1),
-                                _buildNavItem(2),
                               ],
                             ),
                           ),
                           // Center spacer for logo
                           const SizedBox(width: 70),
-                          // Right side: 3 nav items
+                          // Right side: 2 nav items
                           Expanded(
-                            flex: 3,
+                            flex: 2,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
+                                _buildNavItem(2),
                                 _buildNavItem(3),
-                                _buildNavItem(4),
-                                _buildNavItem(5),
                               ],
                             ),
                           ),
