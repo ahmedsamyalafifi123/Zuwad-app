@@ -94,6 +94,34 @@ class AuthRepository {
       // Create student object from the response
       // v2 API returns student data directly, no need for separate meta call
       final student = Student.fromApiV2(profileData);
+
+      // Check if we need to fetch teacher extra data (gender)
+      // This is necessary because the main student API might not return teacher_gender
+      if (student.teacherId != null && student.teacherId! > 0) {
+        if (kDebugMode) {
+          print(
+              'AuthRepository.getStudentProfile: Fetching details for teacher ${student.teacherId}');
+        }
+        try {
+          final teacherData = await _api.getTeacherData(student.teacherId!);
+          if (teacherData.containsKey('gender')) {
+            final teacherGender = teacherData['gender']?.toString();
+            if (kDebugMode) {
+              print(
+                  'AuthRepository.getStudentProfile: Found teacher gender RAW: "$teacherGender"');
+            }
+            // Return updated student with teacher gender
+            return student.copyWith(teacherGender: teacherGender);
+          }
+        } catch (e) {
+          // Don't fail the whole profile load if just teacher details fail
+          if (kDebugMode) {
+            print(
+                'AuthRepository.getStudentProfile: Failed to get teacher details: $e');
+          }
+        }
+      }
+
       if (kDebugMode) {
         print(
             'AuthRepository.getStudentProfile: Created student: ${student.name}');

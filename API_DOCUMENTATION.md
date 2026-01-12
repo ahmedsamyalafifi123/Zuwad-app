@@ -161,6 +161,29 @@ GET /students/{id}
 Authorization: Bearer {token}
 ```
 
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "display_name": "Ahmed Mohamed",
+    "phone": "01234567890",
+    "email": "student@example.com",
+    "country": "مصر",
+    "gender": "ذكر",
+    "age": 12,
+    "teacher_id": 5,
+    "lessons_number": 8,
+    "lesson_duration": 60,
+    "amount": 500,
+    "currency": "EGP",
+    "payment_status": "في انتظار الدفع"
+  }
+}
+```
+
 ### Create Student
 
 ```http
@@ -175,7 +198,8 @@ Content-Type: application/json
   "lesson_duration": 60,
   "payment_status": "في انتظار الدفع",
   "amount": 500,
-  "currency": "EGP"
+  "currency": "EGP",
+  "gender": "ذكر"
 }
 ```
 
@@ -466,6 +490,53 @@ GET /teachers?page=1&per_page=20&supervisor_id=3
 
 ```http
 GET /teachers/{id}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 5,
+    "display_name": "أحمد محمد",
+    "email": "ahmed@example.com",
+    "phone": "01234567890",
+    "gender": "ذكر",
+    "supervisor_id": 3,
+    "teacher_status": "نشط عدد كامل"
+  }
+}
+```
+
+### Create Teacher
+
+```http
+POST /teachers
+Content-Type: application/json
+
+{
+  "display_name": "New Teacher",
+  "phone": "01234567890",
+  "email": "teacher@example.com",
+  "supervisor_id": 3,
+  "gender": "ذكر",
+  "teacher_status": "نشط عدد كامل"
+}
+```
+
+### Update Teacher
+
+```http
+PUT /teachers/{id}
+Content-Type: application/json
+
+{
+  "display_name": "Updated Name",
+  "phone": "01234567890",
+  "gender": "ذكر",
+  "teacher_status": "نشط نصف عدد"
+}
 ```
 
 ### Get Teacher's Students

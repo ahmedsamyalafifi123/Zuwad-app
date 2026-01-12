@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/gender_helper.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../data/repositories/report_repository.dart';
@@ -656,6 +657,7 @@ class _HomePageState extends State<HomePage> {
       {bool showRescheduleButton = true}) {
     // Get student details from Bloc
     String teacherName = 'المعلم';
+    String teacherGender = 'ذكر';
     String lessonName = 'درس';
 
     // We can access the auth state here since we are inside a widget
@@ -663,6 +665,7 @@ class _HomePageState extends State<HomePage> {
       final authState = context.read<AuthBloc>().state;
       if (authState is AuthAuthenticated && authState.student != null) {
         teacherName = authState.student!.teacherName ?? 'المعلم';
+        teacherGender = authState.student!.teacherGender ?? 'ذكر';
         lessonName = authState.student!.displayLessonName;
       }
     } catch (e) {
@@ -826,7 +829,7 @@ class _HomePageState extends State<HomePage> {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  'الاستاذة',
+                                  GenderHelper.getFormalTitle(teacherGender),
                                   style: TextStyle(
                                     fontFamily: 'Qatar',
                                     fontSize: 10,
@@ -854,8 +857,9 @@ class _HomePageState extends State<HomePage> {
                               child: CircleAvatar(
                                 radius: 16,
                                 backgroundColor: Colors.grey[200],
-                                backgroundImage: const AssetImage(
-                                    'assets/images/male_avatar.webp'),
+                                backgroundImage: AssetImage(
+                                  GenderHelper.getTeacherImage(teacherGender),
+                                ),
                               ),
                             ),
                           ],
@@ -1013,12 +1017,14 @@ class _HomePageState extends State<HomePage> {
   Widget _buildReportCard(StudentReport report) {
     // Get student details from Bloc
     String teacherName = 'المعلم';
+    String teacherGender = 'ذكر';
     String lessonName = 'درس';
 
     try {
       final authState = context.read<AuthBloc>().state;
       if (authState is AuthAuthenticated && authState.student != null) {
         teacherName = authState.student!.teacherName ?? 'المعلم';
+        teacherGender = authState.student!.teacherGender ?? 'ذكر';
         lessonName = authState.student!.displayLessonName;
       }
     } catch (e) {
@@ -1091,7 +1097,10 @@ class _HomePageState extends State<HomePage> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ReportDetailsPage(report: report),
+            builder: (context) => ReportDetailsPage(
+              report: report,
+              teacherGender: teacherGender,
+            ),
           ),
         );
       },
@@ -1245,7 +1254,7 @@ class _HomePageState extends State<HomePage> {
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Text(
-                                    'الاستاذة',
+                                    GenderHelper.getFormalTitle(teacherGender),
                                     style: TextStyle(
                                       fontFamily: 'Qatar',
                                       fontSize: 10,
@@ -1274,8 +1283,9 @@ class _HomePageState extends State<HomePage> {
                                 child: CircleAvatar(
                                   radius: 16,
                                   backgroundColor: Colors.grey[200],
-                                  backgroundImage: const AssetImage(
-                                      'assets/images/male_avatar.webp'),
+                                  backgroundImage: AssetImage(
+                                    GenderHelper.getTeacherImage(teacherGender),
+                                  ),
                                 ),
                               ),
                             ],
@@ -1351,8 +1361,10 @@ class _HomePageState extends State<HomePage> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) =>
-                                        ReportDetailsPage(report: report),
+                                    builder: (context) => ReportDetailsPage(
+                                      report: report,
+                                      teacherGender: teacherGender,
+                                    ),
                                   ),
                                 );
                               },

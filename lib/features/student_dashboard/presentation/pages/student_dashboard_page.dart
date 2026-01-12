@@ -31,6 +31,7 @@ import '../widgets/islamic_bottom_nav_bar.dart';
 import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../notifications/data/repositories/notification_repository.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/utils/gender_helper.dart';
 import '../../../../core/utils/timezone_helper.dart';
 import '../utils/timezone_utils.dart';
 
@@ -450,6 +451,7 @@ class _DashboardContentState extends State<_DashboardContent> {
   DateTime?
       _nextLessonDateTime; // Store the actual calculated date for countdown
   String _teacherName = '';
+  String _teacherGender = 'ذكر';
   String _lessonName = '';
   bool _isLoading = true;
   Duration? _timeUntilNextLesson;
@@ -491,6 +493,7 @@ class _DashboardContentState extends State<_DashboardContent> {
 
         _lessonName = student.displayLessonName;
         _teacherName = student.teacherName ?? 'المعلم';
+        _teacherGender = student.teacherGender ?? 'ذكر';
 
         // Get reports to check which schedules already have reports
         final reports = await _reportRepository.getStudentReports(
@@ -1070,8 +1073,9 @@ class _DashboardContentState extends State<_DashboardContent> {
                           radius: avatarRadius,
                           backgroundColor:
                               const Color.fromARGB(255, 230, 230, 230),
-                          backgroundImage: const AssetImage(
-                              'assets/images/male_avatar.webp'),
+                          backgroundImage: AssetImage(
+                            GenderHelper.getTeacherImage(_teacherGender),
+                          ),
                         ),
                         const SizedBox(width: 6),
                         Column(
@@ -1079,7 +1083,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'المعلم',
+                              GenderHelper.getTeacherTitle(_teacherGender),
                               style: TextStyle(
                                 fontFamily: 'Qatar',
                                 fontSize: teacherLabelSize,
@@ -1333,8 +1337,10 @@ class _DashboardContentState extends State<_DashboardContent> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) =>
-                              ReportDetailsPage(report: _lastReport!),
+                          builder: (context) => ReportDetailsPage(
+                            report: _lastReport!,
+                            teacherGender: _teacherGender,
+                          ),
                         ),
                       );
                     },

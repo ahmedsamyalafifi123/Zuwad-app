@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:zuwad/core/utils/gender_helper.dart';
 import '../../../../../../core/theme/app_theme.dart';
 import '../../../../auth/domain/models/student.dart';
 
@@ -141,17 +143,23 @@ class SettingsCourseCard extends StatelessWidget {
                             shape: BoxShape.circle,
                             border: Border.all(
                                 color: const Color(0xFFD4AF37), width: 1),
+                            image: DecorationImage(
+                              image: AssetImage(
+                                GenderHelper.getTeacherImage(
+                                    student.teacherGender),
+                              ),
+                              fit: BoxFit.cover,
+                            ),
                           ),
-                          child: const Icon(Icons.person,
-                              color: Colors.grey, size: 28),
                         ),
                         const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'المعلم',
-                              style: TextStyle(
+                            Text(
+                              GenderHelper.getTeacherTitle(
+                                  student.teacherGender),
+                              style: const TextStyle(
                                 fontFamily: 'Qatar',
                                 fontSize: 12,
                                 color: Colors.grey,
@@ -185,7 +193,9 @@ class SettingsCourseCard extends StatelessWidget {
           children: [
             Expanded(
               child: _buildActionButton(
-                label: 'تبديل المعلمة',
+                label: student.teacherGender == 'أنثى'
+                    ? 'تبديل المعلمة'
+                    : 'تبديل المعلم',
                 onTap: onChangeTeacher,
               ),
             ),

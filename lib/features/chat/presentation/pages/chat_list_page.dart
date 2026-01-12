@@ -5,7 +5,11 @@ import '../../../../core/theme/app_theme.dart';
 import '../../data/models/contact.dart';
 import '../../data/models/conversation.dart';
 import '../../data/repositories/chat_repository.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import 'package:zuwad/features/auth/presentation/bloc/auth_state.dart';
+import 'package:zuwad/core/utils/gender_helper.dart';
 import 'chat_page.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Chat list page showing available contacts and recent conversations.
 ///
@@ -160,24 +164,39 @@ class _ChatListPageState extends State<ChatListPage> {
     }
   }
 
-  IconData _getIconForRole(String role) {
-    switch (role.toLowerCase()) {
-      case 'teacher':
-        return Icons.school_rounded;
-      case 'supervisor':
-        return Icons.support_agent_rounded;
-      case 'student':
-        return Icons.person_rounded;
-      default:
-        return Icons.chat_bubble_rounded;
+  Widget _buildFallbackAvatar(String role, String gender) {
+    if (role.toLowerCase() == 'teacher') {
+      return Image.asset(
+        GenderHelper.getTeacherImage(gender),
+        fit: BoxFit.cover,
+      );
     }
+
+    // For other roles, use icons
+    IconData icon;
+    switch (role.toLowerCase()) {
+      case 'supervisor':
+        icon = Icons.support_agent_rounded;
+        break;
+      case 'student':
+        icon = Icons.person_rounded;
+        break;
+      default:
+        icon = Icons.chat_bubble_rounded;
+    }
+
+    return Icon(
+      icon,
+      color: AppTheme.primaryColor,
+      size: 28,
+    );
   }
 
-  String _getRoleName(String role, String relation) {
+  String _getRoleName(String role, String relation, {String? gender}) {
     // Use relation first as it's more specific
     switch (relation.toLowerCase()) {
       case 'teacher':
-        return 'المعلم';
+        return (gender == 'أنثى') ? 'المعلمة' : 'المعلم';
       case 'supervisor':
         return 'المشرف';
       case 'student':
@@ -187,7 +206,7 @@ class _ChatListPageState extends State<ChatListPage> {
     // Fallback to role
     switch (role.toLowerCase()) {
       case 'teacher':
-        return 'المعلم';
+        return (gender == 'أنثى') ? 'المعلمة' : 'المعلم';
       case 'supervisor':
         return 'المشرف';
       case 'student':
@@ -317,7 +336,23 @@ class _ChatListPageState extends State<ChatListPage> {
     final unreadCount = _getUnreadCountForContact(contact.id);
     final lastMessage = _getLastMessageForContact(contact.id);
     final lastMessageTime = _getLastMessageTimeForContact(contact.id);
-    final roleName = _getRoleName(contact.role, contact.relation);
+
+    // Get gender if contact is teacher
+    String gender = 'ذكر';
+    try {
+      final authState = context.read<AuthBloc>().state;
+      if (authState is AuthAuthenticated && authState.student != null) {
+        // Only use student's teacherGender if this contact is THE teacher
+        // We assume 'teacher' relation implies it's the student's teacher
+        if (contact.relation.toLowerCase() == 'teacher' ||
+            contact.role.toLowerCase() == 'teacher') {
+          gender = authState.student!.teacherGender ?? 'ذكر';
+        }
+      }
+    } catch (_) {}
+
+    final roleName =
+        _getRoleName(contact.role, contact.relation, gender: gender);
 
     return Container(
       decoration: BoxDecoration(
@@ -357,17 +392,16 @@ class _ChatListPageState extends State<ChatListPage> {
                               child: Image.network(
                                 contact.profileImage!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Icon(
-                                  _getIconForRole(contact.role),
-                                  color: AppTheme.primaryColor,
-                                  size: 28,
+                                errorBuilder: (_, __, ___) =>
+                                    _buildFallbackAvatar(
+                                  contact.role,
+                                  gender,
                                 ),
                               ),
                             )
-                          : Icon(
-                              _getIconForRole(contact.role),
-                              color: AppTheme.primaryColor,
-                              size: 28,
+                          : _buildFallbackAvatar(
+                              contact.role,
+                              gender,
                             ),
                     ),
                     // Unread badge

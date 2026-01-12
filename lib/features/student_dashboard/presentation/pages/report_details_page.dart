@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/models/student_report.dart';
+import 'package:zuwad/core/utils/gender_helper.dart';
 import '../widgets/islamic_bottom_nav_bar.dart';
 
 class ReportDetailsPage extends StatelessWidget {
   final StudentReport report;
+  final String teacherGender;
 
-  const ReportDetailsPage({super.key, required this.report});
+  const ReportDetailsPage({
+    super.key,
+    required this.report,
+    this.teacherGender = 'ذكر',
+  });
 
   // Calculate rating based on evaluation string or grade
   int _calculateRating() {
@@ -119,8 +125,10 @@ class ReportDetailsPage extends StatelessWidget {
                             spreadRadius: 1,
                           ),
                         ],
-                        image: const DecorationImage(
-                          image: AssetImage('assets/images/male_avatar.webp'),
+                        image: DecorationImage(
+                          image: AssetImage(
+                            GenderHelper.getTeacherImage(teacherGender),
+                          ),
                           fit: BoxFit.cover,
                         ),
                       ),

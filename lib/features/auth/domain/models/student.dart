@@ -5,6 +5,7 @@ class Student {
   final String? email;
   final int? teacherId;
   final String? teacherName;
+  final String? teacherGender;
   final int? supervisorId;
   final String? supervisorName;
   final int? lessonsNumber;
@@ -27,6 +28,7 @@ class Student {
     this.email,
     this.teacherId,
     this.teacherName,
+    this.teacherGender,
     this.supervisorId,
     this.supervisorName,
     this.lessonsNumber,
@@ -53,6 +55,7 @@ class Student {
       email: userMeta['email']?.toString(),
       teacherId: int.tryParse(userMeta['teacher_id']?.toString() ?? '0'),
       teacherName: userMeta['teacher_name']?.toString() ?? '',
+      teacherGender: userMeta['teacher_gender']?.toString(),
       supervisorId: int.tryParse(userMeta['supervisor_id']?.toString() ?? '0'),
       supervisorName: userMeta['supervisor_name']?.toString() ?? '',
       lessonsNumber:
@@ -87,6 +90,7 @@ class Student {
       email: json['email']?.toString(),
       teacherId: int.tryParse(json['teacher_id']?.toString() ?? '0'),
       teacherName: json['teacher_name']?.toString(),
+      teacherGender: json['teacher_gender']?.toString(),
       supervisorId: int.tryParse(json['supervisor_id']?.toString() ?? '0'),
       supervisorName: json['supervisor_name']?.toString(),
       lessonsNumber: int.tryParse(json['lessons_number']?.toString() ?? '0'),
@@ -112,6 +116,7 @@ class Student {
     String? email,
     int? teacherId,
     String? teacherName,
+    String? teacherGender,
     int? supervisorId,
     String? supervisorName,
     int? lessonsNumber,
@@ -134,6 +139,7 @@ class Student {
       email: email ?? this.email,
       teacherId: teacherId ?? this.teacherId,
       teacherName: teacherName ?? this.teacherName,
+      teacherGender: teacherGender ?? this.teacherGender,
       supervisorId: supervisorId ?? this.supervisorId,
       supervisorName: supervisorName ?? this.supervisorName,
       lessonsNumber: lessonsNumber ?? this.lessonsNumber,
@@ -171,7 +177,7 @@ class Student {
 
   String toDebugString() {
     return 'Student{id: $id, name: $name, phone: $phone, teacherId: $teacherId, '
-        'teacherName: $teacherName, lessonsNumber: $lessonsNumber, '
+        'teacherName: $teacherName, teacherGender: $teacherGender, lessonsNumber: $lessonsNumber, '
         'lessonDuration: $lessonDuration, paymentStatus: $paymentStatus, '
         'amount: $amount, currency: $currency, mId: $mId}';
   }
@@ -185,6 +191,7 @@ class Student {
       'email': email,
       'teacher_id': teacherId,
       'teacher_name': teacherName,
+      'teacher_gender': teacherGender,
       'supervisor_id': supervisorId,
       'supervisor_name': supervisorName,
       'lessons_number': lessonsNumber,

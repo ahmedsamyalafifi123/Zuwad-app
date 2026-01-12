@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:zuwad/core/utils/gender_helper.dart';
 import '../../domain/models/free_slot.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/api/wordpress_api.dart';
@@ -17,7 +18,8 @@ class PostponePage extends StatefulWidget {
   final String? currentLessonTime;
   final String? currentLessonDate;
   final ScrollController? scrollController;
-  final VoidCallback? onSuccess; // Called after successful postpone
+  final Function? onSuccess;
+  final String? teacherGender;
 
   const PostponePage({
     super.key,
@@ -29,6 +31,7 @@ class PostponePage extends StatefulWidget {
     this.currentLessonDate,
     this.scrollController,
     this.onSuccess,
+    this.teacherGender,
   });
 
   @override
@@ -470,7 +473,7 @@ class _PostponePageState extends State<PostponePage> {
         }
       }
 
-      _showSuccessDialog();
+      _showSuccessDialog(student.teacherGender ?? 'ذكر');
     } catch (e) {
       _showErrorDialog('فشل في إنشاء الحدث المؤجل: ${e.toString()}');
     } finally {
@@ -480,7 +483,7 @@ class _PostponePageState extends State<PostponePage> {
     }
   }
 
-  void _showSuccessDialog() {
+  void _showSuccessDialog(String teacherGender) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -492,9 +495,25 @@ class _PostponePageState extends State<PostponePage> {
               Text('تم بنجاح'),
             ],
           ),
-          content: const Text(
-            'تم إنشاء الحدث المؤجل بنجاح. سيتم إشعار المعلم بالموعد الجديد.',
-            style: TextStyle(fontSize: 16),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'تم إنشاء الحدث المؤجل بنجاح.',
+                style: const TextStyle(fontFamily: 'Qatar', fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'سيتم إشعار ${GenderHelper.getTeacherTitle(teacherGender)} بالموعد الجديد وبانتظار الموافقة.',
+                style: const TextStyle(
+                  fontFamily: 'Qatar',
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
           actions: [
             TextButton(
