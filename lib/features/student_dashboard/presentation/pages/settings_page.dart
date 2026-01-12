@@ -27,7 +27,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final SettingsRepository _repository = SettingsRepository();
 
   // Expansion states
-  bool _personalExpanded = true; // Default open for personal data
+  bool _personalExpanded = false; // Default open for personal data
 
   // Data states
   Student? _student;

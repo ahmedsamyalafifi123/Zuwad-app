@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../../../core/theme/app_theme.dart';
 
 class SettingsSubscriptionsCard extends StatelessWidget {
   final List<Map<String, dynamic>> familyMembers;
@@ -37,106 +36,143 @@ class SettingsSubscriptionsCard extends StatelessWidget {
         // Table Card
         Container(
           width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: const [
-              BoxShadow(
-                color: Color.fromARGB(25, 0, 0, 0),
-                blurRadius: 10,
-                offset: Offset(0, 4),
+          color: Colors.transparent,
+          child: Column(
+            children: [
+              // Header Row
+              _buildRow(
+                isHeader: true,
+                col1: 'اسم الطالب',
+                col2: 'المادة',
+                col3: 'حصص متبقية',
+                col4: 'المبلغ',
               ),
+              const SizedBox(height: 10),
+
+              // Data Rows
+              ...familyMembers.map((member) {
+                final amount = member['amount']?.toString() ?? '0';
+                final currency = member['currency'] ?? 'SAR';
+                final lessonsName = member['lessons_name'] ?? '-';
+                final remaining =
+                    member['remaining_lessons']?.toString() ?? '0';
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _buildRow(
+                    isHeader: false,
+                    col1: member['name'] ?? '',
+                    col2: lessonsName,
+                    col3: '$remaining حصص',
+                    col4: '$amount $currency',
+                  ),
+                );
+              }),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Theme(
-                data: Theme.of(context).copyWith(
-                  dividerColor: const Color(0xFFEEEEEE),
-                ),
-                child: DataTable(
-                  columnSpacing: 20,
-                  horizontalMargin: 20,
-                  headingRowColor:
-                      WidgetStateProperty.all(const Color(0xFFF9F9F9)),
-                  columns: const [
-                    DataColumn(
-                        label: Text('الطالب',
-                            style: TextStyle(
-                                fontFamily: 'Qatar',
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey))),
-                    DataColumn(
-                        label: Text('المادة',
-                            style: TextStyle(
-                                fontFamily: 'Qatar',
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey))),
-                    DataColumn(
-                        label: Text('المتبقي',
-                            style: TextStyle(
-                                fontFamily: 'Qatar',
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey))),
-                    DataColumn(
-                        label: Text('القيمة',
-                            style: TextStyle(
-                                fontFamily: 'Qatar',
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey))),
-                  ],
-                  rows: familyMembers.map((member) {
-                    final amount = member['amount']?.toString() ?? '0';
-                    final currency = member['currency'] ?? 'SAR';
-                    final lessonsName = member['lessons_name'] ?? '-';
-                    final remaining =
-                        member['remaining_lessons']?.toString() ?? '0';
+        ),
+      ],
+    );
+  }
 
-                    return DataRow(cells: [
-                      DataCell(Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: const Color(0xFFD4AF37), width: 1),
-                            ),
-                            child: CircleAvatar(
-                              radius: 10,
-                              backgroundColor: Colors.grey[200],
-                              backgroundImage: member['profile_image_url'] !=
-                                      null
-                                  ? NetworkImage(member['profile_image_url'])
-                                  : null,
-                              child: member['profile_image_url'] == null
-                                  ? const Icon(Icons.person,
-                                      size: 12, color: Colors.grey)
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(member['name'] ?? '',
-                              style: const TextStyle(
-                                  fontFamily: 'Qatar',
-                                  fontWeight: FontWeight.bold)),
-                        ],
-                      )),
-                      DataCell(Text(lessonsName,
-                          style: const TextStyle(fontFamily: 'Qatar'))),
-                      DataCell(Text(remaining,
-                          style: const TextStyle(fontFamily: 'Qatar'))),
-                      DataCell(Text('$amount $currency',
-                          style: const TextStyle(
-                              fontFamily: 'Qatar',
-                              color: AppTheme.primaryColor,
-                              fontWeight: FontWeight.bold))),
-                    ]);
-                  }).toList(),
-                ),
+  Widget _buildRow({
+    required bool isHeader,
+    required String col1,
+    required String col2,
+    required String col3,
+    required String col4,
+  }) {
+    final textStyle = TextStyle(
+      fontFamily: 'Qatar',
+      fontWeight: FontWeight.bold,
+      color: isHeader ? Colors.black : Colors.black,
+      fontSize: 12, // Adjusted for consistency
+    );
+
+    final nameTextStyle = TextStyle(
+      fontFamily: 'Qatar',
+      fontWeight: FontWeight.bold,
+      color: Colors.white,
+      fontSize: isHeader ? 14 : 12,
+    );
+    final headerTextStyle = TextStyle(
+      fontFamily: 'Qatar',
+      fontWeight: FontWeight.bold,
+      color: Colors.black, // Header text on white is black
+      fontSize: 14,
+    );
+
+    return Row(
+      children: [
+        // Student Name Header (Right Side - Transparent with White Border)
+        Expanded(
+          flex: 4,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.transparent, // "without bg" as requested
+              border: Border.all(color: Colors.white, width: 1.5),
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(15),
+                bottomRight: Radius.circular(15),
               ),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              col1,
+              style: nameTextStyle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        // Details Section (Left Side - White BG)
+        Expanded(
+          flex: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              // Add transparent border to match the first column's border width
+              border: Border.all(color: Colors.transparent, width: 1.5),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(15),
+                bottomLeft: Radius.circular(15),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    alignment: Alignment.center,
+                    child: Text(
+                      col2,
+                      style: isHeader ? headerTextStyle : textStyle,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    alignment: Alignment.center,
+                    child: Text(
+                      col3,
+                      style: isHeader ? headerTextStyle : textStyle,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    alignment: Alignment.center,
+                    child: Text(
+                      col4,
+                      style: isHeader ? headerTextStyle : textStyle,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
