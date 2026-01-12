@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/loading_widget.dart';
 import '../../data/models/contact.dart';
 import '../../data/models/conversation.dart';
 import '../../data/repositories/chat_repository.dart';
@@ -235,11 +236,7 @@ class _ChatListPageState extends State<ChatListPage> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: AppTheme.primaryColor,
-        ),
-      );
+      return const LoadingWidget();
     }
 
     if (_hasError) {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/loading_widget.dart';
 import '../../../auth/domain/models/student.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -347,11 +348,7 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Scaffold(
         backgroundColor: const Color(0xFF8b0628),
         body: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: AppTheme.primaryColor,
-                ),
-              )
+            ? const LoadingWidget()
             : RefreshIndicator(
                 onRefresh: _loadData,
                 color: AppTheme.primaryColor,
