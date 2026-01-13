@@ -16,4 +16,14 @@ public class MainActivity extends FlutterActivity {
         
         super.onCreate(savedInstanceState);
     }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            setPictureInPictureParams(new android.app.PictureInPictureParams.Builder()
+                    .setAutoEnterEnabled(true)
+                    .build());
+        }
+    }
 }

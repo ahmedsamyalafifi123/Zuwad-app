@@ -2395,3 +2395,56 @@ Media messages (images/PDFs) sent via WhatsApp no longer trigger generic "رسا
 - **Reports:** Students can create postponement reports for their own lessons
 - **Postpone:** Students can create postponed events for their own schedules
 - **Free Slots Response:** Added `day_of_week`, `start_time`, `end_time` format
+
+---
+
+## 📱 Client Implementation Details
+
+### Meeting Page Features
+
+**Component:** `MeetingPage`
+
+- **Path:** `lib/features/meeting/presentation/pages/meeting_page.dart`
+- **Purpose:** Handles video conferencing using LiveKit.
+
+**Implementation Logic:**
+
+1.  **Arguments:** Accepts `roomName`, `participantName`, `participantId`, `lessonName`, `teacherName`.
+2.  **Permissions:** Checks and requests `camera` and `microphone` permissions using `permission_handler`.
+3.  **Service:** Uses `LiveKitService` to manage the specialized connection.
+    - **Token Generation:** Generates a JWT token locally on the client using `LiveKitConfig` secrets.
+    - **Connection:** Connects to the LiveKit server with audio/video options.
+4.  **UI Layout:**
+    - **Grid View:** Displays participants in a responsive grid.
+    - **Screen Share:** Prioritizes screen share stream if active.
+    - **Control Bar:** Toggles camera/mic and handles leaving the meeting.
+
+**Room Naming Standard:**
+
+- Format: `room_student_{studentId}_teacher_{teacherId}`
+- This ensures consistency between the Flutter app and WordPress backend.
+
+### Settings Page Features
+
+**Component:** `SettingsPage`
+
+- **Path:** `lib/features/student_dashboard/presentation/pages/settings_page.dart`
+- **Purpose:** Manages student profile, subscriptions, and family wallet.
+
+**Data Flow:**
+The page relies on `SettingsRepository` for all data operations.
+
+| Feature            | Action              | API Endpoint Logic                                                                    |
+| :----------------- | :------------------ | :------------------------------------------------------------------------------------ |
+| **Load Profile**   | `_loadData`         | Calls `GET /students/{id}`                                                            |
+| **Load Wallet**    | `_loadData`         | Calls `GET /students/{id}/wallet` then `GET /students/{id}/family` (for transactions) |
+| **Load Family**    | `_loadData`         | Calls `GET /students/{id}/family`, then iterates `GET /students/{id}` for each member |
+| **Update Profile** | `_savePersonalData` | Calls `PUT /students/{id}` with changed fields                                        |
+| **Upload Image**   | `_pickImage`        | Calls `POST /students/{id}/upload-image`                                              |
+| **Change Pass**    | `changePassword`    | Calls `POST /auth/change-password`                                                    |
+
+**Key State Management:**
+
+- Uses `SettingsRepository` to isolate API calls.
+- Updates local state variables (`_student`, `_walletInfo`, `_familyMembers`) upon fetching.
+- Handles loading and error states for each section.
