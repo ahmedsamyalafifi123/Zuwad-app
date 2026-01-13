@@ -238,10 +238,6 @@ class _MeetingPageState extends State<MeetingPage> {
     });
   }
 
-  Future<void> _switchCamera() async {
-    await _liveKitService.switchCamera();
-  }
-
   void _leaveMeeting() {
     Navigator.of(context).pop();
   }
@@ -475,7 +471,7 @@ class _MeetingPageState extends State<MeetingPage> {
             isMicrophoneEnabled: _isMicrophoneEnabled,
             onToggleCamera: _toggleCamera,
             onToggleMicrophone: _toggleMicrophone,
-            onSwitchCamera: _switchCamera,
+            onSwitchCamera: () {}, // Removed functionality
             onLeaveMeeting: _leaveMeeting,
           ),
         ),

@@ -45,6 +45,7 @@ class ControlBar extends StatelessWidget {
               isEnabled: isCameraEnabled,
               onPressed: onToggleCamera,
               tooltip: isCameraEnabled ? 'إيقاف الكاميرا' : 'تشغيل الكاميرا',
+              backgroundColor: isCameraEnabled ? Colors.green : null,
             ),
 
             // Microphone toggle
@@ -53,15 +54,7 @@ class ControlBar extends StatelessWidget {
               isEnabled: isMicrophoneEnabled,
               onPressed: onToggleMicrophone,
               tooltip: isMicrophoneEnabled ? 'كتم الصوت' : 'إلغاء كتم الصوت',
-            ),
-
-            // Switch camera
-            _buildControlButton(
-              icon: Icons.flip_camera_ios,
-              isEnabled: true,
-              onPressed: onSwitchCamera,
-              tooltip: 'تبديل الكاميرا',
-              backgroundColor: Colors.grey[700],
+              backgroundColor: isMicrophoneEnabled ? Colors.green : null,
             ),
 
             // Leave meeting
