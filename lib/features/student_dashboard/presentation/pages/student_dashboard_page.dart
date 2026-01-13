@@ -1824,18 +1824,12 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   String _generateRoomName() {
     final authState = context.read<AuthBloc>().state;
-    if (authState is AuthAuthenticated &&
-        authState.student != null &&
-        _nextLesson != null) {
+    if (authState is AuthAuthenticated && authState.student != null) {
       final student = authState.student!;
-
-      // Create a DateTime from the schedule day and hour
-      final lessonTime = _createLessonDateTime(_nextLesson!);
 
       return LiveKitService().generateRoomName(
         studentId: student.id.toString(),
         teacherId: student.teacherId?.toString() ?? '0',
-        lessonTime: lessonTime,
       );
     }
     return 'default_room';

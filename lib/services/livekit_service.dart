@@ -248,16 +248,13 @@ class LiveKitService {
     }
   }
 
-  /// Generate room name based on lesson and student info
+  /// Generate room name based on student and teacher IDs
+  /// Uses fixed room format to match WordPress backend
   String generateRoomName({
     required String studentId,
     required String teacherId,
-    required DateTime lessonTime,
   }) {
-    final dateStr = lessonTime.toIso8601String().split('T')[0];
-    final timeStr = lessonTime.hour.toString().padLeft(2, '0') +
-        lessonTime.minute.toString().padLeft(2, '0');
-    return 'lesson_${studentId}_${teacherId}_${dateStr}_$timeStr';
+    return 'room_student_${studentId}_teacher_$teacherId';
   }
 
   /// Dispose resources

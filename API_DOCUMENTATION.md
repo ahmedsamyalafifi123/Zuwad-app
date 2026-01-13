@@ -175,6 +175,8 @@ Authorization: Bearer {token}
     "gender": "ذكر",
     "age": 12,
     "teacher_id": 5,
+    "teacher_name": "Teacher Name",
+    "teacher_gender": "أنثى",
     "lessons_number": 8,
     "lesson_duration": 60,
     "amount": 500,
@@ -2130,6 +2132,93 @@ GET /supervisors
 ```http
 POST /cache/clear
 ```
+
+---
+
+## 📹 LiveKit Meeting Rooms
+
+Video conferencing for lessons using LiveKit.
+
+### Room Naming Convention
+
+Each student-teacher pair has a **fixed, permanent room**. This ensures both parties always join the same room regardless of lesson timing.
+
+**Room Name Format:**
+
+```
+room_student_{student_id}_teacher_{teacher_id}
+```
+
+**Example:**
+
+```
+room_student_123_teacher_456
+```
+
+### Generating Room Name
+
+#### PHP (WordPress)
+
+```php
+function generate_room_name($student_id, $teacher_id) {
+    return "room_student_{$student_id}_teacher_{$teacher_id}";
+}
+```
+
+#### Dart (Flutter)
+
+```dart
+String generateRoomName(int studentId, int teacherId) {
+  return 'room_student_${studentId}_teacher_$teacherId';
+}
+```
+
+### Token Generation
+
+Tokens are generated server-side using LiveKit API credentials.
+
+**Request:**
+
+```http
+POST /wp-admin/admin-ajax.php
+Content-Type: application/x-www-form-urlencoded
+
+action=get_meeting_token&room_name=room_student_123_teacher_456
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIs...",
+    "room_name": "room_student_123_teacher_456",
+    "server_url": "wss://livekit.zuwad-academy.com",
+    "participant_name": "Teacher Name",
+    "participant_id": 456
+  }
+}
+```
+
+### LiveKit Server
+
+| Setting      | Value                             |
+| ------------ | --------------------------------- |
+| Server URL   | `wss://livekit.zuwad-academy.com` |
+| Token Expiry | 6 hours                           |
+
+### Important Notes
+
+> [!IMPORTANT]
+> Both the Flutter app and WordPress must use the **same room naming format** (`room_student_{id}_teacher_{id}`) to ensure teacher and student join the same room.
+
+> [!TIP]
+> The fixed room approach means:
+>
+> - No timing sync issues between teacher and student
+> - Room persists across all lessons
+> - Either party can join first
 
 ---
 
