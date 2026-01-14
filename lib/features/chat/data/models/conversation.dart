@@ -26,18 +26,27 @@ class Conversation {
     final otherUserData = json['other_user'] as Map<String, dynamic>? ?? {};
 
     // Parse last_message_at
+    // Parse last_message_at - Handle as UTC
     DateTime? lastMsgAt;
     if (json['last_message_at'] != null) {
       try {
-        lastMsgAt = DateTime.parse(json['last_message_at'].toString());
+        String dateStr = json['last_message_at'].toString();
+        if (!dateStr.endsWith('Z')) {
+          dateStr = '${dateStr}Z';
+        }
+        lastMsgAt = DateTime.parse(dateStr).toLocal();
       } catch (_) {}
     }
 
-    // Parse updated_at
+    // Parse updated_at - Handle as UTC
     DateTime? updatedAt;
     if (json['updated_at'] != null) {
       try {
-        updatedAt = DateTime.parse(json['updated_at'].toString());
+        String dateStr = json['updated_at'].toString();
+        if (!dateStr.endsWith('Z')) {
+          dateStr = '${dateStr}Z';
+        }
+        updatedAt = DateTime.parse(dateStr).toLocal();
       } catch (_) {}
     }
 

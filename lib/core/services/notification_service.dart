@@ -8,9 +8,12 @@ import 'database_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../main.dart' show navigatorKey;
+import '../../features/chat/presentation/pages/chat_page.dart';
 import '../api/wordpress_api.dart';
 
 /// Top-level function to handle background FCM messages
@@ -18,7 +21,13 @@ import '../api/wordpress_api.dart';
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  // Save to local database
+  // Save to local database (skip chat messages - they have their own system)
+  final notificationType = message.data['type']?.toString() ?? '';
+  if (notificationType == 'chat_message') {
+    if (kDebugMode) print('Chat notification - skipping DB save');
+    return;
+  }
+
   try {
     if (message.notification != null) {
       final notification = AppNotification(
@@ -211,8 +220,11 @@ class NotificationService {
     RemoteNotification? notification = message.notification;
     AndroidNotification? android = message.notification?.android;
 
-    // Save to local database
-    if (notification != null) {
+    // Save to local database (skip chat messages - they have their own system)
+    final notificationType = message.data['type']?.toString() ?? '';
+    if (notificationType == 'chat_message') {
+      if (kDebugMode) print('Chat notification - skipping DB save');
+    } else if (notification != null) {
       final appNotification = AppNotification(
         // Try to get server ID from data payload to avoid duplicates when syncing with API
         id: int.tryParse(message.data['id']?.toString() ?? '0') ??
@@ -289,16 +301,118 @@ class NotificationService {
 
   /// Navigate based on notification payload
   void _navigateBasedOnPayload(Map<String, dynamic> data) {
-    // TODO: Implement navigation based on notification type
-    // Example:
-    // if (data['type'] == 'chat') {
-    //   // Navigate to chat
-    // } else if (data['type'] == 'lesson_reminder') {
-    //   // Navigate to dashboard
-    // }
     if (kDebugMode) {
       print('Navigate based on payload: $data');
     }
+
+    final type = data['type']?.toString();
+
+    if (type == 'chat_message') {
+      _handleChatNotification(data);
+    }
+    // Other notification types can be added here in the future
+    // e.g., lesson_report, payment_reminder, etc.
+  }
+
+  /// Handle chat notification - navigate to conversation
+  void _handleChatNotification(Map<String, dynamic> data) {
+    final conversationId = data['conversation_id']?.toString();
+    final senderId = data['sender_id']?.toString();
+    final senderName = data['sender_name']?.toString() ?? '';
+
+    if (conversationId == null || senderId == null) {
+      if (kDebugMode) {
+        print('Chat notification missing required data: $data');
+      }
+      return;
+    }
+
+    // Import navigator key from main.dart
+    // We need to use a delayed call to ensure the app is fully initialized
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _navigateToChat(
+        conversationId: conversationId,
+        recipientId: senderId,
+        recipientName: senderName,
+      );
+    });
+  }
+
+  /// Navigate to chat page using global navigator key
+  void _navigateToChat({
+    required String conversationId,
+    required String recipientId,
+    required String recipientName,
+  }) async {
+    try {
+      // Import navigatorKey dynamically to avoid circular imports
+      final navigatorKey = await _getNavigatorKey();
+      if (navigatorKey?.currentState == null) {
+        if (kDebugMode) {
+          print('Navigator not available for chat navigation');
+        }
+        return;
+      }
+
+      // Get current user info from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final studentId =
+          prefs.getString('user_id') ?? prefs.getString('student_id') ?? '';
+      final studentName =
+          prefs.getString('user_name') ?? prefs.getString('student_name') ?? '';
+
+      if (studentId.isEmpty) {
+        if (kDebugMode) {
+          print('User not logged in, cannot navigate to chat');
+        }
+        return;
+      }
+
+      // Dynamic import of ChatPage to avoid circular dependencies
+      navigatorKey!.currentState!.push(
+        MaterialPageRoute(
+          builder: (context) => _buildChatPage(
+            conversationId: conversationId,
+            recipientId: recipientId,
+            recipientName: recipientName,
+            studentId: studentId,
+            studentName: studentName,
+          ),
+        ),
+      );
+
+      if (kDebugMode) {
+        print(
+            'Navigated to chat: conversation=$conversationId, sender=$recipientName');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error navigating to chat: $e');
+      }
+    }
+  }
+
+  /// Get navigator key - uses the global key from main.dart
+  Future<GlobalKey<NavigatorState>?> _getNavigatorKey() async {
+    // Return the imported navigatorKey from main.dart
+    return navigatorKey;
+  }
+
+  /// Build ChatPage widget for notification navigation
+  Widget _buildChatPage({
+    required String conversationId,
+    required String recipientId,
+    required String recipientName,
+    required String studentId,
+    required String studentName,
+  }) {
+    return ChatPage(
+      conversationId: conversationId,
+      recipientId: recipientId,
+      recipientName: recipientName.isNotEmpty ? recipientName : 'مستخدم',
+      studentId: studentId,
+      studentName: studentName,
+    );
   }
 
   /// Get FCM device token

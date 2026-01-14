@@ -15,6 +15,9 @@ import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/pages/splash_screen.dart';
 import 'firebase_options.dart';
 
+/// Global navigator key for navigation from services (e.g., NotificationService)
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 /// Check if FCM is supported on the current platform
 bool get _isFcmSupported {
   if (kIsWeb) return true;
@@ -98,6 +101,7 @@ class MyApp extends StatelessWidget {
     return BlocProvider(
       create: (context) => AuthBloc(),
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         title: 'أكاديمية زواد',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,

@@ -43,15 +43,22 @@ class ChatMessage {
     String timestampStr = json['timestamp'] ??
         json['created_at'] ??
         DateTime.now().toIso8601String();
-    // Handle timestamp parsing - try without Z suffix first
+
+    // Handle timestamp parsing - Server returns UTC time
+    // Evidence: User in Oman (+4) sees 12:19 from server when local time is 16:19.
+    // 12:19 UTC + 4h = 16:19 Local.
     DateTime messageTimestamp;
     try {
-      if (timestampStr.endsWith('Z')) {
-        messageTimestamp = DateTime.parse(timestampStr).toLocal();
-      } else {
-        messageTimestamp = DateTime.parse('${timestampStr}Z').toLocal();
+      // Ensure the string has a 'Z' so it is parsed as UTC
+      if (!timestampStr.endsWith('Z')) {
+        timestampStr = '${timestampStr}Z';
       }
+
+      messageTimestamp = DateTime.parse(timestampStr).toLocal();
     } catch (e) {
+      if (kDebugMode) {
+        print('Error parsing timestamp: $e');
+      }
       messageTimestamp = DateTime.now();
     }
 

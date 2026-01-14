@@ -1192,6 +1192,31 @@ GET /teacher/notifications/count
 
 ## 💬 Chat API
 
+### Date & Time Handling
+
+All dates and times returned by the API are in the **Server's Local Time** (typically **Africa/Cairo**).
+The format is always `YYYY-MM-DD HH:MM:SS` (e.g., `2024-01-15 14:30:00`) without timezone offset info.
+
+**Flutter Handling Guide:**
+
+Since the API returns local server time, you should handle it carefully in your app, especially if your users are in different timezones.
+
+```dart
+// Helper to parse server time (assuming Server is Africa/Cairo)
+DateTime parseServerDate(String dateString) {
+  // 1. Parse the string
+  DateTime serverLocal = DateTime.parse(dateString);
+
+  // 2. Do NOT treat as UTC or device local yet.
+  // Ideally, know the server offset (e.g. +2 or 3 for Cairo)
+  // Or simply display as-is if "Server Time" is the reference.
+
+  return serverLocal;
+}
+```
+
+> **Recommendation:** Validate the server timezone setting in WordPress (Settings > General). If widely distributed, consider normalizing on UTC in future versions. Use `current_time('mysql', 1)` in WP to get UTC.
+
 The Chat API provides real-time messaging between users based on their roles:
 
 | Role           | Can Chat With                        |
@@ -1393,6 +1418,13 @@ Content-Type: application/json
   }
 }
 ```
+
+> **Push Notification:** When a message is sent, the recipient automatically receives a push notification with:
+>
+> - **Title (from supervisor):** `💬 رسالة جديدة من خدمة العملاء`
+> - **Title (from teacher):** `💬 رسالة جديدة من [Sender Name]`
+> - **Body:** Message content (truncated to 100 characters)
+> - **Data Payload:** `type`, `conversation_id`, `sender_id`, `sender_name`
 
 ### Send Direct Message (Convenience)
 
@@ -1650,6 +1682,7 @@ class Message {
    ```
 
 3. **Displaying Unread Badge:**
+
    ```dart
    // In conversation list, show unread_count from API
    ListTile(
@@ -1660,6 +1693,40 @@ class Message {
        : null,
    )
    ```
+
+4. **Handling Chat Push Notifications:**
+
+   When a message is sent, the recipient receives a push notification with the following payload:
+
+   ```json
+   {
+     "type": "chat_message",
+     "conversation_id": "123",
+     "sender_id": "456",
+     "sender_name": "أحمد محمد"
+   }
+   ```
+
+   Handle incoming notifications in your app:
+
+   ```dart
+   void handleNotification(RemoteMessage message) {
+     final data = message.data;
+
+     if (data['type'] == 'chat_message') {
+       final conversationId = int.parse(data['conversation_id']);
+       final senderId = int.parse(data['sender_id']);
+       final senderName = data['sender_name'];
+
+       // If user taps notification, navigate to chat
+       Navigator.push(context, MaterialPageRoute(
+         builder: (_) => ChatScreen(conversationId: conversationId),
+       ));
+     }
+   }
+   ```
+
+   > **Tip:** Use the `conversation_id` from the notification payload to directly open the correct conversation.
 
 ---
 
