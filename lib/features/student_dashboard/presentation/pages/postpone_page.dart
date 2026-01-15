@@ -9,6 +9,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 
 import '../../../../core/utils/timezone_helper.dart';
+import '../../../chat/presentation/pages/chat_page.dart';
 
 class PostponePage extends StatefulWidget {
   final int teacherId;
@@ -174,37 +175,51 @@ class _PostponePageState extends State<PostponePage> {
       textDirection: TextDirection.rtl,
       child: Column(
         children: [
-          // Drag handle
+          // Drag Handle + Header Combined
           Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
+            decoration: const BoxDecoration(
+              color: Color(0xFF820C22),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
-          ),
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
+            child: Column(
               children: [
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                const Expanded(
-                  child: Text(
-                    'تأجيل الحصة',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
+                // Drag handle
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    textAlign: TextAlign.center,
                   ),
                 ),
-                const SizedBox(width: 48), // Balance the close button
+                // Header Content
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          'إعادة جدولة الحصة',
+                          style: TextStyle(
+                            fontFamily: 'Qatar',
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(width: 48), // Balance the close button
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -217,27 +232,18 @@ class _PostponePageState extends State<PostponePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (widget.studentLessonDuration > 0) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0x1A8B0628), // 0.1 opacity primary
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'يتم عرض الأوقات المتاحة التي تزيد عن ${widget.studentLessonDuration} دقيقة فقط',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  const Text('اختر اليوم',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_month,
+                          color: Color(0xFFD4AF37), size: 24),
+                      const SizedBox(width: 8),
+                      const Text('اختر اليوم',
+                          style: TextStyle(
+                              fontFamily: 'Qatar',
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   if (availableDays.isEmpty)
                     Container(
@@ -249,7 +255,8 @@ class _PostponePageState extends State<PostponePage> {
                       child: const Text(
                         'لا توجد أوقات متاحة تناسب مدة الدرس المطلوبة',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey),
+                        style:
+                            TextStyle(fontFamily: 'Qatar', color: Colors.grey),
                       ),
                     )
                   else
@@ -258,38 +265,74 @@ class _PostponePageState extends State<PostponePage> {
                       children: availableDays.map((d) {
                         final label = _dayLabel(d);
                         final selected = _selectedDayOfWeek == d;
-                        return ChoiceChip(
-                          label: Text(label),
-                          selected: selected,
-                          onSelected: (_) {
-                            setState(() {
-                              _selectedDayOfWeek = d;
-                              _selectedStartTime = null;
-                            });
-                          },
+                        return Container(
+                          decoration: BoxDecoration(
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ChoiceChip(
+                            label: Text(label,
+                                style: const TextStyle(fontFamily: 'Qatar')),
+                            selected: selected,
+                            onSelected: (_) {
+                              setState(() {
+                                _selectedDayOfWeek = d;
+                                _selectedStartTime = null;
+                              });
+                            },
+                          ),
                         );
                       }).toList(),
                     ),
                   const SizedBox(height: 16),
-                  const Text('اختر الساعة',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time_filled,
+                          color: Color(0xFFD4AF37), size: 24),
+                      const SizedBox(width: 8),
+                      const Text('اختر الساعة',
+                          style: TextStyle(
+                              fontFamily: 'Qatar',
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   if (_selectedDayOfWeek == null)
-                    const Text('الرجاء اختيار اليوم أولاً')
+                    const Text('الرجاء اختيار اليوم أولاً',
+                        style: TextStyle(fontFamily: 'Qatar'))
                   else ...[
                     Wrap(
                       spacing: 8,
                       children: timesForDay(_selectedDayOfWeek!).map((t) {
                         final selected = _selectedStartTime == t;
-                        return ChoiceChip(
-                          label: Text(t),
-                          selected: selected,
-                          onSelected: (_) {
-                            setState(() {
-                              _selectedStartTime = t;
-                            });
-                          },
+                        return Container(
+                          decoration: BoxDecoration(
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ChoiceChip(
+                            label: Text(t,
+                                style: const TextStyle(fontFamily: 'Qatar')),
+                            selected: selected,
+                            onSelected: (_) {
+                              setState(() {
+                                _selectedStartTime = t;
+                              });
+                            },
+                          ),
                         );
                       }).toList(),
                     ),
@@ -327,17 +370,98 @@ class _PostponePageState extends State<PostponePage> {
                               Text(
                                 'جاري الإنشاء...',
                                 style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.bold),
+                                    fontFamily: 'Qatar',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ],
                           )
                         : const Text(
                             'تأكيد',
                             style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold),
+                                fontFamily: 'Qatar',
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold),
                           ),
                   ),
-                  const SizedBox(height: 40), // Add space at bottom
+                  const SizedBox(height: 36),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.info_outline,
+                                color: Color(0xFFD4AF37), size: 24),
+                            const SizedBox(width: 8),
+                            const Text('إرشادات',
+                                style: TextStyle(
+                                    fontFamily: 'Qatar',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _buildInfoBullet(
+                            'يمكنك إعادة جدولة حصة اخرى خلال هذا الشهر.'),
+                        const SizedBox(height: 8),
+                        _buildInfoBullet(
+                            'يمكنك إعادة الجدولة في اي وقت وحتى قبل الحصة بساعة واحدة فقط.'),
+                        const SizedBox(height: 8),
+                        _buildInfoBullet(
+                            'يظهر لك فقط المواعيد المتاحة المناسبة لك.'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () {
+                      final authState = context.read<AuthBloc>().state;
+                      if (authState is AuthAuthenticated &&
+                          authState.student != null) {
+                        final student = authState.student!;
+                        final supervisorId = student.supervisorId;
+
+                        if (supervisorId != null && supervisorId != 0) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChatPage(
+                                recipientId: supervisorId.toString(),
+                                recipientName: 'خدمة العملاء',
+                                studentId: student.id.toString(),
+                                studentName: student.name,
+                                recipientRole: 'supervisor',
+                                recipientGender: 'male', // Default or fetch
+                              ),
+                            ),
+                          );
+                        } else {
+                          // Show toast or dialog if no supervisor assigned
+                          _showErrorDialog('لا يوجد مشرف مخصص لك حالياً');
+                        }
+                      }
+                    },
+                    child: const Text(
+                      'تواصل معنا في حال واجهتك أي مشكلة',
+                      style: TextStyle(
+                        fontFamily: 'Qatar',
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                        decoration: TextDecoration.underline,
+                        decorationColor: AppTheme.primaryColor,
+                        decorationThickness: 2.0,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
@@ -548,7 +672,7 @@ class _PostponePageState extends State<PostponePage> {
           ),
           content: Text(
             message,
-            style: const TextStyle(fontSize: 16),
+            style: const TextStyle(fontFamily: 'Qatar', fontSize: 16),
           ),
           actions: [
             TextButton(
@@ -557,12 +681,39 @@ class _PostponePageState extends State<PostponePage> {
               },
               child: const Text(
                 'موافق',
-                style: TextStyle(color: AppTheme.primaryColor, fontSize: 16),
+                style: TextStyle(
+                    fontFamily: 'Qatar',
+                    color: AppTheme.primaryColor,
+                    fontSize: 16),
               ),
             ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildInfoBullet(String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Icon(Icons.circle, size: 6, color: Colors.grey),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontFamily: 'Qatar',
+              fontSize: 13,
+              color: Colors.black87,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

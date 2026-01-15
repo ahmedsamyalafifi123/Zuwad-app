@@ -248,8 +248,9 @@ class NotificationService {
     // Save to local database (skip chat messages - they have their own system)
     final notificationType = message.data['type']?.toString() ?? '';
     if (notificationType == 'chat_message') {
-      if (kDebugMode)
+      if (kDebugMode) {
         print('Chat notification - skipping DB save, notifying chat listeners');
+      }
       // Notify ChatListPage to refresh when a chat message notification arrives
       final senderId = message.data['sender_id']?.toString();
       _chatEventService.notifyMessageReceived(

@@ -1337,7 +1337,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                   ),
                 ),
                 child: Text(
-                  'تأجيل الدرس',
+                  'إعادة جدولة',
                   style: TextStyle(
                     fontFamily: 'Qatar',
                     fontSize: buttonFontSize,
@@ -1535,7 +1535,14 @@ class _DashboardContentState extends State<_DashboardContent> {
           maxChildSize: 0.95,
           builder: (context, scrollController) => Container(
             decoration: const BoxDecoration(
-              color: Colors.white,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color.fromARGB(255, 255, 255, 255), // Warm cream white
+                  Color.fromARGB(255, 230, 230, 230), // Subtle gold tint
+                ],
+              ),
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: PostponePage(
