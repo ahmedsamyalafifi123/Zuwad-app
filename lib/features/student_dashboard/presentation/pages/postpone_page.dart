@@ -10,6 +10,8 @@ import '../../../auth/presentation/bloc/auth_state.dart';
 
 import '../../../../core/utils/timezone_helper.dart';
 import '../../../chat/presentation/pages/chat_page.dart';
+import '../../data/repositories/report_repository.dart';
+import '../../domain/models/student_report.dart';
 
 class PostponePage extends StatefulWidget {
   final int teacherId;
@@ -46,10 +48,133 @@ class _PostponePageState extends State<PostponePage> {
   final WordPressApi _api = WordPressApi();
   List<ConvertedSlot> _convertedSlots = [];
 
+  // Postponement Limit State
+  final ReportRepository _reportRepository = ReportRepository();
+  bool _checkingLimit = true;
+  int _allowedPostponements = 0;
+  int _usedPostponements = 0;
+  bool _isRestricted = false;
+
   @override
   void initState() {
     super.initState();
     _initializeConvertedSlots();
+    _checkPostponementLimit();
+  }
+
+  Future<void> _checkPostponementLimit() async {
+    if (!mounted) return;
+    setState(() => _checkingLimit = true);
+
+    try {
+      final authState = context.read<AuthBloc>().state;
+      if (authState is AuthAuthenticated && authState.student != null) {
+        final student = authState.student!;
+        final lessonsNumber = student.lessonsNumber ?? 8;
+
+        // 1. Calculate allowed: floor(lessonsNumber / 4)
+        // If < 4, maybe allow 1? Or 0? User said "for 4 can 1", "if 8 can 2".
+        // Assuming integer division.
+        _allowedPostponements = (lessonsNumber / 4).floor();
+        if (_allowedPostponements < 1)
+          _allowedPostponements = 1; // Fallback to at least 1
+
+        // 2. Fetch reports
+        final reports = await _reportRepository.getStudentReports(student.id);
+
+        // Sort descending by date and time
+        final sortedReports = List<StudentReport>.from(reports);
+        sortedReports.sort((a, b) {
+          final dateCompare = b.date.compareTo(a.date);
+          if (dateCompare != 0) return dateCompare;
+          return b.time.compareTo(a.time);
+        });
+
+        // Valid attendance values for determining session number (from home_page.dart)
+        const validAttendanceValues = [
+          'حضور',
+          'غياب',
+          'تأجيل المعلم',
+          'تأجيل ولي أمر',
+        ];
+
+        // Helper to check if report is valid for session calculation
+        bool isValidReport(StudentReport r) {
+          return validAttendanceValues.contains(r.attendance);
+        }
+
+        // Find the latest valid report's sessionNumber
+        int lastSessionNumber = 0;
+        if (sortedReports.isNotEmpty) {
+          final latestValidReport = sortedReports.firstWhere(
+            (r) => isValidReport(r),
+            orElse: () => sortedReports.first,
+          );
+          if (isValidReport(latestValidReport)) {
+            lastSessionNumber = latestValidReport.sessionNumber;
+          }
+        }
+
+        // Calculate next session number
+        int nextSessionNumber = lastSessionNumber + 1;
+        if (nextSessionNumber > lessonsNumber) {
+          nextSessionNumber = 1;
+        }
+
+        if (kDebugMode) {
+          print('DEBUG: Last session number: $lastSessionNumber');
+          print('DEBUG: Next session number: $nextSessionNumber');
+        }
+
+        // 3. Determine if student is starting a new pack
+        int count = 0;
+        if (nextSessionNumber == 1) {
+          // Student is about to start a new pack!
+          // Reset postponements - they get full allowance
+          count = 0;
+          if (kDebugMode) {
+            print('DEBUG: Next session is 1, resetting postponement count');
+          }
+        } else {
+          // Count postponements from the LATEST session 1 in the current cycle
+          DateTime? cycleStartDate;
+          for (var report in sortedReports) {
+            if (report.sessionNumber == 1) {
+              cycleStartDate = DateTime.tryParse(report.date);
+              break;
+            }
+          }
+
+          for (var report in sortedReports) {
+            final rDate = DateTime.tryParse(report.date);
+            if (rDate == null) continue;
+
+            // Only count if report is AFTER or SAME as cycle start
+            if (cycleStartDate != null && rDate.isBefore(cycleStartDate)) {
+              continue;
+            }
+
+            // Check if postponed
+            if (report.attendance == 'تأجيل ولي أمر' ||
+                report.attendance.contains('تأجيل')) {
+              count++;
+            }
+          }
+        }
+
+        _usedPostponements = count;
+
+        if (_usedPostponements >= _allowedPostponements) {
+          _isRestricted = true;
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('Error checking postponement limit: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _checkingLimit = false);
+      }
+    }
   }
 
   void _initializeConvertedSlots() {
@@ -226,245 +351,298 @@ class _PostponePageState extends State<PostponePage> {
           const Divider(height: 1),
           // Content
           Expanded(
-            child: SingleChildScrollView(
-              controller: widget.scrollController,
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_month,
-                          color: Color(0xFFD4AF37), size: 24),
-                      const SizedBox(width: 8),
-                      const Text('اختر اليوم',
-                          style: TextStyle(
-                              fontFamily: 'Qatar',
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (availableDays.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'لا توجد أوقات متاحة تناسب مدة الدرس المطلوبة',
-                        textAlign: TextAlign.center,
-                        style:
-                            TextStyle(fontFamily: 'Qatar', color: Colors.grey),
-                      ),
-                    )
-                  else
-                    Wrap(
-                      spacing: 8,
-                      children: availableDays.map((d) {
-                        final label = _dayLabel(d);
-                        final selected = _selectedDayOfWeek == d;
-                        return Container(
-                          decoration: BoxDecoration(
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: ChoiceChip(
-                            label: Text(label,
-                                style: const TextStyle(fontFamily: 'Qatar')),
-                            selected: selected,
-                            onSelected: (_) {
-                              setState(() {
-                                _selectedDayOfWeek = d;
-                                _selectedStartTime = null;
-                              });
-                            },
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const Icon(Icons.access_time_filled,
-                          color: Color(0xFFD4AF37), size: 24),
-                      const SizedBox(width: 8),
-                      const Text('اختر الساعة',
-                          style: TextStyle(
-                              fontFamily: 'Qatar',
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (_selectedDayOfWeek == null)
-                    const Text('الرجاء اختيار اليوم أولاً',
-                        style: TextStyle(fontFamily: 'Qatar'))
-                  else ...[
-                    Wrap(
-                      spacing: 8,
-                      children: timesForDay(_selectedDayOfWeek!).map((t) {
-                        final selected = _selectedStartTime == t;
-                        return Container(
-                          decoration: BoxDecoration(
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: ChoiceChip(
-                            label: Text(t,
-                                style: const TextStyle(fontFamily: 'Qatar')),
-                            selected: selected,
-                            onSelected: (_) {
-                              setState(() {
-                                _selectedStartTime = t;
-                              });
-                            },
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  // Confirm button directly below choices
-                  ElevatedButton(
-                    onPressed: (_selectedDayOfWeek != null &&
-                            _selectedStartTime != null &&
-                            !_isCreatingEvent)
-                        ? _createPostponedEvent
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: _isCreatingEvent
-                        ? const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white),
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'جاري الإنشاء...',
-                                style: TextStyle(
-                                    fontFamily: 'Qatar',
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          )
-                        : const Text(
-                            'تأكيد',
-                            style: TextStyle(
-                                fontFamily: 'Qatar',
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold),
-                          ),
-                  ),
-                  const SizedBox(height: 36),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                    ),
+            child: _checkingLimit
+                ? const Center(
+                    child:
+                        CircularProgressIndicator(color: AppTheme.primaryColor))
+                : SingleChildScrollView(
+                    controller: widget.scrollController,
+                    padding: const EdgeInsets.all(16.0),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.info_outline,
-                                color: Color(0xFFD4AF37), size: 24),
-                            const SizedBox(width: 8),
-                            const Text('إرشادات',
+                        if (!_isRestricted) ...[
+                          Row(
+                            children: [
+                              const Icon(Icons.calendar_month,
+                                  color: Color(0xFFD4AF37), size: 24),
+                              const SizedBox(width: 8),
+                              const Text('اختر اليوم',
+                                  style: TextStyle(
+                                      fontFamily: 'Qatar',
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          if (availableDays.isEmpty)
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                'لا توجد أوقات متاحة تناسب مدة الدرس المطلوبة',
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
-                                    fontFamily: 'Qatar',
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold)),
+                                    fontFamily: 'Qatar', color: Colors.grey),
+                              ),
+                            )
+                          else
+                            Wrap(
+                              spacing: 8,
+                              children: availableDays.map((d) {
+                                final label = _dayLabel(d);
+                                final selected = _selectedDayOfWeek == d;
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.08),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: ChoiceChip(
+                                    label: Text(label,
+                                        style: const TextStyle(
+                                            fontFamily: 'Qatar')),
+                                    selected: selected,
+                                    onSelected: (_) {
+                                      setState(() {
+                                        _selectedDayOfWeek = d;
+                                        _selectedStartTime = null;
+                                      });
+                                    },
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              const Icon(Icons.access_time_filled,
+                                  color: Color(0xFFD4AF37), size: 24),
+                              const SizedBox(width: 8),
+                              const Text('اختر الساعة',
+                                  style: TextStyle(
+                                      fontFamily: 'Qatar',
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          if (_selectedDayOfWeek == null)
+                            const Text('الرجاء اختيار اليوم أولاً',
+                                style: TextStyle(fontFamily: 'Qatar'))
+                          else ...[
+                            Wrap(
+                              spacing: 8,
+                              children:
+                                  timesForDay(_selectedDayOfWeek!).map((t) {
+                                final selected = _selectedStartTime == t;
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.08),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: ChoiceChip(
+                                    label: Text(t,
+                                        style: const TextStyle(
+                                            fontFamily: 'Qatar')),
+                                    selected: selected,
+                                    onSelected: (_) {
+                                      setState(() {
+                                        _selectedStartTime = t;
+                                      });
+                                    },
+                                  ),
+                                );
+                              }).toList(),
+                            ),
                           ],
+                          const SizedBox(height: 24),
+                          // Confirm button directly below choices
+                          ElevatedButton(
+                            onPressed: (_selectedDayOfWeek != null &&
+                                    _selectedStartTime != null &&
+                                    !_isCreatingEvent)
+                                ? _createPostponedEvent
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: _isCreatingEvent
+                                ? const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                  Colors.white),
+                                        ),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'جاري الإنشاء...',
+                                        style: TextStyle(
+                                            fontFamily: 'Qatar',
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  )
+                                : const Text(
+                                    'تأكيد',
+                                    style: TextStyle(
+                                        fontFamily: 'Qatar',
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                          ),
+                          const SizedBox(height: 36),
+                        ], // End of if (!_isRestricted)
+
+                        if (_isRestricted)
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: Colors.red.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.warning_amber_rounded,
+                                    color: Colors.red, size: 24),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'لقد استنفذت عدد مرات التأجيل المتاحة لهذا الشهر.',
+                                    style: const TextStyle(
+                                      fontFamily: 'Qatar',
+                                      fontSize: 14,
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(12),
+                            border:
+                                Border.all(color: Colors.grey.withOpacity(0.2)),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.info_outline,
+                                      color: Color(0xFFD4AF37), size: 24),
+                                  const SizedBox(width: 8),
+                                  const Text('إرشادات',
+                                      style: TextStyle(
+                                          fontFamily: 'Qatar',
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Dynamic Guidelines
+                              _buildInfoBullet(
+                                  'يمكنك إعادة جدولة $_allowedPostponements حصة في الشهر.'),
+                              const SizedBox(height: 8),
+
+                              if (!_isRestricted) ...[
+                                _buildInfoBullet(
+                                    'المتبقي لك: ${_allowedPostponements - _usedPostponements} حصة.'),
+                                const SizedBox(height: 8),
+                              ],
+
+                              _buildInfoBullet(
+                                  'يمكنك إعادة الجدولة في اي وقت وحتى قبل الحصة بساعة واحدة فقط.'),
+                              const SizedBox(height: 8),
+                              _buildInfoBullet(
+                                  'يظهر لك فقط المواعيد المتاحة المناسبة لك.'),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 12),
-                        _buildInfoBullet(
-                            'يمكنك إعادة جدولة حصة اخرى خلال هذا الشهر.'),
                         const SizedBox(height: 8),
-                        _buildInfoBullet(
-                            'يمكنك إعادة الجدولة في اي وقت وحتى قبل الحصة بساعة واحدة فقط.'),
-                        const SizedBox(height: 8),
-                        _buildInfoBullet(
-                            'يظهر لك فقط المواعيد المتاحة المناسبة لك.'),
+                        TextButton(
+                          onPressed: () {
+                            final authState = context.read<AuthBloc>().state;
+                            if (authState is AuthAuthenticated &&
+                                authState.student != null) {
+                              final student = authState.student!;
+                              final supervisorId = student.supervisorId;
+
+                              if (supervisorId != null && supervisorId != 0) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ChatPage(
+                                      recipientId: supervisorId.toString(),
+                                      recipientName: 'خدمة العملاء',
+                                      studentId: student.id.toString(),
+                                      studentName: student.name,
+                                      recipientRole: 'supervisor',
+                                      recipientGender:
+                                          'male', // Default or fetch
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                // Show toast or dialog if no supervisor assigned
+                                _showErrorDialog('لا يوجد مشرف مخصص لك حالياً');
+                              }
+                            }
+                          },
+                          child: const Text(
+                            'تواصل معنا في حال واجهتك أي مشكلة',
+                            style: TextStyle(
+                              fontFamily: 'Qatar',
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                              decoration: TextDecoration.underline,
+                              decorationColor: AppTheme.primaryColor,
+                              decorationThickness: 2.0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () {
-                      final authState = context.read<AuthBloc>().state;
-                      if (authState is AuthAuthenticated &&
-                          authState.student != null) {
-                        final student = authState.student!;
-                        final supervisorId = student.supervisorId;
-
-                        if (supervisorId != null && supervisorId != 0) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ChatPage(
-                                recipientId: supervisorId.toString(),
-                                recipientName: 'خدمة العملاء',
-                                studentId: student.id.toString(),
-                                studentName: student.name,
-                                recipientRole: 'supervisor',
-                                recipientGender: 'male', // Default or fetch
-                              ),
-                            ),
-                          );
-                        } else {
-                          // Show toast or dialog if no supervisor assigned
-                          _showErrorDialog('لا يوجد مشرف مخصص لك حالياً');
-                        }
-                      }
-                    },
-                    child: const Text(
-                      'تواصل معنا في حال واجهتك أي مشكلة',
-                      style: TextStyle(
-                        fontFamily: 'Qatar',
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
-                        decoration: TextDecoration.underline,
-                        decorationColor: AppTheme.primaryColor,
-                        decorationThickness: 2.0,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
           ),
         ],
       ),
