@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import 'package:lottie/lottie.dart';
 import '../../../../core/utils/gender_helper.dart'; // Ensure this import exists
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/services/chat_event_service.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../data/models/chat_message.dart' as models;
 
@@ -51,6 +52,7 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   late final ChatRepository _chatRepository;
   late final core.InMemoryChatController _chatController;
+  final ChatEventService _chatEventService = ChatEventService();
   bool _isLoading = false;
   bool _isInitializing = true;
   int _currentPage = 1;
@@ -116,6 +118,8 @@ class _ChatPageState extends State<ChatPage> {
       if (_serverConversationId != null) {
         await _chatRepository.markAsRead(
             conversationId: _serverConversationId!);
+        // Notify that messages were read so unread count updates
+        _chatEventService.notifyMessagesRead(recipientId: widget.recipientId);
       }
 
       // Set up polling for NEW messages (every 2 seconds, uses after_id)
@@ -214,6 +218,9 @@ class _ChatPageState extends State<ChatPage> {
           if (hasNewIncoming) {
             await _chatRepository.markAsRead(
                 conversationId: _serverConversationId!);
+            // Notify that messages were read so unread count updates
+            _chatEventService.notifyMessagesRead(
+                recipientId: widget.recipientId);
           }
         }
       }
@@ -374,6 +381,12 @@ class _ChatPageState extends State<ChatPage> {
         if (kDebugMode) {
           print('Message sent successfully: ${sentMessage.id}');
         }
+
+        // Notify ChatListPage to refresh
+        _chatEventService.notifyMessageSent(
+          recipientId: widget.recipientId,
+          message: messageText,
+        );
       }
     } catch (e) {
       if (mounted) {

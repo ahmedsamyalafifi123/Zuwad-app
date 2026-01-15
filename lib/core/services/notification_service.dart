@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../features/notifications/domain/models/notification.dart';
 import 'database_service.dart';
+import 'chat_event_service.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -70,6 +71,7 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   final WordPressApi _api = WordPressApi();
   final DatabaseService _databaseService = DatabaseService();
+  final ChatEventService _chatEventService = ChatEventService();
 
   // Only initialize FirebaseMessaging on supported platforms
   FirebaseMessaging? _firebaseMessaging;
@@ -223,7 +225,14 @@ class NotificationService {
     // Save to local database (skip chat messages - they have their own system)
     final notificationType = message.data['type']?.toString() ?? '';
     if (notificationType == 'chat_message') {
-      if (kDebugMode) print('Chat notification - skipping DB save');
+      if (kDebugMode)
+        print('Chat notification - skipping DB save, notifying chat listeners');
+      // Notify ChatListPage to refresh when a chat message notification arrives
+      final senderId = message.data['sender_id']?.toString();
+      _chatEventService.notifyMessageReceived(
+        senderId: senderId ?? '',
+        message: notification?.body,
+      );
     } else if (notification != null) {
       final appNotification = AppNotification(
         // Try to get server ID from data payload to avoid duplicates when syncing with API

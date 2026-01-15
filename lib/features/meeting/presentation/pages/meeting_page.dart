@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import 'package:livekit_client/livekit_client.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -29,6 +30,8 @@ class MeetingPage extends StatefulWidget {
 }
 
 class _MeetingPageState extends State<MeetingPage> {
+  static const MethodChannel _pipChannel = MethodChannel('com.zuwad/pip');
+
   late final LiveKitService _liveKitService;
   bool _isConnecting = true;
   bool _isConnected = false;
@@ -46,6 +49,10 @@ class _MeetingPageState extends State<MeetingPage> {
       print('MeetingPage: initState started');
     }
     super.initState();
+
+    // Enable PiP mode for this page
+    _enablePiP();
+
     if (kDebugMode) {
       print('MeetingPage: Creating LiveKitService');
     }
@@ -62,8 +69,36 @@ class _MeetingPageState extends State<MeetingPage> {
 
   @override
   void dispose() {
+    // Disable PiP mode when leaving meeting page
+    _disablePiP();
     _liveKitService.disconnect();
     super.dispose();
+  }
+
+  Future<void> _enablePiP() async {
+    try {
+      await _pipChannel.invokeMethod('enablePip');
+      if (kDebugMode) {
+        print('MeetingPage: PiP enabled');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('MeetingPage: Failed to enable PiP: $e');
+      }
+    }
+  }
+
+  Future<void> _disablePiP() async {
+    try {
+      await _pipChannel.invokeMethod('disablePip');
+      if (kDebugMode) {
+        print('MeetingPage: PiP disabled');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('MeetingPage: Failed to disable PiP: $e');
+      }
+    }
   }
 
   Future<void> _requestPermissions() async {

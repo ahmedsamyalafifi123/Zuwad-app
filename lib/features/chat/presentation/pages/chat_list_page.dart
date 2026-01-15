@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/loading_widget.dart';
+import '../../../../core/services/chat_event_service.dart';
 import '../../data/models/contact.dart';
 import '../../data/models/conversation.dart';
 import '../../data/repositories/chat_repository.dart';
@@ -44,6 +45,7 @@ class ChatListPage extends StatefulWidget {
 
 class _ChatListPageState extends State<ChatListPage> {
   final ChatRepository _chatRepository = ChatRepository();
+  final ChatEventService _chatEventService = ChatEventService();
 
   List<Contact> _contacts = [];
   List<Conversation> _conversations = [];
@@ -51,13 +53,25 @@ class _ChatListPageState extends State<ChatListPage> {
   bool _hasError = false;
   String _errorMessage = '';
   Timer? _refreshTimer;
+  StreamSubscription<ChatEvent>? _chatEventSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadData();
 
-    // Set up periodic refresh every 30 seconds for unread counts
+    // Listen to chat events for real-time updates
+    _chatEventSubscription = _chatEventService.onChatUpdate.listen((event) {
+      if (mounted) {
+        if (kDebugMode) {
+          print('ChatListPage received event: ${event.type}');
+        }
+        // Refresh conversations on any chat event
+        _loadConversations(showLoading: false);
+      }
+    });
+
+    // Set up periodic refresh every 30 seconds for unread counts (fallback)
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) {
         _loadConversations(showLoading: false);
@@ -68,6 +82,7 @@ class _ChatListPageState extends State<ChatListPage> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _chatEventSubscription?.cancel();
     super.dispose();
   }
 
@@ -392,6 +407,8 @@ class _ChatListPageState extends State<ChatListPage> {
               children: [
                 // Avatar
                 Stack(
+                  clipBehavior:
+                      Clip.none, // Allow badge to overflow without clipping
                   children: [
                     Container(
                       width: isSupervisor ? 70 : 56,
@@ -422,19 +439,23 @@ class _ChatListPageState extends State<ChatListPage> {
                               gender,
                             ),
                     ),
-                    // Unread badge
+                    // Unread badge - positioned at top-left outside avatar
                     if (unreadCount > 0)
                       Positioned(
-                        left: 0,
-                        top: 0,
+                        right: isSupervisor ? 45 : 35,
+                        top: -5,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFf6c302),
+                            color: const Color.fromARGB(255, 12, 207, 35),
                             borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 1.5,
+                            ),
                           ),
                           child: Text(
                             unreadCount > 99 ? '99+' : unreadCount.toString(),

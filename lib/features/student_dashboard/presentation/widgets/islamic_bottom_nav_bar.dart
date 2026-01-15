@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 class IslamicBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
+  final int chatUnreadCount; // Total unread chat messages
 
   const IslamicBottomNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.chatUnreadCount = 0,
   });
 
   static const List<Map<String, dynamic>> navItems = [
@@ -122,6 +124,7 @@ class IslamicBottomNavBar extends StatelessWidget {
   Widget _buildNavItem(int index) {
     final isSelected = currentIndex == index;
     final item = navItems[index];
+    final bool showBadge = index == 2 && chatUnreadCount > 0; // Messages tab
 
     return GestureDetector(
       onTap: () => onTap(index),
@@ -134,16 +137,51 @@ class IslamicBottomNavBar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                item['icon'] as IconData,
-                size: isSelected ? 22 : 20,
-                color: isSelected
-                    ? const Color.fromARGB(
-                        255, 224, 173, 5) // Gold/Yellow when selected
-                    : const Color(0xFF8B0628), // Burgundy when not selected
-              ),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    item['icon'] as IconData,
+                    size: isSelected ? 22 : 20,
+                    color: isSelected
+                        ? const Color.fromARGB(
+                            255, 224, 173, 5) // Gold/Yellow when selected
+                        : const Color(0xFF8B0628), // Burgundy when not selected
+                  ),
+                ),
+                // Unread badge for Messages tab
+                if (showBadge)
+                  Positioned(
+                    top: -6,
+                    right: -12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color.fromARGB(255, 12, 207, 35),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Text(
+                        chatUnreadCount > 99
+                            ? '99+'
+                            : chatUnreadCount.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 2),
             AnimatedDefaultTextStyle(

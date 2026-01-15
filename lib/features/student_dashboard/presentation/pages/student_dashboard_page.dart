@@ -9,12 +9,14 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/loading_widget.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../services/livekit_service.dart';
+import '../../../../core/services/chat_event_service.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../auth/domain/models/student.dart';
 import '../../../chat/presentation/pages/chat_list_page.dart';
+import '../../../chat/data/repositories/chat_repository.dart';
 import '../../../meeting/presentation/pages/meeting_page.dart';
 import '../../data/repositories/schedule_repository.dart';
 import '../../data/repositories/report_repository.dart';
@@ -45,6 +47,12 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
   int _currentIndex = 0; // Start with الرئيسة (home/dashboard)
 
   late final List<Widget> _pages;
+
+  // Chat unread count tracking
+  final ChatRepository _chatRepository = ChatRepository();
+  final ChatEventService _chatEventService = ChatEventService();
+  StreamSubscription<ChatEvent>? _chatEventSubscription;
+  int _chatUnreadCount = 0;
 
   // Navigation items configuration for cleaner code
   // Navigation items handled by IslamicBottomNavBar
@@ -80,6 +88,38 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
 
     // Fetch student profile data when dashboard loads
     context.read<AuthBloc>().add(GetStudentProfileEvent());
+
+    // Load initial chat unread count
+    _loadChatUnreadCount();
+
+    // Subscribe to chat events for real-time updates
+    _chatEventSubscription = _chatEventService.onChatUpdate.listen((event) {
+      if (mounted) {
+        _loadChatUnreadCount();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _chatEventSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadChatUnreadCount() async {
+    try {
+      final count = await _chatRepository.getUnreadCount();
+      if (mounted) {
+        setState(() {
+          _chatUnreadCount = count;
+        });
+      }
+    } catch (e) {
+      // Silently fail - chat count is not critical
+      if (kDebugMode) {
+        print('Error loading chat unread count: $e');
+      }
+    }
   }
 
   @override
@@ -320,6 +360,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
       bottomNavigationBar: IslamicBottomNavBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
+        chatUnreadCount: _chatUnreadCount,
       ),
     );
   }
