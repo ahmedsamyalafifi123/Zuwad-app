@@ -108,6 +108,33 @@ class ChatRepository {
     }
   }
 
+  /// Get messages with full metadata (including other_user info)
+  Future<Map<String, dynamic>> getMessagesWithMetadata(
+    String conversationId, {
+    int page = 1,
+    int? afterId,
+  }) async {
+    try {
+      if (kDebugMode) {
+        print(
+            'Fetching messages with metadata for conversation: $conversationId, page: $page, afterId: $afterId');
+      }
+
+      final data = await _api.getChatMessages(
+        conversationId,
+        page: page,
+        afterId: afterId,
+      );
+
+      return data;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching messages: $e');
+      }
+      return {};
+    }
+  }
+
   /// Get messages for a conversation between two users.
   ///
   /// This method first creates/gets the conversation, then fetches messages.

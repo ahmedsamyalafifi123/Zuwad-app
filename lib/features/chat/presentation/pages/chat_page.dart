@@ -65,6 +65,13 @@ class _ChatPageState extends State<ChatPage> {
 
   String? _serverConversationId; // Server-assigned conversation ID
   int _lastMessageId = 0; // For polling new messages
+  String? _detectedRecipientRole; // Role detected from API response
+
+  /// Check if the recipient is a supervisor (from widget or detected from API)
+  bool get _isSupervisor {
+    final role = _detectedRecipientRole ?? widget.recipientRole;
+    return role?.toLowerCase() == 'supervisor';
+  }
 
   @override
   void dispose() {
@@ -104,6 +111,16 @@ class _ChatPageState extends State<ChatPage> {
 
           if (conversationData != null) {
             _serverConversationId = conversationData['id']?.toString();
+            // Extract role from other_user data
+            final otherUser = conversationData['other_user'];
+            if (otherUser != null && otherUser['role'] != null) {
+              setState(() {
+                _detectedRecipientRole = otherUser['role']?.toString();
+              });
+              if (kDebugMode) {
+                print('Detected recipient role: $_detectedRecipientRole');
+              }
+            }
             if (kDebugMode) {
               print('Got conversation ID from server: $_serverConversationId');
             }
@@ -252,10 +269,29 @@ class _ChatPageState extends State<ChatPage> {
         print('Loading messages for conversation $_serverConversationId');
       }
 
-      final serverMessages = await _chatRepository.getMessagesByConversationId(
+      final responseMap = await _chatRepository.getMessagesWithMetadata(
         _serverConversationId!,
         page: _currentPage,
       );
+
+      // Extract role info if available
+      if (responseMap['other_user'] != null) {
+        final role = responseMap['other_user']['role']?.toString();
+        if (role != null && _detectedRecipientRole != role) {
+          if (kDebugMode) {
+            print('Detected recipient role from messages: $role');
+          }
+          setState(() {
+            _detectedRecipientRole = role;
+          });
+        }
+      }
+
+      final messagesList = responseMap['messages'] as List<dynamic>? ?? [];
+      final serverMessages = messagesList
+          .map((json) =>
+              models.ChatMessage.fromJson(json as Map<String, dynamic>))
+          .toList();
 
       if (kDebugMode) {
         print('Received ${serverMessages.length} server messages');
@@ -484,7 +520,10 @@ class _ChatPageState extends State<ChatPage> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  widget.recipientName,
+                                  // Show خدمة العملاء for supervisor
+                                  _isSupervisor
+                                      ? 'خدمة العملاء'
+                                      : widget.recipientName,
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -584,10 +623,12 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildAppBarAvatar() {
-    final role = widget.recipientRole?.toLowerCase() ?? '';
+    // Use detected role or widget role
+    final role =
+        (_detectedRecipientRole ?? widget.recipientRole)?.toLowerCase() ?? '';
 
     // Supervisor: Lottie
-    if (role == 'supervisor') {
+    if (_isSupervisor) {
       return CircleAvatar(
         radius: 20,
         backgroundColor: Colors.transparent, // Transparent for Lottie

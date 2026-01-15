@@ -61,6 +61,17 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
+/// Top-level function to handle background local notification taps
+/// Must be a top-level function (not a class method)
+@pragma('vm:entry-point')
+void _handleBackgroundNotificationResponse(NotificationResponse details) {
+  if (kDebugMode) {
+    print('=== Background Local Notification Tapped ===');
+    print('Payload: ${details.payload}');
+  }
+  // Background taps will be handled when app opens via initial message check
+}
+
 /// Centralized notification service for managing push notifications
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -149,15 +160,27 @@ class NotificationService {
     await _localNotifications.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse details) {
-        if (details.payload != null) {
+        if (kDebugMode) {
+          print('=== Local Notification Tapped ===');
+          print('Payload: ${details.payload}');
+          print('Action ID: ${details.actionId}');
+          print(
+              'Notification Response Type: ${details.notificationResponseType}');
+        }
+        if (details.payload != null && details.payload!.isNotEmpty) {
           try {
             final data = jsonDecode(details.payload!);
+            if (kDebugMode) {
+              print('Parsed payload data: $data');
+            }
             _navigateBasedOnPayload(data);
           } catch (e) {
             if (kDebugMode) print('Error parsing payload: $e');
           }
         }
       },
+      onDidReceiveBackgroundNotificationResponse:
+          _handleBackgroundNotificationResponse,
     );
 
     // Create a high priority channel for Android
@@ -220,7 +243,6 @@ class NotificationService {
     }
 
     RemoteNotification? notification = message.notification;
-    AndroidNotification? android = message.notification?.android;
 
     // Save to local database (skip chat messages - they have their own system)
     final notificationType = message.data['type']?.toString() ?? '';
@@ -263,13 +285,14 @@ class NotificationService {
       });
     }
     // Show local notification if valid notification data exists
-    if (notification != null && android != null) {
+    // Show on both Android and iOS
+    if (notification != null) {
       _localNotifications.show(
         notification.hashCode,
         notification.title,
         notification.body,
         NotificationDetails(
-          android: AndroidNotificationDetails(
+          android: const AndroidNotificationDetails(
             'high_importance_channel',
             'High Importance Notifications',
             channelDescription:
@@ -277,6 +300,11 @@ class NotificationService {
             icon: '@mipmap/launcher_icon',
             importance: Importance.max,
             priority: Priority.high,
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
           ),
         ),
         payload: jsonEncode(message.data),
@@ -311,38 +339,73 @@ class NotificationService {
   /// Navigate based on notification payload
   void _navigateBasedOnPayload(Map<String, dynamic> data) {
     if (kDebugMode) {
-      print('Navigate based on payload: $data');
+      print('=== _navigateBasedOnPayload called ===');
+      print('Full payload data: $data');
+      print('Data type: ${data['type']}');
     }
 
     final type = data['type']?.toString();
 
-    if (type == 'chat_message') {
+    // Handle chat message notifications
+    if (type == 'chat_message' || type == 'chat' || type == 'message') {
+      if (kDebugMode) print('Detected chat notification, calling handler...');
       _handleChatNotification(data);
     }
-    // Other notification types can be added here in the future
-    // e.g., lesson_report, payment_reminder, etc.
+    // If no type but has sender_id and conversation_id, assume it's a chat
+    else if (data.containsKey('sender_id') &&
+        data.containsKey('conversation_id')) {
+      if (kDebugMode) print('No type but has chat fields, treating as chat...');
+      _handleChatNotification(data);
+    } else {
+      if (kDebugMode) print('Unknown notification type: $type, ignoring...');
+    }
   }
 
   /// Handle chat notification - navigate to conversation
   void _handleChatNotification(Map<String, dynamic> data) {
+    if (kDebugMode) {
+      print('=== _handleChatNotification called ===');
+      print('Data: $data');
+    }
+
     final conversationId = data['conversation_id']?.toString();
     final senderId = data['sender_id']?.toString();
     final senderName = data['sender_name']?.toString() ?? '';
+    // Also check alternative field names
+    final altSenderId = data['senderId']?.toString();
+    final altConversationId = data['conversationId']?.toString();
 
-    if (conversationId == null || senderId == null) {
+    final finalSenderId = senderId ?? altSenderId;
+    final finalConversationId = conversationId ?? altConversationId;
+
+    if (kDebugMode) {
+      print(
+          'ConversationId: $finalConversationId, SenderId: $finalSenderId, SenderName: $senderName');
+    }
+
+    if (finalConversationId == null || finalSenderId == null) {
       if (kDebugMode) {
-        print('Chat notification missing required data: $data');
+        print('ERROR: Chat notification missing required data!');
+        print(
+            'conversation_id: $finalConversationId, sender_id: $finalSenderId');
       }
       return;
     }
 
-    // Import navigator key from main.dart
-    // We need to use a delayed call to ensure the app is fully initialized
-    Future.delayed(const Duration(milliseconds: 100), () {
+    // Get sender role for proper display (supervisor should show as خدمة العملاء)
+    final senderRole = data['sender_role']?.toString() ?? '';
+
+    // Use a longer delay to ensure navigator is fully initialized
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (kDebugMode) {
+        print('Executing navigation to chat...');
+      }
       _navigateToChat(
-        conversationId: conversationId,
-        recipientId: senderId,
+        conversationId: finalConversationId,
+        recipientId: finalSenderId,
         recipientName: senderName,
+        senderRole: senderRole,
+        studentIdFromPayload: data['student_id']?.toString(),
       );
     });
   }
@@ -352,8 +415,15 @@ class NotificationService {
     required String conversationId,
     required String recipientId,
     required String recipientName,
+    String? senderRole,
+    String? studentIdFromPayload,
   }) async {
     try {
+      if (kDebugMode) {
+        print('=== _navigateToChat called ===');
+        print('StudentId from payload: $studentIdFromPayload');
+      }
+
       // Import navigatorKey dynamically to avoid circular imports
       final navigatorKey = await _getNavigatorKey();
       if (navigatorKey?.currentState == null) {
@@ -364,11 +434,36 @@ class NotificationService {
       }
 
       // Get current user info from SharedPreferences
+      // Try multiple possible keys
       final prefs = await SharedPreferences.getInstance();
-      final studentId =
-          prefs.getString('user_id') ?? prefs.getString('student_id') ?? '';
-      final studentName =
-          prefs.getString('user_name') ?? prefs.getString('student_name') ?? '';
+
+      if (kDebugMode) {
+        print('All SharedPreferences keys: ${prefs.getKeys()}');
+      }
+
+      String studentId = studentIdFromPayload ?? '';
+      String studentName = '';
+
+      // Try various possible key names
+      if (studentId.isEmpty) {
+        studentId = prefs.getString('user_id') ??
+            prefs.getString('student_id') ??
+            prefs.getString('userId') ??
+            prefs.getString('studentId') ??
+            prefs.getString('logged_in_user_id') ??
+            '';
+      }
+
+      studentName = prefs.getString('user_name') ??
+          prefs.getString('student_name') ??
+          prefs.getString('userName') ??
+          prefs.getString('studentName') ??
+          prefs.getString('logged_in_user_name') ??
+          '';
+
+      if (kDebugMode) {
+        print('Resolved studentId: $studentId, studentName: $studentName');
+      }
 
       if (studentId.isEmpty) {
         if (kDebugMode) {
@@ -384,6 +479,7 @@ class NotificationService {
             conversationId: conversationId,
             recipientId: recipientId,
             recipientName: recipientName,
+            recipientRole: senderRole,
             studentId: studentId,
             studentName: studentName,
           ),
@@ -412,15 +508,23 @@ class NotificationService {
     required String conversationId,
     required String recipientId,
     required String recipientName,
+    String? recipientRole,
     required String studentId,
     required String studentName,
   }) {
+    // Override name for supervisor
+    final bool isSupervisor = recipientRole?.toLowerCase() == 'supervisor';
+    final displayName = isSupervisor
+        ? 'خدمة العملاء'
+        : (recipientName.isNotEmpty ? recipientName : 'مستخدم');
+
     return ChatPage(
       conversationId: conversationId,
       recipientId: recipientId,
-      recipientName: recipientName.isNotEmpty ? recipientName : 'مستخدم',
+      recipientName: displayName,
       studentId: studentId,
       studentName: studentName,
+      recipientRole: isSupervisor ? 'supervisor' : recipientRole,
     );
   }
 
