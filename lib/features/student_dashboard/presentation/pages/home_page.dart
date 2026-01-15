@@ -299,26 +299,55 @@ class _HomePageState extends State<HomePage> {
       // Calculate session numbers
       int lastSessionNumber = 0;
       if (reports.isNotEmpty) {
-        final validReports = reports.where((r) => r.sessionNumber > 0).toList();
-        if (validReports.isNotEmpty) {
-          // Sort by date and time descending to get the LATEST report
-          validReports.sort((a, b) {
-            final dateCompare = b.date.compareTo(a.date);
-            if (dateCompare != 0) return dateCompare;
+        // Sort all reports by date and time descending to get the LATEST report first
+        final sortedReports = List<StudentReport>.from(reports);
+        sortedReports.sort((a, b) {
+          final dateCompare = b.date.compareTo(a.date);
+          if (dateCompare != 0) return dateCompare;
+          return b.time.compareTo(a.time);
+        });
 
-            // If dates are equal, try to compare times
-            // Simple string comparison might suffice for standard formats,
-            // but parsing is safer if formats vary.
-            // Given the context, we'll do a basic string compare for now
-            // as normalized times are usually comparable.
-            return b.time.compareTo(a.time);
-          });
+        // Valid attendance values for determining session number
+        const validAttendanceValues = [
+          'حضور',
+          'غياب',
+          'تأجيل المعلم',
+          'تأجيل ولي أمر',
+        ];
 
-          lastSessionNumber = validReports.first.sessionNumber;
+        // Helper function to check if a report is valid for session calculation
+        bool isValidReport(StudentReport r) {
+          return !r.isPostponed && validAttendanceValues.contains(r.attendance);
         }
+
+        // Find the latest valid report (NOT postponed AND has valid attendance)
+        // and use its sessionNumber (even if it's 0, e.g., for attendance "حضور" with sessionNumber 0)
+        final latestValidReport = sortedReports.firstWhere(
+          (r) => isValidReport(r),
+          orElse: () => sortedReports.first,
+        );
+
+        // Use the sessionNumber from the latest valid report
+        // This correctly handles sessionNumber == 0 when attendance is "حضور"
+        if (isValidReport(latestValidReport)) {
+          lastSessionNumber = latestValidReport.sessionNumber;
+        } else {
+          // No valid reports found, fall back to finding any with sessionNumber > 0
+          final validReports =
+              reports.where((r) => r.sessionNumber > 0).toList();
+          if (validReports.isNotEmpty) {
+            validReports.sort((a, b) {
+              final dateCompare = b.date.compareTo(a.date);
+              if (dateCompare != 0) return dateCompare;
+              return b.time.compareTo(a.time);
+            });
+            lastSessionNumber = validReports.first.sessionNumber;
+          }
+        }
+
         if (kDebugMode) {
           print(
-              'DEBUG: Max Session Number (from latest report): $lastSessionNumber');
+              'DEBUG: Latest non-postponed report sessionNumber: $lastSessionNumber');
         }
       } else {
         if (kDebugMode) {
@@ -1217,7 +1246,11 @@ class _HomePageState extends State<HomePage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'الحصة ${report.sessionNumber}',
+                                report.isPostponed
+                                    ? 'حصة مجدولة'
+                                    : report.attendance == 'اجازة معلم'
+                                        ? 'اجازة معلم'
+                                        : 'الحصة ${report.sessionNumber}',
                                 style: const TextStyle(
                                   fontFamily: 'Qatar',
                                   fontSize: 14,

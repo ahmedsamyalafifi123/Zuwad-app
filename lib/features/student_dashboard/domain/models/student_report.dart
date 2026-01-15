@@ -18,6 +18,7 @@ class StudentReport {
   final String nextMourajah;
   final String notes;
   final String zoomImageUrl;
+  final bool isPostponed;
 
   StudentReport({
     required this.studentId,
@@ -37,6 +38,7 @@ class StudentReport {
     required this.nextMourajah,
     required this.notes,
     required this.zoomImageUrl,
+    this.isPostponed = false,
   });
 
   factory StudentReport.fromJson(Map<String, dynamic> json) {
@@ -110,6 +112,12 @@ class StudentReport {
           '',
       notes: json['notes']?.toString() ?? '',
       zoomImageUrl: imageUrl,
+      isPostponed: json['isPostponed'] == true ||
+          json['is_postponed'] == true ||
+          json['isPostponed'] == 1 ||
+          json['is_postponed'] == 1 ||
+          json['isPostponed'] == '1' ||
+          json['is_postponed'] == '1',
     );
   }
 
@@ -132,6 +140,7 @@ class StudentReport {
       'nextMourajah': nextMourajah,
       'notes': notes,
       'zoomImageUrl': zoomImageUrl,
+      'isPostponed': isPostponed,
     };
   }
 }
