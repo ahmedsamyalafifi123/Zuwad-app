@@ -127,6 +127,16 @@ class AuthRepository {
             'AuthRepository.getStudentProfile: Created student: ${student.name}');
       }
 
+      // Cache supervisor ID for notifications
+      if (student.supervisorId != null &&
+          student.supervisorId.toString().isNotEmpty) {
+        if (kDebugMode) {
+          print('Caching supervisor ID: ${student.supervisorId}');
+        }
+        await _secureStorage
+            .addKnownSupervisor(student.supervisorId.toString());
+      }
+
       return student;
     } catch (e) {
       if (kDebugMode) {

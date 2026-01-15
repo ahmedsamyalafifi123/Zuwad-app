@@ -69,8 +69,9 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Check if the recipient is a supervisor (from widget or detected from API)
   bool get _isSupervisor {
-    final role = _detectedRecipientRole ?? widget.recipientRole;
-    return role?.toLowerCase() == 'supervisor';
+    final role =
+        (_detectedRecipientRole ?? widget.recipientRole)?.toLowerCase();
+    return role == 'supervisor' || role == 'mini-visor';
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import '../../../../core/services/secure_storage_service.dart';
 import '../../../../core/api/wordpress_api.dart';
 import '../models/chat_message.dart';
 import '../models/contact.dart';
@@ -12,6 +13,7 @@ import '../models/conversation.dart';
 class ChatRepository {
   final WordPressApi _api = WordPressApi();
   final Connectivity _connectivity = Connectivity();
+  final SecureStorageService _secureStorage = SecureStorageService();
 
   /// Create a pending message for optimistic UI updates.
   ChatMessage _createPendingMessage({
@@ -38,9 +40,30 @@ class ChatRepository {
         print('Received ${data.length} contacts from server');
       }
 
-      return data
+      final contacts = data
           .map((json) => Contact.fromJson(json as Map<String, dynamic>))
           .toList();
+
+      // Cache known supervisors and mini-visors
+      final supervisorIds = contacts
+          .where((c) =>
+              c.role.toLowerCase() == 'supervisor' ||
+              c.role.toLowerCase() == 'mini-visor')
+          .map((c) => c.id.toString())
+          .toList();
+
+      if (supervisorIds.isNotEmpty) {
+        if (kDebugMode) {
+          print(
+              'Caching ${supervisorIds.length} supervisor/mini-visor IDs from contacts');
+        }
+        // Add individually to merge with existing
+        for (final id in supervisorIds) {
+          await _secureStorage.addKnownSupervisor(id);
+        }
+      }
+
+      return contacts;
     } catch (e) {
       if (kDebugMode) {
         print('Error fetching contacts: $e');

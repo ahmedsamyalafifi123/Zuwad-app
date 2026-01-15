@@ -31,6 +31,7 @@ class SecureStorageService {
   static const String _userRoleKey = 'user_role';
   static const String _userNameKey = 'user_name';
   static const String _userMIdKey = 'user_m_id';
+  static const String _knownSupervisorsKey = 'known_supervisors';
 
   // ============================================
   // Access Token Methods
@@ -217,5 +218,37 @@ class SecureStorageService {
       deleteRefreshToken(),
       _storage.delete(key: _tokenExpiryKey),
     ]);
+  }
+
+  // ============================================
+  // Known Supervisors Methods (For Notifications)
+  // ============================================
+
+  /// Save list of known supervisor IDs
+  Future<void> saveKnownSupervisors(List<String> ids) async {
+    // Filter duplicates and empty strings
+    final uniqueIds = ids.where((id) => id.isNotEmpty).toSet().toList();
+    await _storage.write(
+      key: _knownSupervisorsKey,
+      value: uniqueIds.join(','),
+    );
+  }
+
+  /// Get list of known supervisor IDs
+  Future<List<String>> getKnownSupervisors() async {
+    final value = await _storage.read(key: _knownSupervisorsKey);
+    if (value == null || value.isEmpty) return [];
+    return value.split(',');
+  }
+
+  /// Add a supervisor ID to the known list
+  Future<void> addKnownSupervisor(String id) async {
+    if (id.isEmpty) return;
+
+    final currentIds = await getKnownSupervisors();
+    if (!currentIds.contains(id)) {
+      currentIds.add(id);
+      await saveKnownSupervisors(currentIds);
+    }
   }
 }

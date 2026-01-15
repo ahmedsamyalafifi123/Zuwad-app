@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../features/notifications/domain/models/notification.dart';
 import 'database_service.dart';
 import 'chat_event_service.dart';
+import 'secure_storage_service.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -472,6 +473,26 @@ class NotificationService {
         return;
       }
 
+      // Check if this recipient is a known supervisor/mini-visor
+      String? roleToPass = senderRole;
+      try {
+        final secureStorage = SecureStorageService();
+        final knownSupervisors = await secureStorage.getKnownSupervisors();
+        if (kDebugMode) {
+          print(
+              'Checking recipient $recipientId against known supervisors: $knownSupervisors');
+        }
+
+        if (knownSupervisors.contains(recipientId)) {
+          roleToPass = 'supervisor';
+          if (kDebugMode) {
+            print('Recipient recognized as supervisor from cache!');
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) print('Error checking known supervisors: $e');
+      }
+
       // Dynamic import of ChatPage to avoid circular dependencies
       navigatorKey!.currentState!.push(
         MaterialPageRoute(
@@ -479,7 +500,7 @@ class NotificationService {
             conversationId: conversationId,
             recipientId: recipientId,
             recipientName: recipientName,
-            recipientRole: senderRole,
+            recipientRole: roleToPass,
             studentId: studentId,
             studentName: studentName,
           ),
