@@ -80,6 +80,7 @@ dependencies:
   timeago: ^3.7.1
   flutter_local_notifications: ^19.5.0
   firebase_analytics: ^12.1.0
+  alarm: ^5.1.5
 
 dev_dependencies:
   flutter_test:
@@ -128,6 +129,7 @@ flutter:
     - assets/
     - assets/images/
     - assets/animations/
+    - assets/audio/
     - assets/images/chat_bg.png
     - assets/images/book.webp
     - assets/images/lottie.json

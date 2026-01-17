@@ -23,6 +23,7 @@ import '../../data/repositories/report_repository.dart';
 import '../../domain/models/schedule.dart';
 import '../../domain/models/student_report.dart';
 import 'postpone_page.dart';
+import 'alarm_settings_page.dart';
 import 'report_details_page.dart';
 
 import 'home_page.dart';
@@ -1573,6 +1574,55 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
   }
 
+  Future<void> _openAlarmSettings() async {
+    try {
+      if (!mounted) return;
+
+      // Show as modal bottom sheet to keep nav bar visible
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) => DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (context, scrollController) => Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color.fromARGB(255, 255, 255, 255), // Warm cream white
+                  Color.fromARGB(255, 230, 230, 230), // Subtle gray tint
+                ],
+              ),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: AlarmSettingsPage(
+              scrollController: scrollController,
+              onSuccess: () {
+                // Optionally refresh or show success feedback
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('تم حفظ إعدادات المنبه')),
+                  );
+                }
+              },
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error opening alarm settings: $e');
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('خطأ أثناء فتح إعدادات المن به')));
+    }
+  }
+
   Future<void> _loadFamilyMembers() async {
     try {
       if (kDebugMode) {
@@ -2153,6 +2203,13 @@ class _DashboardContentState extends State<_DashboardContent> {
                               onTap: () {
                                 // TODO: Navigate to upcoming lessons
                               },
+                            ),
+                            const SizedBox(width: 12),
+                            // Second button - المنبه
+                            _buildQuickActionButton(
+                              imagePath: 'assets/images/Bell.json',
+                              label: 'المنبه',
+                              onTap: _openAlarmSettings,
                             ),
                           ],
                         ),

@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/alarm_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/timezone_helper.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
@@ -40,6 +41,9 @@ void main() async {
 
   // Initialize notification service
   await NotificationService().initialize();
+
+  // Initialize alarm service
+  await AlarmService.initialize();
 
   // Initialize timezone helper for schedule time conversions
   await TimezoneHelper.initialize();
