@@ -126,10 +126,12 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
   @override
   Widget build(BuildContext context) {
     // Set status bar to white with dark icons
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.white,
-      statusBarIconBrightness: Brightness.dark,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.white,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+    );
 
     return Scaffold(
       appBar: PreferredSize(
@@ -141,9 +143,17 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
               end: Alignment.bottomCenter,
               colors: [
                 Color.fromARGB(
-                    255, 255, 255, 255), // Warm cream white (Matching Nav Bar)
+                  255,
+                  255,
+                  255,
+                  255,
+                ), // Warm cream white (Matching Nav Bar)
                 Color.fromARGB(
-                    255, 234, 234, 234), // Subtle gold tint (Matching Nav Bar)
+                  255,
+                  234,
+                  234,
+                  234,
+                ), // Subtle gold tint (Matching Nav Bar)
               ],
             ),
             boxShadow: [
@@ -238,11 +248,12 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                                         ElevatedButton(
                                           onPressed: () {
                                             Navigator.pop(dialogContext);
-                                            context
-                                                .read<AuthBloc>()
-                                                .add(LogoutEvent());
-                                            Navigator.of(context)
-                                                .pushAndRemoveUntil(
+                                            context.read<AuthBloc>().add(
+                                              LogoutEvent(),
+                                            );
+                                            Navigator.of(
+                                              context,
+                                            ).pushAndRemoveUntil(
                                               MaterialPageRoute(
                                                 builder: (_) =>
                                                     const LoginPage(),
@@ -251,8 +262,9 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                                             );
                                           },
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                const Color(0xFF820c22),
+                                            backgroundColor: const Color(
+                                              0xFF820c22,
+                                            ),
                                             shape: RoundedRectangleBorder(
                                               borderRadius:
                                                   BorderRadius.circular(8),
@@ -320,9 +332,9 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                                           fit: BoxFit.cover,
                                           errorBuilder: (_, __, ___) =>
                                               Image.asset(
-                                            'assets/images/male_avatar.webp',
-                                            fit: BoxFit.cover,
-                                          ),
+                                                'assets/images/male_avatar.webp',
+                                                fit: BoxFit.cover,
+                                              ),
                                         )
                                       : Image.asset(
                                           'assets/images/male_avatar.webp',
@@ -344,8 +356,9 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                       // Page Icon
                       IslamicBottomNavBar.navItems[_currentIndex]['icon']
                           as IconData,
-                      color:
-                          Colors.black.withOpacity(0.30), // Black 30% opacity
+                      color: Colors.black.withOpacity(
+                        0.30,
+                      ), // Black 30% opacity
                       size: 28,
                     ),
                   ),
@@ -480,7 +493,7 @@ class _DashboardContentState extends State<_DashboardContent> {
   StudentSchedule? _nextSchedule;
   Schedule? _nextLesson;
   DateTime?
-      _nextLessonDateTime; // Store the actual calculated date for countdown
+  _nextLessonDateTime; // Store the actual calculated date for countdown
   String _teacherName = '';
   String _teacherGender = 'ذكر';
   String _lessonName = '';
@@ -562,8 +575,9 @@ class _DashboardContentState extends State<_DashboardContent> {
               if (_nextLesson != null) {
                 _updateCountdown();
                 _countdownTimer?.cancel();
-                _countdownTimer =
-                    Timer.periodic(const Duration(seconds: 1), (_) {
+                _countdownTimer = Timer.periodic(const Duration(seconds: 1), (
+                  _,
+                ) {
                   _updateCountdown();
                 });
               }
@@ -634,7 +648,8 @@ class _DashboardContentState extends State<_DashboardContent> {
       // Debug each schedule
       if (kDebugMode) {
         print(
-            'Checking schedule: day=${schedule.day}, hour=${schedule.hour}, isPostponed=${schedule.isPostponed}, postponedDate=${schedule.postponedDate}');
+          'Checking schedule: day=${schedule.day}, hour=${schedule.hour}, isPostponed=${schedule.isPostponed}, postponedDate=${schedule.postponedDate}',
+        );
       }
 
       if (schedule.isPostponed && schedule.postponedDate != null) {
@@ -642,14 +657,16 @@ class _DashboardContentState extends State<_DashboardContent> {
         try {
           if (kDebugMode) {
             print(
-                'Processing postponed schedule: ${schedule.day} at ${schedule.hour}, postponed_date: ${schedule.postponedDate}');
+              'Processing postponed schedule: ${schedule.day} at ${schedule.hour}, postponed_date: ${schedule.postponedDate}',
+            );
           }
           final postponedDate = DateTime.parse(schedule.postponedDate!);
           lessonDateStr =
               '${postponedDate.year}-${postponedDate.month.toString().padLeft(2, '0')}-${postponedDate.day.toString().padLeft(2, '0')}';
           if (kDebugMode) {
             print(
-                'Parsed postponed date: $postponedDate, dateStr: $lessonDateStr');
+              'Parsed postponed date: $postponedDate, dateStr: $lessonDateStr',
+            );
           }
           final lessonTime = _parseTimeString(schedule.hour);
           if (kDebugMode) {
@@ -667,7 +684,8 @@ class _DashboardContentState extends State<_DashboardContent> {
               print('Created postponed lesson DateTime: $lessonDateTime');
               print('Current time: $now');
               print(
-                  'Is postponed lesson in future? ${lessonDateTime.isAfter(now)}');
+                'Is postponed lesson in future? ${lessonDateTime.isAfter(now)}',
+              );
             }
           } else {
             if (kDebugMode) {
@@ -687,7 +705,8 @@ class _DashboardContentState extends State<_DashboardContent> {
         if (reportDateTimes.contains(lessonKey)) {
           if (kDebugMode) {
             print(
-                'Skipping postponed lesson at $lessonKey - report already exists');
+              'Skipping postponed lesson at $lessonKey - report already exists',
+            );
           }
           continue;
         }
@@ -758,7 +777,8 @@ class _DashboardContentState extends State<_DashboardContent> {
           if (reportDateTimes.contains(candidateKey)) {
             if (kDebugMode) {
               print(
-                  'Skipping regular lesson at $candidateKey - report already exists, checking next week...');
+                'Skipping regular lesson at $candidateKey - report already exists, checking next week...',
+              );
             }
             continue; // Check next week's occurrence
           }
@@ -776,7 +796,8 @@ class _DashboardContentState extends State<_DashboardContent> {
         if (!foundSlot) {
           if (kDebugMode) {
             print(
-                'No available slot found for ${schedule.day} at ${schedule.hour} in next 8 weeks');
+              'No available slot found for ${schedule.day} at ${schedule.hour} in next 8 weeks',
+            );
           }
           continue; // Skip this schedule if no slot found
         }
@@ -793,14 +814,16 @@ class _DashboardContentState extends State<_DashboardContent> {
         }
 
         // Calculate when the lesson window ends (10 min after lesson ends)
-        final lessonWindowEnd =
-            lessonDateTime.add(Duration(minutes: scheduleLessonDuration + 10));
+        final lessonWindowEnd = lessonDateTime.add(
+          Duration(minutes: scheduleLessonDuration + 10),
+        );
 
         // Include if lesson is in the future OR if we're within the lesson window
         if (lessonDateTime.isAfter(now) || now.isBefore(lessonWindowEnd)) {
           if (kDebugMode) {
             print(
-                'Adding upcoming/in-progress lesson: ${schedule.day} at ${schedule.hour}, dateTime: $lessonDateTime, isPostponed: ${schedule.isPostponed}');
+              'Adding upcoming/in-progress lesson: ${schedule.day} at ${schedule.hour}, dateTime: $lessonDateTime, isPostponed: ${schedule.isPostponed}',
+            );
           }
           upcomingLessons.add({
             'schedule': schedule,
@@ -809,7 +832,8 @@ class _DashboardContentState extends State<_DashboardContent> {
         } else {
           if (kDebugMode) {
             print(
-                'Skipping past lesson: ${schedule.day} at ${schedule.hour}, dateTime: $lessonDateTime (window ended at: $lessonWindowEnd)');
+              'Skipping past lesson: ${schedule.day} at ${schedule.hour}, dateTime: $lessonDateTime (window ended at: $lessonWindowEnd)',
+            );
           }
         }
       }
@@ -819,10 +843,13 @@ class _DashboardContentState extends State<_DashboardContent> {
     if (upcomingLessons.isNotEmpty) {
       if (kDebugMode) {
         print(
-            'Found ${upcomingLessons.length} upcoming lessons before sorting');
+          'Found ${upcomingLessons.length} upcoming lessons before sorting',
+        );
       }
-      upcomingLessons.sort((a, b) =>
-          (a['dateTime'] as DateTime).compareTo(b['dateTime'] as DateTime));
+      upcomingLessons.sort(
+        (a, b) =>
+            (a['dateTime'] as DateTime).compareTo(b['dateTime'] as DateTime),
+      );
 
       if (kDebugMode) {
         print('Sorted upcoming lessons:');
@@ -831,7 +858,8 @@ class _DashboardContentState extends State<_DashboardContent> {
           final schedule = lesson['schedule'] as Schedule;
           final dateTime = lesson['dateTime'] as DateTime;
           print(
-              '  $i: ${schedule.day} at ${schedule.hour}, dateTime: $dateTime, isPostponed: ${schedule.isPostponed}');
+            '  $i: ${schedule.day} at ${schedule.hour}, dateTime: $dateTime, isPostponed: ${schedule.isPostponed}',
+          );
         }
       }
 
@@ -842,7 +870,8 @@ class _DashboardContentState extends State<_DashboardContent> {
       _nextLessonDateTime = TimezoneHelper.egyptToLocal(egyptDateTime);
       if (kDebugMode) {
         print(
-            'Selected next lesson: ${_nextLesson!.day} at ${_nextLesson!.hour}');
+          'Selected next lesson: ${_nextLesson!.day} at ${_nextLesson!.hour}',
+        );
         print('  Egypt time: $egyptDateTime');
         print('  Local time: $_nextLessonDateTime');
         print('  isPostponed: ${_nextLesson!.isPostponed}');
@@ -876,8 +905,9 @@ class _DashboardContentState extends State<_DashboardContent> {
         }
 
         // Calculate lesson end time + 10 minutes
-        final lessonEndPlusTenMin =
-            _nextLessonDateTime!.add(Duration(minutes: lessonDuration + 10));
+        final lessonEndPlusTenMin = _nextLessonDateTime!.add(
+          Duration(minutes: lessonDuration + 10),
+        );
 
         if (now.isBefore(lessonEndPlusTenMin)) {
           // Within the lesson period (lesson start to 10 min after end) - show 0:0:0
@@ -1102,8 +1132,12 @@ class _DashboardContentState extends State<_DashboardContent> {
                       children: [
                         CircleAvatar(
                           radius: avatarRadius,
-                          backgroundColor:
-                              const Color.fromARGB(255, 230, 230, 230),
+                          backgroundColor: const Color.fromARGB(
+                            255,
+                            230,
+                            230,
+                            230,
+                          ),
                           backgroundImage: AssetImage(
                             GenderHelper.getTeacherImage(_teacherGender),
                           ),
@@ -1146,7 +1180,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                         Text(
                           _nextLessonDateTime != null
                               ? TimezoneUtils.getArabicDayName(
-                                  _nextLessonDateTime!)
+                                  _nextLessonDateTime!,
+                                )
                               : _nextLesson!.day,
                           style: TextStyle(
                             fontFamily: 'Qatar',
@@ -1182,8 +1217,10 @@ class _DashboardContentState extends State<_DashboardContent> {
                     children: [
                       // Background Text Layer
                       Transform.translate(
-                        offset:
-                            const Offset(0, -2), // Slight vertical adjustment
+                        offset: const Offset(
+                          0,
+                          -2,
+                        ), // Slight vertical adjustment
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1204,8 +1241,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                               overflow: TextOverflow.visible,
                             ),
                             SizedBox(
-                                height:
-                                    8), // Space between lines to match boxes
+                              height: 8,
+                            ), // Space between lines to match boxes
                             Text(
                               'المتبقــــــــــــــــــــــــــــــــــــــــــــــــــــــــــي', // Extended line
                               style: TextStyle(
@@ -1233,20 +1270,28 @@ class _DashboardContentState extends State<_DashboardContent> {
                           // Days (shown if > 0)
                           if (_timeUntilNextLesson!.inDays > 0) ...[
                             _buildCountdownItem(
-                                _timeUntilNextLesson!.inDays, 'يوم'),
+                              _timeUntilNextLesson!.inDays,
+                              'يوم',
+                            ),
                             const SizedBox(width: 8),
                           ],
                           // Hours
                           _buildCountdownItem(
-                              _timeUntilNextLesson!.inHours % 24, 'ساعة'),
+                            _timeUntilNextLesson!.inHours % 24,
+                            'ساعة',
+                          ),
                           const SizedBox(width: 8),
                           // Minutes
                           _buildCountdownItem(
-                              _timeUntilNextLesson!.inMinutes % 60, 'دقيقة'),
+                            _timeUntilNextLesson!.inMinutes % 60,
+                            'دقيقة',
+                          ),
                           const SizedBox(width: 8),
                           // Seconds
                           _buildCountdownItem(
-                              _timeUntilNextLesson!.inSeconds % 60, 'ثانية'),
+                            _timeUntilNextLesson!.inSeconds % 60,
+                            'ثانية',
+                          ),
                         ],
                       ),
                     ],
@@ -1280,14 +1325,16 @@ class _DashboardContentState extends State<_DashboardContent> {
                       : const LinearGradient(
                           colors: [
                             Color.fromARGB(0, 255, 255, 255), // Light yellow
-                            Color.fromARGB(0, 240, 191, 12) // Lighter yellow
+                            Color.fromARGB(0, 240, 191, 12), // Lighter yellow
                           ],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                         ),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                      color: Color.fromARGB(157, 255, 255, 255), width: 1.5),
+                    color: Color.fromARGB(157, 255, 255, 255),
+                    width: 1.5,
+                  ),
                 ),
                 child: ElevatedButton(
                   onPressed: canJoin ? _joinLesson : null,
@@ -1297,7 +1344,9 @@ class _DashboardContentState extends State<_DashboardContent> {
                     foregroundColor: Colors.black,
                     disabledForegroundColor: Colors.black,
                     padding: EdgeInsets.symmetric(
-                        vertical: buttonPaddingV, horizontal: buttonPaddingH),
+                      vertical: buttonPaddingV,
+                      horizontal: buttonPaddingH,
+                    ),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: RoundedRectangleBorder(
@@ -1330,7 +1379,9 @@ class _DashboardContentState extends State<_DashboardContent> {
                     width: 1.5,
                   ),
                   padding: EdgeInsets.symmetric(
-                      vertical: buttonPaddingV, horizontal: buttonPaddingH),
+                    vertical: buttonPaddingV,
+                    horizontal: buttonPaddingH,
+                  ),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   shape: RoundedRectangleBorder(
@@ -1356,7 +1407,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                     gradient: const LinearGradient(
                       colors: [
                         Color.fromARGB(255, 253, 247, 89), // Light yellow
-                        Color.fromARGB(255, 240, 191, 12) // Lighter yellow
+                        Color.fromARGB(255, 240, 191, 12), // Lighter yellow
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -1381,7 +1432,9 @@ class _DashboardContentState extends State<_DashboardContent> {
                       foregroundColor:
                           Colors.black, // darker text for yellow bg
                       padding: EdgeInsets.symmetric(
-                          vertical: buttonPaddingV, horizontal: buttonPaddingH),
+                        vertical: buttonPaddingV,
+                        horizontal: buttonPaddingH,
+                      ),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       shape: RoundedRectangleBorder(
@@ -1404,11 +1457,7 @@ class _DashboardContentState extends State<_DashboardContent> {
           ),
         ),
         const SizedBox(height: 18),
-        const Divider(
-          color: Colors.white,
-          height: 1,
-          thickness: 1,
-        ),
+        const Divider(color: Colors.white, height: 1, thickness: 1),
       ],
     );
   }
@@ -1417,7 +1466,8 @@ class _DashboardContentState extends State<_DashboardContent> {
     return Container(
       width: 40, // Fixed width for consistency
       padding: const EdgeInsets.symmetric(
-          vertical: 10), // horizontal padding removed as width is fixed
+        vertical: 10,
+      ), // horizontal padding removed as width is fixed
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
@@ -1464,16 +1514,18 @@ class _DashboardContentState extends State<_DashboardContent> {
     try {
       final authState = context.read<AuthBloc>().state;
       if (authState is! AuthAuthenticated || authState.student == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('خطأ في بيانات الطالب')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('خطأ في بيانات الطالب')));
         return;
       }
 
       final student = authState.student!;
       final teacherId = student.teacherId ?? 0;
       if (teacherId == 0) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('لا يوجد معلم مسجل')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('لا يوجد معلم مسجل')));
         return;
       }
 
@@ -1570,7 +1622,8 @@ class _DashboardContentState extends State<_DashboardContent> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('خطأ أثناء جلب الأوقات الحرة')));
+        const SnackBar(content: Text('خطأ أثناء جلب الأوقات الحرة')),
+      );
     }
   }
 
@@ -1619,7 +1672,8 @@ class _DashboardContentState extends State<_DashboardContent> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('خطأ أثناء فتح إعدادات المن به')));
+        const SnackBar(content: Text('خطأ أثناء فتح إعدادات المن به')),
+      );
     }
   }
 
@@ -1725,9 +1779,9 @@ class _DashboardContentState extends State<_DashboardContent> {
         if (Navigator.canPop(context)) {
           Navigator.of(context, rootNavigator: true).pop();
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('فشل تغيير الحساب: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('فشل تغيير الحساب: $e')));
       }
     }
   }
@@ -1750,11 +1804,14 @@ class _DashboardContentState extends State<_DashboardContent> {
     if (!mounted) return;
 
     final authState = context.read<AuthBloc>().state;
-    final currentStudentId =
-        authState is AuthAuthenticated ? authState.student?.id : null;
+    final currentStudentId = authState is AuthAuthenticated
+        ? authState.student?.id
+        : null;
 
-    final RenderBox button = (_arrowKey.currentContext?.findRenderObject() ??
-        context.findRenderObject()) as RenderBox;
+    final RenderBox button =
+        (_arrowKey.currentContext?.findRenderObject() ??
+                context.findRenderObject())
+            as RenderBox;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
 
@@ -1781,7 +1838,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                 style: TextStyle(fontFamily: 'Qatar', fontSize: 14),
                 textAlign: TextAlign.right,
               ),
-            )
+            ),
           ]
         : _familyMembers.map((student) {
             final isSelected = student.id == currentStudentId;
@@ -1797,14 +1854,18 @@ class _DashboardContentState extends State<_DashboardContent> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: const Color(0xFFD4AF37), width: 1),
+                          color: const Color(0xFFD4AF37),
+                          width: 1,
+                        ),
                         image: DecorationImage(
-                          image: student.profileImageUrl != null &&
+                          image:
+                              student.profileImageUrl != null &&
                                   student.profileImageUrl!.isNotEmpty
                               ? NetworkImage(student.profileImageUrl!)
                               : const AssetImage(
-                                      'assets/images/male_avatar.webp')
-                                  as ImageProvider,
+                                      'assets/images/male_avatar.webp',
+                                    )
+                                    as ImageProvider,
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -1839,8 +1900,11 @@ class _DashboardContentState extends State<_DashboardContent> {
                       ),
                     ),
                     if (isSelected)
-                      const Icon(Icons.check,
-                          color: AppTheme.primaryColor, size: 18),
+                      const Icon(
+                        Icons.check,
+                        color: AppTheme.primaryColor,
+                        size: 18,
+                      ),
                   ],
                 ),
               ),
@@ -2044,8 +2108,12 @@ class _DashboardContentState extends State<_DashboardContent> {
                 backgroundColor: Colors.white,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding:
-                      EdgeInsets.fromLTRB(0.0, topPadding, 0.0, bottomPadding),
+                  padding: EdgeInsets.fromLTRB(
+                    0.0,
+                    topPadding,
+                    0.0,
+                    bottomPadding,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2053,16 +2121,28 @@ class _DashboardContentState extends State<_DashboardContent> {
                       Container(
                         margin: const EdgeInsets.only(bottom: 20.0, left: 24.0),
                         padding: const EdgeInsets.only(
-                            right: 16.0, top: 12.0, bottom: 12.0, left: 20.0),
+                          right: 16.0,
+                          top: 12.0,
+                          bottom: 12.0,
+                          left: 20.0,
+                        ),
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
                               Color.fromARGB(
-                                  255, 255, 255, 255), // Warm cream white
+                                255,
+                                255,
+                                255,
+                                255,
+                              ), // Warm cream white
                               Color.fromARGB(
-                                  255, 234, 234, 234), // Subtle gold tint
+                                255,
+                                234,
+                                234,
+                                234,
+                              ), // Subtle gold tint
                             ],
                           ),
                           borderRadius: BorderRadius.only(
@@ -2097,16 +2177,19 @@ class _DashboardContentState extends State<_DashboardContent> {
                                 ],
                               ),
                               child: CircleAvatar(
-                                  radius: 30,
-                                  backgroundColor: const Color(
-                                      0x33FFFFFF), // 0.2 opacity white
-                                  backgroundImage: student.profileImageUrl !=
-                                              null &&
-                                          student.profileImageUrl!.isNotEmpty
-                                      ? NetworkImage(student.profileImageUrl!)
-                                      : const AssetImage(
-                                              'assets/images/male_avatar.webp')
-                                          as ImageProvider),
+                                radius: 30,
+                                backgroundColor: const Color(
+                                  0x33FFFFFF,
+                                ), // 0.2 opacity white
+                                backgroundImage:
+                                    student.profileImageUrl != null &&
+                                        student.profileImageUrl!.isNotEmpty
+                                    ? NetworkImage(student.profileImageUrl!)
+                                    : const AssetImage(
+                                            'assets/images/male_avatar.webp',
+                                          )
+                                          as ImageProvider,
+                              ),
                             ),
                             const SizedBox(width: 16),
                             Flexible(
@@ -2126,10 +2209,16 @@ class _DashboardContentState extends State<_DashboardContent> {
                                   Container(
                                     margin: const EdgeInsets.only(top: 4),
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 2),
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: const Color.fromARGB(
-                                          28, 0, 0, 0), // Very light grey bg
+                                        28,
+                                        0,
+                                        0,
+                                        0,
+                                      ), // Very light grey bg
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Row(
@@ -2155,7 +2244,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                               onTap: () {
                                 if (_arrowKey.currentContext != null) {
                                   _showAccountSelection(
-                                      _arrowKey.currentContext!);
+                                    _arrowKey.currentContext!,
+                                  );
                                 }
                               },
                               child: Container(
@@ -2164,10 +2254,16 @@ class _DashboardContentState extends State<_DashboardContent> {
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
                                   color: const Color.fromARGB(
-                                      28, 0, 0, 0), // Very light grey bg
+                                    28,
+                                    0,
+                                    0,
+                                    0,
+                                  ), // Very light grey bg
                                   borderRadius: BorderRadius.circular(24),
-                                  border:
-                                      Border.all(color: Colors.black, width: 1),
+                                  border: Border.all(
+                                    color: Colors.black,
+                                    width: 1,
+                                  ),
                                 ),
                                 child: _loadingFamily
                                     ? const SizedBox(
@@ -2194,7 +2290,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             // First button - الدروس القادمة
                             _buildQuickActionButton(
@@ -2204,17 +2300,51 @@ class _DashboardContentState extends State<_DashboardContent> {
                                 // TODO: Navigate to upcoming lessons
                               },
                             ),
-                            const SizedBox(width: 12),
-                            // Second button - المنبه
-                            _buildQuickActionButton(
-                              imagePath: 'assets/images/Bell.json',
-                              label: 'المنبه',
-                              onTap: _openAlarmSettings,
+                            const Spacer(),
+                            // Simple Alarm Button with Bell Lottie above text - aligned to bottom
+                            Align(
+                              alignment: Alignment.bottomCenter,
+                              child: InkWell(
+                                onTap: _openAlarmSettings,
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      Lottie.asset(
+                                        'assets/images/alarm.json',
+                                        width: 70,
+                                        height: 70,
+                                        fit: BoxFit.contain,
+                                      ),
+                                      Transform.translate(
+                                        offset: const Offset(0, -15),
+                                        child: Text(
+                                          'اعدادات المنبه',
+                                          style: TextStyle(
+                                            fontFamily: 'Qatar',
+                                            fontSize: 12,
+                                            color: Color.fromARGB(
+                                              221,
+                                              255,
+                                              255,
+                                              255,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 20),
+
+                      const SizedBox(height: 4),
 
                       // Next Lesson Section
                       Padding(
@@ -2240,10 +2370,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                     const SizedBox(height: 16),
                     const Text(
                       'حدث خطأ في تحميل البيانات',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
                     ),
                     const SizedBox(height: 24),
                     CustomButton(
@@ -2332,8 +2459,12 @@ class _DashboardContentState extends State<_DashboardContent> {
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: [
                     BoxShadow(
-                      color:
-                          const Color.fromARGB(135, 0, 0, 0).withOpacity(0.2),
+                      color: const Color.fromARGB(
+                        135,
+                        0,
+                        0,
+                        0,
+                      ).withOpacity(0.2),
                       blurRadius: 5,
                       spreadRadius: 3,
                       offset: const Offset(0, 4),
