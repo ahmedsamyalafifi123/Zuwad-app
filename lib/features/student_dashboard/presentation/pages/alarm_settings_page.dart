@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,9 +23,15 @@ class AlarmSettingsPage extends StatefulWidget {
   State<AlarmSettingsPage> createState() => _AlarmSettingsPageState();
 }
 
+class AlarmTime {
+  int hours;
+  int minutes;
+
+  AlarmTime({this.hours = 0, this.minutes = 15});
+}
+
 class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
-  int _selectedHours = 0;
-  int _selectedMinutes = 15;
+  List<AlarmTime> _alarmTimes = [];
   bool _repeatForAll = false;
   bool _isLoading = true;
   bool _isSaving = false;
@@ -42,8 +49,13 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
       final settings = await AlarmService.getAlarmSettings();
       if (mounted) {
         setState(() {
-          _selectedHours = settings['hours'] ?? 0;
-          _selectedMinutes = settings['minutes'] ?? 15;
+          // Load the first alarm time from saved settings
+          _alarmTimes = [
+            AlarmTime(
+              hours: settings['hours'] ?? 0,
+              minutes: settings['minutes'] ?? 15,
+            )
+          ];
           _repeatForAll = settings['repeatForAll'] ?? false;
           _isLoading = false;
         });
@@ -54,28 +66,75 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
       }
       if (mounted) {
         setState(() {
+          _alarmTimes = [AlarmTime()];
           _isLoading = false;
         });
       }
     }
   }
 
+  void _addAlarm() {
+    setState(() {
+      _alarmTimes.add(AlarmTime());
+    });
+  }
+
+  void _removeAlarm(int index) async {
+    setState(() {
+      _alarmTimes.removeAt(index);
+    });
+
+    // If all alarms are removed, cancel all scheduled alarms
+    if (_alarmTimes.isEmpty) {
+      try {
+        await AlarmService.cancelAllAlarms();
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('تم إلغاء جميع المنبهات')),
+          );
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error canceling alarms: $e');
+        }
+      }
+    }
+  }
+
   Future<void> _saveAndScheduleAlarm() async {
+    if (_alarmTimes.isEmpty) {
+      _showErrorDialog('يجب إضافة منبه واحد على الأقل');
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
 
     try {
-      // Save settings
+      if (kDebugMode) {
+        print('AlarmSettings: Starting to save ${_alarmTimes.length} alarms');
+      }
+
+      // Save first alarm settings (for backwards compatibility)
       await AlarmService.saveAlarmSettings(
         enabled: true,
-        hours: _selectedHours,
-        minutes: _selectedMinutes,
+        hours: _alarmTimes[0].hours,
+        minutes: _alarmTimes[0].minutes,
         repeatForAll: _repeatForAll,
       );
 
+      if (kDebugMode) {
+        print('AlarmSettings: Saved settings, cancelling existing alarms');
+      }
+
       // Cancel all existing alarms
       await AlarmService.cancelAllAlarms();
+
+      if (kDebugMode) {
+        print('AlarmSettings: Getting student info');
+      }
 
       // Get student info
       final authState = context.read<AuthBloc>().state;
@@ -85,25 +144,73 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
 
       final student = authState.student!;
 
-      if (_repeatForAll) {
-        // Schedule alarms for all upcoming lessons
-        await _scheduleAlarmsForAllLessons(student.id);
-      } else {
-        // Schedule alarm for next lesson only
-        await _scheduleAlarmForNextLesson(student.id);
+      if (kDebugMode) {
+        print('AlarmSettings: Student ID: ${student.id}, scheduling alarms');
+      }
+
+      // Schedule alarms for each configured time with timeout
+      int totalScheduled = 0;
+      for (int i = 0; i < _alarmTimes.length; i++) {
+        final alarmTime = _alarmTimes[i];
+        if (kDebugMode) {
+          print(
+              'AlarmSettings: Scheduling alarm ${i + 1}: ${alarmTime.hours}h ${alarmTime.minutes}m');
+        }
+
+        try {
+          // Add timeout to prevent hanging
+          await Future.microtask(() async {
+            if (_repeatForAll) {
+              // Schedule alarms for all upcoming lessons
+              await _scheduleAlarmsForAllLessons(
+                student.id,
+                alarmTime.hours,
+                alarmTime.minutes,
+              );
+            } else {
+              // Schedule alarm for next lesson only
+              await _scheduleAlarmForNextLesson(
+                student.id,
+                alarmTime.hours,
+                alarmTime.minutes,
+              );
+            }
+          }).timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw TimeoutException('Scheduling timed out after 10 seconds');
+            },
+          );
+          totalScheduled++;
+        } catch (e) {
+          if (kDebugMode) {
+            print('AlarmSettings: Error scheduling alarm ${i + 1}: $e');
+          }
+          // Continue with other alarms even if one fails
+        }
+      }
+
+      if (kDebugMode) {
+        print(
+            'AlarmSettings: Successfully scheduled $totalScheduled/${_alarmTimes.length} alarms');
       }
 
       if (mounted) {
         Navigator.pop(context);
-        _showSuccessDialog();
+        if (totalScheduled > 0) {
+          _showSuccessDialog();
+        } else {
+          _showErrorDialog('لم يتم جدولة أي منبه. تأكد من وجود حصص قادمة');
+        }
         widget.onSuccess?.call();
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (kDebugMode) {
-        print('Error saving alarm: $e');
+        print('AlarmSettings: Error saving alarm: $e');
+        print('AlarmSettings: Stack trace: $stackTrace');
       }
       if (mounted) {
-        _showErrorDialog('حدث خطأ أثناء حفظ المنبه');
+        _showErrorDialog('حدث خطأ أثناء حفظ المنبه: ${e.toString()}');
       }
     } finally {
       if (mounted) {
@@ -114,11 +221,26 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
     }
   }
 
-  Future<void> _scheduleAlarmForNextLesson(int studentId) async {
+  Future<void> _scheduleAlarmForNextLesson(
+      int studentId, int hours, int minutes) async {
     try {
+      if (kDebugMode) {
+        print(
+            'AlarmSettings: Getting schedules for student $studentId for next lesson alarm');
+      }
+
       final studentSchedules =
           await _scheduleRepository.getStudentSchedules(studentId);
+
+      if (kDebugMode) {
+        print(
+            'AlarmSettings: Retrieved ${studentSchedules.length} student schedules');
+      }
+
       if (studentSchedules.isEmpty) {
+        if (kDebugMode) {
+          print('AlarmSettings: No schedules found for student $studentId');
+        }
         throw Exception('لا توجد حصص مجدولة');
       }
 
@@ -146,8 +268,8 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
 
         await AlarmService.scheduleAlarm(
           lessonDateTime: nextLessonDateTime,
-          hoursBeforeLesson: _selectedHours,
-          minutesBeforeLesson: _selectedMinutes,
+          hoursBeforeLesson: hours,
+          minutesBeforeLesson: minutes,
           lessonName: student.displayLessonName,
           teacherName: student.teacherName ?? 'المعلم',
         );
@@ -160,7 +282,8 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
     }
   }
 
-  Future<void> _scheduleAlarmsForAllLessons(int studentId) async {
+  Future<void> _scheduleAlarmsForAllLessons(
+      int studentId, int hours, int minutes) async {
     try {
       final studentSchedules =
           await _scheduleRepository.getStudentSchedules(studentId);
@@ -181,8 +304,8 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
             // Schedule alarm for this lesson
             final success = await AlarmService.scheduleAlarm(
               lessonDateTime: lessonDateTime,
-              hoursBeforeLesson: _selectedHours,
-              minutesBeforeLesson: _selectedMinutes,
+              hoursBeforeLesson: hours,
+              minutesBeforeLesson: minutes,
               lessonName: student.displayLessonName,
               teacherName: student.teacherName ?? 'المعلم',
             );
@@ -205,13 +328,15 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
   }
 
   DateTime _createLessonDateTime(Schedule schedule) {
-    final now = TimezoneHelper.nowInEgypt();
+    final nowEgypt = TimezoneHelper.nowInEgypt();
+
+    DateTime lessonDateTimeEgypt;
 
     if (schedule.isPostponed && schedule.postponedDate != null) {
       try {
         final postponedDate = DateTime.parse(schedule.postponedDate!);
         final scheduledTime = _parseTimeString(schedule.hour) ?? DateTime.now();
-        return DateTime(
+        lessonDateTimeEgypt = DateTime(
           postponedDate.year,
           postponedDate.month,
           postponedDate.day,
@@ -220,9 +345,31 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
         );
       } catch (e) {
         // Fall back to regular schedule
+        lessonDateTimeEgypt = _calculateRegularLessonTime(schedule, nowEgypt);
       }
+    } else {
+      lessonDateTimeEgypt = _calculateRegularLessonTime(schedule, nowEgypt);
     }
 
+    // Convert Egypt time to local timezone
+    // Egypt is UTC+2, get the offset difference
+    final egyptOffset = const Duration(hours: 2);
+    final localOffset = DateTime.now().timeZoneOffset;
+    final offsetDifference = localOffset - egyptOffset;
+
+    // Add the offset difference to convert to local time
+    final lessonDateTimeLocal = lessonDateTimeEgypt.add(offsetDifference);
+
+    if (kDebugMode) {
+      print('AlarmSettings: Egypt time: $lessonDateTimeEgypt');
+      print('AlarmSettings: Local time: $lessonDateTimeLocal');
+      print('AlarmSettings: Offset difference: $offsetDifference');
+    }
+
+    return lessonDateTimeLocal;
+  }
+
+  DateTime _calculateRegularLessonTime(Schedule schedule, DateTime nowEgypt) {
     final dayMap = {
       'الأحد': DateTime.sunday,
       'الاثنين': DateTime.monday,
@@ -236,19 +383,19 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
     final scheduledDay = dayMap[schedule.day] ?? DateTime.sunday;
     final scheduledTime = _parseTimeString(schedule.hour) ?? DateTime.now();
 
-    int daysUntil = (scheduledDay - now.weekday) % 7;
+    int daysUntil = (scheduledDay - nowEgypt.weekday) % 7;
     if (daysUntil == 0) {
-      if (scheduledTime.hour < now.hour ||
-          (scheduledTime.hour == now.hour &&
-              scheduledTime.minute <= now.minute)) {
+      if (scheduledTime.hour < nowEgypt.hour ||
+          (scheduledTime.hour == nowEgypt.hour &&
+              scheduledTime.minute <= nowEgypt.minute)) {
         daysUntil = 7;
       }
     }
 
     return DateTime(
-      now.year,
-      now.month,
-      now.day + daysUntil,
+      nowEgypt.year,
+      nowEgypt.month,
+      nowEgypt.day + daysUntil,
       scheduledTime.hour,
       scheduledTime.minute,
     );
@@ -256,16 +403,35 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
 
   DateTime? _parseTimeString(String timeString) {
     try {
-      final parts = timeString.split(':');
+      // Handle both "14:30" and "2:30 PM" formats
+      timeString = timeString.trim();
+
+      // Check if it's 12-hour format with AM/PM
+      final isPM = timeString.toUpperCase().contains('PM');
+      final isAM = timeString.toUpperCase().contains('AM');
+
+      // Remove AM/PM if present
+      String cleanTime =
+          timeString.replaceAll(RegExp(r'[APMapm\s]+'), '').trim();
+
+      final parts = cleanTime.split(':');
       if (parts.length >= 2) {
-        final hour = int.parse(parts[0]);
+        int hour = int.parse(parts[0]);
         final minute = int.parse(parts[1]);
+
+        // Convert 12-hour to 24-hour format
+        if (isPM && hour != 12) {
+          hour += 12;
+        } else if (isAM && hour == 12) {
+          hour = 0;
+        }
+
         final now = DateTime.now();
         return DateTime(now.year, now.month, now.day, hour, minute);
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error parsing time string: $e');
+        print('Error parsing time string "$timeString": $e');
       }
     }
     return null;
@@ -283,8 +449,8 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
           ),
           content: Text(
             _repeatForAll
-                ? 'تم تفعيل المنبه لجميع الحصص القادمة'
-                : 'تم تفعيل المنبه للحصة القادمة',
+                ? 'تم تفعيل ${_alarmTimes.length} منبه لجميع الحصص القادمة'
+                : 'تم تفعيل ${_alarmTimes.length} منبه للحصة القادمة',
             style: const TextStyle(fontFamily: 'Qatar'),
           ),
           actions: [
@@ -333,290 +499,411 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color.fromARGB(255, 255, 255, 255),
-              Color.fromARGB(255, 230, 230, 230),
-            ],
-          ),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFF8b0628),
+      child: Column(
+        children: [
+          // Drag Handle + Header Combined (matching postpone page)
+          Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFF820C22),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(123, 255, 255, 255),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-              )
-            : SingleChildScrollView(
-                controller: widget.scrollController,
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Drag handle
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 20),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(2),
+                // Header Content
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          'اعدادات المنبه',
+                          style: TextStyle(
+                            fontFamily: 'Qatar',
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
+                      const SizedBox(width: 48), // Balance the close button
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Content
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF8b0628),
                     ),
-
-                    // Header
-                    const Text(
-                      'منبه قبل الحصة',
-                      style: TextStyle(
-                        fontFamily: 'Qatar',
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF8b0628),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'اختر موعد التنبيه قبل الحصة',
-                      style: TextStyle(
-                        fontFamily: 'Qatar',
-                        fontSize: 16,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Time selection section
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
+                  )
+                : SingleChildScrollView(
+                    controller: widget.scrollController,
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Description text
+                        const Text(
+                          'اختر موعد التنبيه قبل الحصة',
+                          style: TextStyle(
+                            fontFamily: 'Qatar',
+                            fontSize: 16,
+                            color: Colors.black87,
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'وقت التنبيه',
-                            style: TextStyle(
-                              fontFamily: 'Qatar',
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Alarms list
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _alarmTimes.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: 16),
+                          itemBuilder: (context, index) {
+                            return _buildAlarmTimeCard(index);
+                          },
+                        ),
+
+                        // Repeat checkbox
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color.fromARGB(255, 255, 255, 255),
+                                Color.fromARGB(255, 234, 234, 234),
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              // Hours
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'ساعات',
-                                      style: TextStyle(
-                                        fontFamily: 'Qatar',
-                                        fontSize: 14,
-                                        color: Colors.black54,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: const Color(0xFFD4AF37),
-                                          width: 1.5,
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: DropdownButtonHideUnderline(
-                                        child: DropdownButton<int>(
-                                          value: _selectedHours,
-                                          isExpanded: true,
-                                          icon: const Icon(
-                                            Icons.keyboard_arrow_down,
-                                            color: Color(0xFF8b0628),
-                                          ),
-                                          style: const TextStyle(
-                                            fontFamily: 'Qatar',
-                                            fontSize: 16,
-                                            color: Colors.black87,
-                                          ),
-                                          items: List.generate(
-                                            24,
-                                            (index) => DropdownMenuItem(
-                                              value: index,
-                                              child: Text('$index'),
-                                            ),
-                                          ),
-                                          onChanged: (value) {
-                                            if (value != null) {
-                                              setState(() {
-                                                _selectedHours = value;
-                                              });
-                                            }
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                            borderRadius: BorderRadius.circular(12),
+                            border:
+                                Border.all(color: Colors.grey.withOpacity(0.2)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color.fromARGB(50, 0, 0, 0),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
                               ),
-                              const SizedBox(width: 16),
-                              // Minutes
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'دقائق',
-                                      style: TextStyle(
-                                        fontFamily: 'Qatar',
-                                        fontSize: 14,
-                                        color: Colors.black54,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: const Color(0xFFD4AF37),
-                                          width: 1.5,
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: DropdownButtonHideUnderline(
-                                        child: DropdownButton<int>(
-                                          value: _selectedMinutes,
-                                          isExpanded: true,
-                                          icon: const Icon(
-                                            Icons.keyboard_arrow_down,
-                                            color: Color(0xFF8b0628),
-                                          ),
-                                          style: const TextStyle(
-                                            fontFamily: 'Qatar',
-                                            fontSize: 16,
-                                            color: Colors.black87,
-                                          ),
-                                          items: [0, 5, 10, 15, 30, 45]
-                                              .map((value) => DropdownMenuItem(
-                                                    value: value,
-                                                    child: Text('$value'),
-                                                  ))
-                                              .toList(),
-                                          onChanged: (value) {
-                                            if (value != null) {
-                                              setState(() {
-                                                _selectedMinutes = value;
-                                              });
-                                            }
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Checkbox(
+                                value: _repeatForAll,
+                                activeColor: const Color(0xFF8b0628),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _repeatForAll = value ?? false;
+                                  });
+                                },
+                              ),
+                              const Expanded(
+                                child: Text(
+                                  'تكرار التنبيه قبل جميع الحصص',
+                                  style: TextStyle(
+                                    fontFamily: 'Qatar',
+                                    fontSize: 16,
+                                    color: Colors.black87,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
+                        ),
+                        const SizedBox(height: 24),
 
-                    // Repeat checkbox
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
+                        // Buttons Row
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 1,
+                              child: OutlinedButton(
+                                onPressed: _addAlarm,
+                                style: OutlinedButton.styleFrom(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
+                                  side: const BorderSide(
+                                    color: Color.fromARGB(255, 0, 0, 0),
+                                    width: 1.5,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.add,
+                                        size: 20,
+                                        color: Color.fromARGB(255, 0, 0, 0)),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'إضافة منبه آخر',
+                                      style: TextStyle(
+                                        fontFamily: 'Qatar',
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color.fromARGB(255, 0, 0, 0),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+
+                            // Save button
+                            Expanded(
+                              flex: 1,
+                              child: ElevatedButton(
+                                onPressed:
+                                    _isSaving ? null : _saveAndScheduleAlarm,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF8b0628),
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: _isSaving
+                                    ? const SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                  Colors.white),
+                                        ),
+                                      )
+                                    : const Text(
+                                        'حفظ',
+                                        style: TextStyle(
+                                            fontFamily: 'Qatar',
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                              ),
+                            ),
+                            // Add alarm button
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlarmTimeCard(int index) {
+    final alarmTime = _alarmTimes[index];
+
+    return Container(
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color.fromARGB(50, 0, 0, 0),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Gold Divider / Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color.fromARGB(255, 250, 196, 13), // Gold
+                  Color.fromARGB(255, 225, 175, 11), // Darker Gold
+                ],
+              ),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  'منبه ${index + 1}',
+                  style: const TextStyle(
+                    fontFamily: 'Qatar',
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color.fromARGB(255, 0, 0, 0),
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => _removeAlarm(index),
+                  icon: const Icon(Icons.delete_forever_rounded,
+                      color: Color.fromARGB(
+                          255, 112, 4, 4)), // White icon on gold bg
+                  tooltip: 'حذف المنبه',
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    // Hours
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Checkbox(
-                            value: _repeatForAll,
-                            activeColor: const Color(0xFF8b0628),
-                            onChanged: (value) {
-                              setState(() {
-                                _repeatForAll = value ?? false;
-                              });
-                            },
+                          const Text(
+                            'ساعات',
+                            style: TextStyle(
+                              fontFamily: 'Qatar',
+                              fontSize: 14,
+                              color: Color.fromARGB(255, 0, 0, 0),
+                            ),
                           ),
-                          const Expanded(
-                            child: Text(
-                              'تكرار التنبيه قبل جميع الحصص',
-                              style: TextStyle(
-                                fontFamily: 'Qatar',
-                                fontSize: 16,
-                                color: Colors.black87,
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: const Color.fromARGB(255, 0, 0, 0),
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<int>(
+                                value: alarmTime.hours,
+                                isExpanded: true,
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down,
+                                  color: Color(0xFF8b0628),
+                                ),
+                                style: const TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontSize: 16,
+                                  color: Colors.black87,
+                                ),
+                                items: List.generate(
+                                  13, // 0 to 12
+                                  (idx) => DropdownMenuItem(
+                                    value: idx,
+                                    child: Text('$idx'),
+                                  ),
+                                ),
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() {
+                                      _alarmTimes[index].hours = value;
+                                    });
+                                  }
+                                },
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 32),
-
-                    // Save button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _isSaving ? null : _saveAndScheduleAlarm,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF8b0628),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    const SizedBox(width: 16),
+                    // Minutes
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'دقائق',
+                            style: TextStyle(
+                              fontFamily: 'Qatar',
+                              fontSize: 14,
+                              color: Color.fromARGB(255, 0, 0, 0),
+                            ),
                           ),
-                          elevation: 2,
-                        ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text(
-                                'حفظ',
-                                style: TextStyle(
-                                  fontFamily: 'Qatar',
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: const Color.fromARGB(255, 0, 0, 0),
+                                width: 1.5,
                               ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<int>(
+                                value: alarmTime.minutes,
+                                isExpanded: true,
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down,
+                                  color: Color(0xFF8b0628),
+                                ),
+                                style: const TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontSize: 16,
+                                  color: Colors.black87,
+                                ),
+                                items: [0, 5, 10, 15, 30, 45]
+                                    .map((value) => DropdownMenuItem(
+                                          value: value,
+                                          child: Text('$value'),
+                                        ))
+                                    .toList(),
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() {
+                                      _alarmTimes[index].minutes = value;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

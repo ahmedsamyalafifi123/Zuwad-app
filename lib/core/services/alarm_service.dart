@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:alarm/alarm.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
@@ -86,17 +87,29 @@ class AlarmService {
         Duration(hours: hoursBeforeLesson, minutes: minutesBeforeLesson),
       );
 
+      if (kDebugMode) {
+        print('AlarmService: Lesson time: $lessonDateTime');
+        print('AlarmService: Alarm time: $alarmTime');
+        print(
+            'AlarmService: Hours before: $hoursBeforeLesson, Minutes before: $minutesBeforeLesson');
+      }
+
       // Check if alarm time is in the future
       final now = TimezoneHelper.nowInEgypt();
       if (alarmTime.isBefore(now)) {
         if (kDebugMode) {
-          print('AlarmService: Alarm time is in the past, skipping');
+          print(
+              'AlarmService: Alarm time is in the past (now: $now), skipping');
         }
         return false;
       }
 
       // Generate unique ID for this alarm
       final alarmId = alarmTime.millisecondsSinceEpoch % 2147483647;
+
+      if (kDebugMode) {
+        print('AlarmService: Creating alarm with ID: $alarmId');
+      }
 
       // Configure alarm settings
       final alarmSettings = AlarmSettings(
@@ -119,12 +132,24 @@ class AlarmService {
         warningNotificationOnKill: true,
       );
 
-      // Set the alarm
-      await Alarm.set(alarmSettings: alarmSettings);
+      if (kDebugMode) {
+        print('AlarmService: Setting alarm...');
+      }
+
+      // Set the alarm with timeout
+      await Alarm.set(alarmSettings: alarmSettings).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          if (kDebugMode) {
+            print('AlarmService: Alarm.set() timed out');
+          }
+          throw TimeoutException('Alarm.set() timed out after 5 seconds');
+        },
+      );
 
       if (kDebugMode) {
         print(
-            'AlarmService: Scheduled alarm $alarmId for ${alarmTime.toString()}');
+            'AlarmService: Successfully scheduled alarm $alarmId for ${alarmTime.toString()}');
       }
 
       return true;
@@ -139,7 +164,20 @@ class AlarmService {
   /// Cancel all alarms
   static Future<void> cancelAllAlarms() async {
     try {
-      await Alarm.stopAll();
+      if (kDebugMode) {
+        print('AlarmService: Attempting to cancel all alarms');
+      }
+
+      // Add timeout to prevent hanging
+      await Alarm.stopAll().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          if (kDebugMode) {
+            print('AlarmService: stopAll() timed out, continuing anyway');
+          }
+        },
+      );
+
       if (kDebugMode) {
         print('AlarmService: Cancelled all alarms');
       }
@@ -147,6 +185,7 @@ class AlarmService {
       if (kDebugMode) {
         print('AlarmService: Error cancelling alarms: $e');
       }
+      // Don't rethrow - continue even if cancel fails
     }
   }
 
