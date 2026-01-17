@@ -33,6 +33,7 @@ class _MeetingPageState extends State<MeetingPage> {
   static const MethodChannel _pipChannel = MethodChannel('com.zuwad/pip');
 
   late final LiveKitService _liveKitService;
+  late final EventsListener<RoomEvent> _roomListener;
   bool _isConnecting = true;
   bool _isConnected = false;
   bool _isCameraEnabled = true;
@@ -71,6 +72,8 @@ class _MeetingPageState extends State<MeetingPage> {
   void dispose() {
     // Disable PiP mode when leaving meeting page
     _disablePiP();
+    // Dispose event listener
+    _roomListener.dispose();
     _liveKitService.disconnect();
     super.dispose();
   }
@@ -197,7 +200,58 @@ class _MeetingPageState extends State<MeetingPage> {
   void _setupRoomListeners() {
     final room = _liveKitService.room!;
 
+    // General room state listener
     room.addListener(_onRoomUpdate);
+
+    // Create events listener for track subscription events (critical for audio playback)
+    _roomListener = room.createListener();
+
+    // Listen for track subscription events
+    _roomListener
+      ..on<TrackSubscribedEvent>((event) {
+        if (kDebugMode) {
+          print(
+              'MeetingPage: Track subscribed - ${event.track.kind} from ${event.participant.identity}');
+        }
+        if (mounted) {
+          setState(() {
+            _onRoomUpdate();
+          });
+        }
+      })
+      ..on<TrackUnsubscribedEvent>((event) {
+        if (kDebugMode) {
+          print(
+              'MeetingPage: Track unsubscribed - ${event.track.kind} from ${event.participant.identity}');
+        }
+        if (mounted) {
+          setState(() {
+            _onRoomUpdate();
+          });
+        }
+      })
+      ..on<ParticipantConnectedEvent>((event) {
+        if (kDebugMode) {
+          print(
+              'MeetingPage: Participant connected - ${event.participant.identity}');
+        }
+        if (mounted) {
+          setState(() {
+            _onRoomUpdate();
+          });
+        }
+      })
+      ..on<ParticipantDisconnectedEvent>((event) {
+        if (kDebugMode) {
+          print(
+              'MeetingPage: Participant disconnected - ${event.participant.identity}');
+        }
+        if (mounted) {
+          setState(() {
+            _onRoomUpdate();
+          });
+        }
+      });
 
     // Set initial participants
     _localParticipant = room.localParticipant;
