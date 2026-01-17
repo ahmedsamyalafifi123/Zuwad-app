@@ -13,11 +13,7 @@ class AlarmSettingsPage extends StatefulWidget {
   final ScrollController? scrollController;
   final VoidCallback? onSuccess;
 
-  const AlarmSettingsPage({
-    super.key,
-    this.scrollController,
-    this.onSuccess,
-  });
+  const AlarmSettingsPage({super.key, this.scrollController, this.onSuccess});
 
   @override
   State<AlarmSettingsPage> createState() => _AlarmSettingsPageState();
@@ -46,16 +42,24 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
 
   Future<void> _loadSettings() async {
     try {
-      final settings = await AlarmService.getAlarmSettings();
+      final settings = await AlarmService.getMultipleAlarmSettings();
       if (mounted) {
         setState(() {
-          // Load the first alarm time from saved settings
-          _alarmTimes = [
-            AlarmTime(
-              hours: settings['hours'] ?? 0,
-              minutes: settings['minutes'] ?? 15,
-            )
-          ];
+          // Load all alarm times from saved settings
+          final alarmTimesList =
+              settings['alarmTimes'] as List<Map<String, int>>? ?? [];
+          if (alarmTimesList.isNotEmpty) {
+            _alarmTimes = alarmTimesList
+                .map(
+                  (alarm) => AlarmTime(
+                    hours: alarm['hours'] ?? 0,
+                    minutes: alarm['minutes'] ?? 15,
+                  ),
+                )
+                .toList();
+          } else {
+            _alarmTimes = [AlarmTime()];
+          }
           _repeatForAll = settings['repeatForAll'] ?? false;
           _isLoading = false;
         });
@@ -117,11 +121,13 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
         print('AlarmSettings: Starting to save ${_alarmTimes.length} alarms');
       }
 
-      // Save first alarm settings (for backwards compatibility)
-      await AlarmService.saveAlarmSettings(
-        enabled: true,
-        hours: _alarmTimes[0].hours,
-        minutes: _alarmTimes[0].minutes,
+      // Save all alarm times
+      final alarmTimesData = _alarmTimes
+          .map((alarm) => {'hours': alarm.hours, 'minutes': alarm.minutes})
+          .toList();
+
+      await AlarmService.saveMultipleAlarmSettings(
+        alarmTimes: alarmTimesData,
         repeatForAll: _repeatForAll,
       );
 
@@ -154,7 +160,8 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
         final alarmTime = _alarmTimes[i];
         if (kDebugMode) {
           print(
-              'AlarmSettings: Scheduling alarm ${i + 1}: ${alarmTime.hours}h ${alarmTime.minutes}m');
+            'AlarmSettings: Scheduling alarm ${i + 1}: ${alarmTime.hours}h ${alarmTime.minutes}m',
+          );
         }
 
         try {
@@ -192,7 +199,8 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
 
       if (kDebugMode) {
         print(
-            'AlarmSettings: Successfully scheduled $totalScheduled/${_alarmTimes.length} alarms');
+          'AlarmSettings: Successfully scheduled $totalScheduled/${_alarmTimes.length} alarms',
+        );
       }
 
       if (mounted) {
@@ -222,19 +230,25 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
   }
 
   Future<void> _scheduleAlarmForNextLesson(
-      int studentId, int hours, int minutes) async {
+    int studentId,
+    int hours,
+    int minutes,
+  ) async {
     try {
       if (kDebugMode) {
         print(
-            'AlarmSettings: Getting schedules for student $studentId for next lesson alarm');
+          'AlarmSettings: Getting schedules for student $studentId for next lesson alarm',
+        );
       }
 
-      final studentSchedules =
-          await _scheduleRepository.getStudentSchedules(studentId);
+      final studentSchedules = await _scheduleRepository.getStudentSchedules(
+        studentId,
+      );
 
       if (kDebugMode) {
         print(
-            'AlarmSettings: Retrieved ${studentSchedules.length} student schedules');
+          'AlarmSettings: Retrieved ${studentSchedules.length} student schedules',
+        );
       }
 
       if (studentSchedules.isEmpty) {
@@ -283,10 +297,14 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
   }
 
   Future<void> _scheduleAlarmsForAllLessons(
-      int studentId, int hours, int minutes) async {
+    int studentId,
+    int hours,
+    int minutes,
+  ) async {
     try {
-      final studentSchedules =
-          await _scheduleRepository.getStudentSchedules(studentId);
+      final studentSchedules = await _scheduleRepository.getStudentSchedules(
+        studentId,
+      );
       if (studentSchedules.isEmpty) {
         throw Exception('لا توجد حصص مجدولة');
       }
@@ -411,8 +429,9 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
       final isAM = timeString.toUpperCase().contains('AM');
 
       // Remove AM/PM if present
-      String cleanTime =
-          timeString.replaceAll(RegExp(r'[APMapm\s]+'), '').trim();
+      String cleanTime = timeString
+          .replaceAll(RegExp(r'[APMapm\s]+'), '')
+          .trim();
 
       final parts = cleanTime.split(':');
       if (parts.length >= 2) {
@@ -456,10 +475,7 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'حسناً',
-                style: TextStyle(fontFamily: 'Qatar'),
-              ),
+              child: const Text('حسناً', style: TextStyle(fontFamily: 'Qatar')),
             ),
           ],
         ),
@@ -477,17 +493,11 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
             'خطأ',
             style: TextStyle(fontFamily: 'Qatar', fontWeight: FontWeight.bold),
           ),
-          content: Text(
-            message,
-            style: const TextStyle(fontFamily: 'Qatar'),
-          ),
+          content: Text(message, style: const TextStyle(fontFamily: 'Qatar')),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'حسناً',
-                style: TextStyle(fontFamily: 'Qatar'),
-              ),
+              child: const Text('حسناً', style: TextStyle(fontFamily: 'Qatar')),
             ),
           ],
         ),
@@ -554,9 +564,7 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
           Expanded(
             child: _isLoading
                 ? const Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF8b0628),
-                    ),
+                    child: CircularProgressIndicator(color: Color(0xFF8b0628)),
                   )
                 : SingleChildScrollView(
                     controller: widget.scrollController,
@@ -601,8 +609,9 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
                               ],
                             ),
                             borderRadius: BorderRadius.circular(12),
-                            border:
-                                Border.all(color: Colors.grey.withOpacity(0.2)),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.2),
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: const Color.fromARGB(50, 0, 0, 0),
@@ -645,8 +654,9 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
                               child: OutlinedButton(
                                 onPressed: _addAlarm,
                                 style: OutlinedButton.styleFrom(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
                                   side: const BorderSide(
                                     color: Color.fromARGB(255, 0, 0, 0),
                                     width: 1.5,
@@ -658,9 +668,11 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
                                 child: const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.add,
-                                        size: 20,
-                                        color: Color.fromARGB(255, 0, 0, 0)),
+                                    Icon(
+                                      Icons.add,
+                                      size: 20,
+                                      color: Color.fromARGB(255, 0, 0, 0),
+                                    ),
                                     SizedBox(width: 4),
                                     Text(
                                       'إضافة منبه آخر',
@@ -681,13 +693,15 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
                             Expanded(
                               flex: 1,
                               child: ElevatedButton(
-                                onPressed:
-                                    _isSaving ? null : _saveAndScheduleAlarm,
+                                onPressed: _isSaving
+                                    ? null
+                                    : _saveAndScheduleAlarm,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF8b0628),
                                   foregroundColor: Colors.white,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -700,15 +714,17 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
                                           strokeWidth: 2,
                                           valueColor:
                                               AlwaysStoppedAnimation<Color>(
-                                                  Colors.white),
+                                                Colors.white,
+                                              ),
                                         ),
                                       )
                                     : const Text(
                                         'حفظ',
                                         style: TextStyle(
-                                            fontFamily: 'Qatar',
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold),
+                                          fontFamily: 'Qatar',
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                               ),
                             ),
@@ -772,9 +788,10 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
                 const Spacer(),
                 IconButton(
                   onPressed: () => _removeAlarm(index),
-                  icon: const Icon(Icons.delete_forever_rounded,
-                      color: Color.fromARGB(
-                          255, 112, 4, 4)), // White icon on gold bg
+                  icon: const Icon(
+                    Icons.delete_forever_rounded,
+                    color: Color.fromARGB(255, 112, 4, 4),
+                  ), // White icon on gold bg
                   tooltip: 'حذف المنبه',
                 ),
               ],
@@ -880,10 +897,12 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
                                   color: Colors.black87,
                                 ),
                                 items: [0, 5, 10, 15, 30, 45]
-                                    .map((value) => DropdownMenuItem(
-                                          value: value,
-                                          child: Text('$value'),
-                                        ))
+                                    .map(
+                                      (value) => DropdownMenuItem(
+                                        value: value,
+                                        child: Text('$value'),
+                                      ),
+                                    )
                                     .toList(),
                                 onChanged: (value) {
                                   if (value != null) {

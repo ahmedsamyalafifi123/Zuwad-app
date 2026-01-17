@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:alarm/alarm.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
@@ -10,6 +11,7 @@ class AlarmService {
   static const String _keyAlarmHours = 'alarm_hours';
   static const String _keyAlarmMinutes = 'alarm_minutes';
   static const String _keyRepeatForAll = 'alarm_repeat_for_all';
+  static const String _keyMultipleAlarms = 'alarm_multiple_times';
 
   /// Initialize the alarm service
   static Future<void> initialize() async {
@@ -41,11 +43,44 @@ class AlarmService {
 
       if (kDebugMode) {
         print(
-            'AlarmService: Saved settings - enabled: $enabled, hours: $hours, minutes: $minutes, repeatForAll: $repeatForAll');
+          'AlarmService: Saved settings - enabled: $enabled, hours: $hours, minutes: $minutes, repeatForAll: $repeatForAll',
+        );
       }
     } catch (e) {
       if (kDebugMode) {
         print('AlarmService: Error saving settings: $e');
+      }
+    }
+  }
+
+  /// Save multiple alarm settings to SharedPreferences
+  static Future<void> saveMultipleAlarmSettings({
+    required List<Map<String, int>> alarmTimes,
+    required bool repeatForAll,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyAlarmEnabled, alarmTimes.isNotEmpty);
+      await prefs.setBool(_keyRepeatForAll, repeatForAll);
+
+      // Save alarm times as JSON string
+      final alarmsJson = jsonEncode(alarmTimes);
+      await prefs.setString(_keyMultipleAlarms, alarmsJson);
+
+      // Also save the first alarm for backwards compatibility
+      if (alarmTimes.isNotEmpty) {
+        await prefs.setInt(_keyAlarmHours, alarmTimes[0]['hours'] ?? 0);
+        await prefs.setInt(_keyAlarmMinutes, alarmTimes[0]['minutes'] ?? 15);
+      }
+
+      if (kDebugMode) {
+        print(
+          'AlarmService: Saved ${alarmTimes.length} alarm times, repeatForAll: $repeatForAll',
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AlarmService: Error saving multiple alarm settings: $e');
       }
     }
   }
@@ -73,6 +108,60 @@ class AlarmService {
     }
   }
 
+  /// Get multiple alarm settings from SharedPreferences
+  static Future<Map<String, dynamic>> getMultipleAlarmSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final alarmsJson = prefs.getString(_keyMultipleAlarms);
+
+      List<Map<String, int>> alarmTimes = [];
+      if (alarmsJson != null && alarmsJson.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(alarmsJson) as List;
+          alarmTimes = decoded
+              .map(
+                (item) => {
+                  'hours': (item['hours'] as num?)?.toInt() ?? 0,
+                  'minutes': (item['minutes'] as num?)?.toInt() ?? 15,
+                },
+              )
+              .toList();
+        } catch (e) {
+          if (kDebugMode) {
+            print('AlarmService: Error parsing alarm times JSON: $e');
+          }
+        }
+      }
+
+      // Fallback to single alarm if no multiple alarms saved
+      if (alarmTimes.isEmpty) {
+        alarmTimes = [
+          {
+            'hours': prefs.getInt(_keyAlarmHours) ?? 0,
+            'minutes': prefs.getInt(_keyAlarmMinutes) ?? 15,
+          },
+        ];
+      }
+
+      return {
+        'enabled': prefs.getBool(_keyAlarmEnabled) ?? false,
+        'alarmTimes': alarmTimes,
+        'repeatForAll': prefs.getBool(_keyRepeatForAll) ?? false,
+      };
+    } catch (e) {
+      if (kDebugMode) {
+        print('AlarmService: Error getting multiple alarm settings: $e');
+      }
+      return {
+        'enabled': false,
+        'alarmTimes': [
+          {'hours': 0, 'minutes': 15},
+        ],
+        'repeatForAll': false,
+      };
+    }
+  }
+
   /// Schedule an alarm for a specific lesson
   static Future<bool> scheduleAlarm({
     required DateTime lessonDateTime,
@@ -91,7 +180,8 @@ class AlarmService {
         print('AlarmService: Lesson time: $lessonDateTime');
         print('AlarmService: Alarm time: $alarmTime');
         print(
-            'AlarmService: Hours before: $hoursBeforeLesson, Minutes before: $minutesBeforeLesson');
+          'AlarmService: Hours before: $hoursBeforeLesson, Minutes before: $minutesBeforeLesson',
+        );
       }
 
       // Check if alarm time is in the future
@@ -99,7 +189,8 @@ class AlarmService {
       if (alarmTime.isBefore(now)) {
         if (kDebugMode) {
           print(
-              'AlarmService: Alarm time is in the past (now: $now), skipping');
+            'AlarmService: Alarm time is in the past (now: $now), skipping',
+          );
         }
         return false;
       }
@@ -149,7 +240,8 @@ class AlarmService {
 
       if (kDebugMode) {
         print(
-            'AlarmService: Successfully scheduled alarm $alarmId for ${alarmTime.toString()}');
+          'AlarmService: Successfully scheduled alarm $alarmId for ${alarmTime.toString()}',
+        );
       }
 
       return true;
