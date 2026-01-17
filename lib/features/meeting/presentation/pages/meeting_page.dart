@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import 'package:livekit_client/livekit_client.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../services/livekit_service.dart';
 import '../widgets/participant_widget.dart';
@@ -51,6 +52,9 @@ class _MeetingPageState extends State<MeetingPage> {
     }
     super.initState();
 
+    // Enable wake lock to keep screen on during meeting
+    _enableWakeLock();
+
     // Enable PiP mode for this page
     _enablePiP();
 
@@ -70,12 +74,40 @@ class _MeetingPageState extends State<MeetingPage> {
 
   @override
   void dispose() {
+    // Disable wake lock when leaving meeting page
+    _disableWakeLock();
     // Disable PiP mode when leaving meeting page
     _disablePiP();
     // Dispose event listener
     _roomListener.dispose();
     _liveKitService.disconnect();
     super.dispose();
+  }
+
+  Future<void> _enableWakeLock() async {
+    try {
+      await WakelockPlus.enable();
+      if (kDebugMode) {
+        print('MeetingPage: Wake lock enabled - screen will stay on');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('MeetingPage: Failed to enable wake lock: $e');
+      }
+    }
+  }
+
+  Future<void> _disableWakeLock() async {
+    try {
+      await WakelockPlus.disable();
+      if (kDebugMode) {
+        print('MeetingPage: Wake lock disabled - screen timeout restored');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('MeetingPage: Failed to disable wake lock: $e');
+      }
+    }
   }
 
   Future<void> _enablePiP() async {

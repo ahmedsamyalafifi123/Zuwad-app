@@ -76,8 +76,9 @@ class _PostponePageState extends State<PostponePage> {
         // If < 4, maybe allow 1? Or 0? User said "for 4 can 1", "if 8 can 2".
         // Assuming integer division.
         _allowedPostponements = (lessonsNumber / 4).floor();
-        if (_allowedPostponements < 1)
+        if (_allowedPostponements < 1) {
           _allowedPostponements = 1; // Fallback to at least 1
+        }
 
         // 2. Fetch reports
         final reports = await _reportRepository.getStudentReports(student.id);
