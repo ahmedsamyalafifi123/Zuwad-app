@@ -25,6 +25,7 @@ import '../../domain/models/student_report.dart';
 import 'postpone_page.dart';
 import 'alarm_settings_page.dart';
 import 'report_details_page.dart';
+import '../widgets/wordwall_game_widget.dart';
 
 import 'home_page.dart';
 import 'settings_page.dart';
@@ -249,8 +250,8 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                                           onPressed: () {
                                             Navigator.pop(dialogContext);
                                             context.read<AuthBloc>().add(
-                                              LogoutEvent(),
-                                            );
+                                                  LogoutEvent(),
+                                                );
                                             Navigator.of(
                                               context,
                                             ).pushAndRemoveUntil(
@@ -332,9 +333,9 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                                           fit: BoxFit.cover,
                                           errorBuilder: (_, __, ___) =>
                                               Image.asset(
-                                                'assets/images/male_avatar.webp',
-                                                fit: BoxFit.cover,
-                                              ),
+                                            'assets/images/male_avatar.webp',
+                                            fit: BoxFit.cover,
+                                          ),
                                         )
                                       : Image.asset(
                                           'assets/images/male_avatar.webp',
@@ -493,7 +494,7 @@ class _DashboardContentState extends State<_DashboardContent> {
   StudentSchedule? _nextSchedule;
   Schedule? _nextLesson;
   DateTime?
-  _nextLessonDateTime; // Store the actual calculated date for countdown
+      _nextLessonDateTime; // Store the actual calculated date for countdown
   String _teacherName = '';
   String _teacherGender = 'ذكر';
   String _lessonName = '';
@@ -1804,14 +1805,11 @@ class _DashboardContentState extends State<_DashboardContent> {
     if (!mounted) return;
 
     final authState = context.read<AuthBloc>().state;
-    final currentStudentId = authState is AuthAuthenticated
-        ? authState.student?.id
-        : null;
+    final currentStudentId =
+        authState is AuthAuthenticated ? authState.student?.id : null;
 
-    final RenderBox button =
-        (_arrowKey.currentContext?.findRenderObject() ??
-                context.findRenderObject())
-            as RenderBox;
+    final RenderBox button = (_arrowKey.currentContext?.findRenderObject() ??
+        context.findRenderObject()) as RenderBox;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
 
@@ -1858,14 +1856,12 @@ class _DashboardContentState extends State<_DashboardContent> {
                           width: 1,
                         ),
                         image: DecorationImage(
-                          image:
-                              student.profileImageUrl != null &&
+                          image: student.profileImageUrl != null &&
                                   student.profileImageUrl!.isNotEmpty
                               ? NetworkImage(student.profileImageUrl!)
                               : const AssetImage(
-                                      'assets/images/male_avatar.webp',
-                                    )
-                                    as ImageProvider,
+                                  'assets/images/male_avatar.webp',
+                                ) as ImageProvider,
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -2183,12 +2179,11 @@ class _DashboardContentState extends State<_DashboardContent> {
                                 ), // 0.2 opacity white
                                 backgroundImage:
                                     student.profileImageUrl != null &&
-                                        student.profileImageUrl!.isNotEmpty
-                                    ? NetworkImage(student.profileImageUrl!)
-                                    : const AssetImage(
+                                            student.profileImageUrl!.isNotEmpty
+                                        ? NetworkImage(student.profileImageUrl!)
+                                        : const AssetImage(
                                             'assets/images/male_avatar.webp',
-                                          )
-                                          as ImageProvider,
+                                          ) as ImageProvider,
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -2350,6 +2345,37 @@ class _DashboardContentState extends State<_DashboardContent> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         child: _buildNextLessonSection(),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Wordwall Game Section Header
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Row(
+                          children: [
+                            Icon(Icons.brightness_low_outlined,
+                                color: Color(0xFFD4AF37), size: 32),
+                            SizedBox(width: 8),
+                            Text(
+                              'العب مع زواد',
+                              style: TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Wordwall Game Section
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 0.0), // Widget has its own margin
+                        child: WordwallGameWidget(),
                       ),
 
                       const SizedBox(height: 20),
