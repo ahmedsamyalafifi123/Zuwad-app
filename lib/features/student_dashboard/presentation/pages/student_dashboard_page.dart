@@ -642,6 +642,9 @@ class _DashboardContentState extends State<_DashboardContent> {
     // Create a list of all upcoming lessons with their actual DateTime
     List<Map<String, dynamic>> upcomingLessons = [];
 
+    // Track added trial lessons to prevent duplicates (key: "trialDate|trialTime")
+    Set<String> addedTrialLessons = {};
+
     for (var schedule in schedules) {
       DateTime? lessonDateTime;
       String? lessonDateStr;
@@ -724,6 +727,21 @@ class _DashboardContentState extends State<_DashboardContent> {
           }
           continue;
         }
+
+        // IMPORTANT: Check for duplicate trial lessons
+        // Create a unique key for this trial lesson
+        final trialKey =
+            '${schedule.trialDate}|${_normalizeTimeForComparison(schedule.hour)}';
+        if (addedTrialLessons.contains(trialKey)) {
+          if (kDebugMode) {
+            print(
+              'Skipping duplicate trial lesson: $trialKey (already added)',
+            );
+          }
+          continue; // Skip duplicate trial lesson
+        }
+        // Mark this trial lesson as added
+        addedTrialLessons.add(trialKey);
       } else if (schedule.isPostponed && schedule.postponedDate != null) {
         // Handle postponed schedules with specific dates
         try {
