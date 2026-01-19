@@ -18,6 +18,15 @@ class ReportDetailsPage extends StatelessWidget {
   int _calculateRating() {
     // Try to map evaluation text
     final evaluation = report.evaluation.toLowerCase().trim();
+
+    // Check for specific user-provided terms first
+    if (evaluation.contains('ماهر')) return 5;
+    if (evaluation.contains('محترف')) return 4;
+    if (evaluation.contains('رائع')) return 3;
+    if (evaluation.contains('متميز')) return 2;
+    if (evaluation.contains('مجتهد')) return 1;
+
+    // Fallback to legacy terms
     if (evaluation.contains('ممتاز') || evaluation.contains('excellent')) {
       return 5;
     }
@@ -36,9 +45,7 @@ class ReportDetailsPage extends StatelessWidget {
       return 1;
     }
 
-    // Fallback to grade if available (assuming 10 or 100 scale?)
-    // If grade is 0, default to 5 stars for positive UX or 0?
-    // Let's default to 5 if unknown or maybe 0.
+    // Fallback to grade if available
     if (report.grade > 0) {
       if (report.grade <= 5) return report.grade;
       if (report.grade <= 10) return (report.grade / 2).ceil();
@@ -380,23 +387,30 @@ class ReportDetailsPage extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: const Color.fromARGB(87, 0, 0, 0),
+                blurRadius: 4,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: List.generate(5, (index) {
-              // RTL: index 0 is rightmost? No, Row lays out LTR by default unless localized.
-              // Assuming Directionality is RTL in app.
-              return Icon(
+              if (index < rating) {
+                return Stack(
+                  alignment: Alignment.center,
+                  children: const [
+                    Icon(Icons.star, size: 20, color: Colors.black),
+                    Icon(Icons.star, size: 14, color: Color(0xFFF6C302)),
+                  ],
+                );
+              }
+              return const Icon(
                 Icons.star,
-                size: 14,
-                // Color filled for rating, grey/outlined for rest
-                // Assuming rating 5 means 5 filled.
-                color: index < rating
-                    ? const Color(0xFFA01A36)
-                    : const Color(0xFFD4AF37),
-                // Wait, image shows RED stars on WHITE background?
-                // The image shows filled red stars (dark red) and maybe yellow outlines?
-                // Let's use the dark red from the background for filled stars.
+                size: 16,
+                color: Color(0xFF820c22),
               );
             }),
           ),
