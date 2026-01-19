@@ -174,7 +174,58 @@ class _HomePageState extends State<HomePage> {
       DateTime? lessonDateTime;
       String? lessonDateStr;
 
-      if (schedule.isPostponed && schedule.postponedDate != null) {
+      if (schedule.isTrial && schedule.trialDate != null) {
+        // Handle trial lessons with specific dates
+        try {
+          // Use trialDatetime if available, otherwise parse from trialDate + trialTime
+          DateTime? trialDateTime;
+          if (schedule.trialDatetime != null) {
+            try {
+              trialDateTime = DateTime.parse(schedule.trialDatetime!);
+            } catch (e) {
+              if (kDebugMode) {
+                print('Error parsing trial_datetime: $e');
+              }
+            }
+          }
+
+          // If trialDatetime parsing failed or not available, use trialDate + hour
+          if (trialDateTime == null) {
+            final trialDate = DateTime.parse(schedule.trialDate!);
+            final lessonTime = _parseTimeString(schedule.hour);
+
+            if (lessonTime != null) {
+              trialDateTime = DateTime(
+                trialDate.year,
+                trialDate.month,
+                trialDate.day,
+                lessonTime.hour,
+                lessonTime.minute,
+              );
+            }
+          }
+
+          if (trialDateTime != null) {
+            lessonDateTime = trialDateTime;
+            lessonDateStr =
+                '${trialDateTime.year}-${trialDateTime.month.toString().padLeft(2, '0')}-${trialDateTime.day.toString().padLeft(2, '0')}';
+          } else {
+            continue;
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error parsing trial lesson date: $e');
+          }
+          continue;
+        }
+
+        // Check if this trial lesson already has a report (date+time match)
+        final lessonTimeStr = _normalizeTimeForComparison(schedule.hour);
+        final lessonKey = '$lessonDateStr|$lessonTimeStr';
+        if (reportDateTimes.contains(lessonKey)) {
+          continue; // Skip this trial schedule if a report exists
+        }
+      } else if (schedule.isPostponed && schedule.postponedDate != null) {
         // Handle postponed schedules
         try {
           final postponedDate = DateTime.parse(schedule.postponedDate!);
@@ -278,10 +329,10 @@ class _HomePageState extends State<HomePage> {
         continue;
       }
 
-      // This part is only reached by the postponed logic block above
+      // This part is only reached by the trial/postponed logic blocks above
       // because the regular schedule block now continues/breaks.
 
-      // Only include future lessons (for postponed)
+      // Only include future lessons (for trial and postponed)
       if (lessonDateTime != null && lessonDateTime.isAfter(now)) {
         upcomingLessons.add({
           'schedule': schedule,
@@ -369,8 +420,8 @@ class _HomePageState extends State<HomePage> {
       // Assign session numbers to upcoming lessons logic
       for (var lesson in upcomingLessons) {
         final schedule = lesson['schedule'] as Schedule;
-        if (schedule.isPostponed) {
-          lesson['sessionNumber'] = 0; // 0 indicates postponed/no number
+        if (schedule.isPostponed || schedule.isTrial) {
+          lesson['sessionNumber'] = 0; // 0 indicates postponed/trial/no number
         } else {
           currentSessionNum++;
           if (currentSessionNum > totalLessons) {
@@ -381,7 +432,7 @@ class _HomePageState extends State<HomePage> {
 
         if (kDebugMode) {
           print(
-              'DEBUG: Assigned session ${lesson['sessionNumber']} to lesson on ${lesson['dateStr']} (Postponed: ${schedule.isPostponed})');
+              'DEBUG: Assigned session ${lesson['sessionNumber']} to lesson on ${lesson['dateStr']} (Postponed: ${schedule.isPostponed}, Trial: ${schedule.isTrial})');
         }
       }
 
@@ -842,9 +893,11 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         // Lesson Number (Right visual / Start in RTL)
                         Text(
-                          schedule.isPostponed
-                              ? 'حصة مؤجلة'
-                              : 'الحصة $sessionNumber',
+                          schedule.isTrial
+                              ? 'حصة تجريبية'
+                              : schedule.isPostponed
+                                  ? 'حصة مؤجلة'
+                                  : 'الحصة $sessionNumber',
                           style: const TextStyle(
                             fontFamily: 'Qatar',
                             fontSize: 14,

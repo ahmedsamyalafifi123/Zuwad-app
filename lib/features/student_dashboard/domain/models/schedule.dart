@@ -7,6 +7,11 @@ class Schedule {
   final Map<String, dynamic>? original;
   final bool isPostponed;
   final String? postponedDate;
+  final bool isTrial;
+  final String? trialDate;
+  final String? trialTime;
+  final String? trialDatetime;
+  final int? leadId;
 
   Schedule({
     required this.day,
@@ -14,6 +19,11 @@ class Schedule {
     this.original,
     this.isPostponed = false,
     this.postponedDate,
+    this.isTrial = false,
+    this.trialDate,
+    this.trialTime,
+    this.trialDatetime,
+    this.leadId,
   });
 
   factory Schedule.fromJson(Map<String, dynamic> json) {
@@ -46,6 +56,36 @@ class Schedule {
       postponedDate = json['postponed_date'].toString();
     }
 
+    // Handle trial lesson fields
+    bool isTrial = false;
+    if (json['is_trial'] != null) {
+      isTrial = json['is_trial'] == true ||
+          json['is_trial'] == 1 ||
+          json['is_trial'] == '1';
+    }
+
+    String? trialDate;
+    if (json['trial_date'] != null) {
+      trialDate = json['trial_date'].toString();
+    }
+
+    String? trialTime;
+    if (json['trial_time'] != null) {
+      trialTime = json['trial_time'].toString();
+    }
+
+    String? trialDatetime;
+    if (json['trial_datetime'] != null) {
+      trialDatetime = json['trial_datetime'].toString();
+    }
+
+    int? leadId;
+    if (json['lead_id'] != null) {
+      leadId = json['lead_id'] is int
+          ? json['lead_id']
+          : int.tryParse(json['lead_id'].toString());
+    }
+
     return Schedule(
       day: day,
       hour: hour,
@@ -56,6 +96,11 @@ class Schedule {
           : null,
       isPostponed: isPostponed,
       postponedDate: postponedDate,
+      isTrial: isTrial,
+      trialDate: trialDate,
+      trialTime: trialTime,
+      trialDatetime: trialDatetime,
+      leadId: leadId,
     );
   }
 
@@ -66,6 +111,11 @@ class Schedule {
       'original': original,
       'is_postponed': isPostponed,
       'postponed_date': postponedDate,
+      'is_trial': isTrial,
+      'trial_date': trialDate,
+      'trial_time': trialTime,
+      'trial_datetime': trialDatetime,
+      'lead_id': leadId,
     };
   }
 }
@@ -230,6 +280,15 @@ class StudentSchedule {
           json['is_postponed'] == 1 ||
           json['is_postponed'] == '1';
 
+      // Get parent-level trial fields to pass to child schedules
+      final parentIsTrial = json['is_trial'] == true ||
+          json['is_trial'] == 1 ||
+          json['is_trial'] == '1';
+      final parentTrialDate = json['trial_date'];
+      final parentTrialTime = json['trial_time'];
+      final parentTrialDatetime = json['trial_datetime'];
+      final parentLeadId = json['lead_id'];
+
       // Process each schedule item
       for (var item in scheduleItems) {
         try {
@@ -277,11 +336,31 @@ class StudentSchedule {
               scheduleJson['is_postponed'] = true;
             }
 
+            // IMPORTANT: Propagate parent-level trial fields to child schedules
+            // if the child doesn't have its own trial fields
+            if (parentIsTrial && scheduleJson['is_trial'] == null) {
+              scheduleJson['is_trial'] = true;
+            }
+            if (parentTrialDate != null && scheduleJson['trial_date'] == null) {
+              scheduleJson['trial_date'] = parentTrialDate;
+            }
+            if (parentTrialTime != null && scheduleJson['trial_time'] == null) {
+              scheduleJson['trial_time'] = parentTrialTime;
+            }
+            if (parentTrialDatetime != null &&
+                scheduleJson['trial_datetime'] == null) {
+              scheduleJson['trial_datetime'] = parentTrialDatetime;
+            }
+            if (parentLeadId != null && scheduleJson['lead_id'] == null) {
+              scheduleJson['lead_id'] = parentLeadId;
+            }
+
             schedulesList.add(Schedule.fromJson(scheduleJson));
             if (kDebugMode) {
               print(
                   'Added schedule: ${scheduleJson['day']} at ${scheduleJson['hour']}, '
-                  'isPostponed: ${scheduleJson['is_postponed']}, postponedDate: ${scheduleJson['postponed_date']}');
+                  'isPostponed: ${scheduleJson['is_postponed']}, postponedDate: ${scheduleJson['postponed_date']}, '
+                  'isTrial: ${scheduleJson['is_trial']}, trialDate: ${scheduleJson['trial_date']}');
             }
           } else {
             if (kDebugMode) {

@@ -649,11 +649,82 @@ class _DashboardContentState extends State<_DashboardContent> {
       // Debug each schedule
       if (kDebugMode) {
         print(
-          'Checking schedule: day=${schedule.day}, hour=${schedule.hour}, isPostponed=${schedule.isPostponed}, postponedDate=${schedule.postponedDate}',
+          'Checking schedule: day=${schedule.day}, hour=${schedule.hour}, isPostponed=${schedule.isPostponed}, postponedDate=${schedule.postponedDate}, isTrial=${schedule.isTrial}, trialDate=${schedule.trialDate}',
         );
       }
 
-      if (schedule.isPostponed && schedule.postponedDate != null) {
+      if (schedule.isTrial && schedule.trialDate != null) {
+        // Handle trial lessons with specific dates
+        try {
+          if (kDebugMode) {
+            print(
+              'Processing trial lesson: ${schedule.day} at ${schedule.hour}, trial_date: ${schedule.trialDate}',
+            );
+          }
+
+          // Use trialDatetime if available, otherwise parse from trialDate + trialTime
+          DateTime? trialDateTime;
+          if (schedule.trialDatetime != null) {
+            try {
+              trialDateTime = DateTime.parse(schedule.trialDatetime!);
+            } catch (e) {
+              if (kDebugMode) {
+                print('Error parsing trial_datetime: $e');
+              }
+            }
+          }
+
+          // If trialDatetime parsing failed or not available, use trialDate + hour
+          if (trialDateTime == null) {
+            final trialDate = DateTime.parse(schedule.trialDate!);
+            final lessonTime = _parseTimeString(schedule.hour);
+
+            if (lessonTime != null) {
+              trialDateTime = DateTime(
+                trialDate.year,
+                trialDate.month,
+                trialDate.day,
+                lessonTime.hour,
+                lessonTime.minute,
+              );
+            }
+          }
+
+          if (trialDateTime != null) {
+            lessonDateTime = trialDateTime;
+            lessonDateStr =
+                '${trialDateTime.year}-${trialDateTime.month.toString().padLeft(2, '0')}-${trialDateTime.day.toString().padLeft(2, '0')}';
+
+            if (kDebugMode) {
+              print('Created trial lesson DateTime: $lessonDateTime');
+              print('Current time: $now');
+              print('Is trial lesson in future? ${lessonDateTime.isAfter(now)}');
+            }
+          } else {
+            if (kDebugMode) {
+              print('Failed to create trial lesson DateTime');
+            }
+            continue;
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error parsing trial lesson date: $e');
+          }
+          continue;
+        }
+
+        // Check if this trial lesson already has a report (date+time match)
+        final lessonTimeStr = _normalizeTimeForComparison(schedule.hour);
+        final lessonKey = '$lessonDateStr|$lessonTimeStr';
+        if (reportDateTimes.contains(lessonKey)) {
+          if (kDebugMode) {
+            print(
+              'Skipping trial lesson at $lessonKey - report already exists',
+            );
+          }
+          continue;
+        }
+      } else if (schedule.isPostponed && schedule.postponedDate != null) {
         // Handle postponed schedules with specific dates
         try {
           if (kDebugMode) {
@@ -823,7 +894,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         if (lessonDateTime.isAfter(now) || now.isBefore(lessonWindowEnd)) {
           if (kDebugMode) {
             print(
-              'Adding upcoming/in-progress lesson: ${schedule.day} at ${schedule.hour}, dateTime: $lessonDateTime, isPostponed: ${schedule.isPostponed}',
+              'Adding upcoming/in-progress lesson: ${schedule.day} at ${schedule.hour}, dateTime: $lessonDateTime, isPostponed: ${schedule.isPostponed}, isTrial: ${schedule.isTrial}',
             );
           }
           upcomingLessons.add({
@@ -859,7 +930,7 @@ class _DashboardContentState extends State<_DashboardContent> {
           final schedule = lesson['schedule'] as Schedule;
           final dateTime = lesson['dateTime'] as DateTime;
           print(
-            '  $i: ${schedule.day} at ${schedule.hour}, dateTime: $dateTime, isPostponed: ${schedule.isPostponed}',
+            '  $i: ${schedule.day} at ${schedule.hour}, dateTime: $dateTime, isPostponed: ${schedule.isPostponed}, isTrial: ${schedule.isTrial}',
           );
         }
       }
@@ -876,6 +947,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         print('  Egypt time: $egyptDateTime');
         print('  Local time: $_nextLessonDateTime');
         print('  isPostponed: ${_nextLesson!.isPostponed}');
+        print('  isTrial: ${_nextLesson!.isTrial}');
       }
     } else {
       if (kDebugMode) {

@@ -384,12 +384,39 @@ GET /students/{id}/schedules
         { "day": "السبت", "hour": "2:00 PM", "is_postponed": true }
       ],
       "real_student_id": 123
+    },
+    {
+      "id": "trial_456",
+      "lead_id": 456,
+      "student_id": 123,
+      "teacher_id": 8,
+      "teacher_name": "Mohamed",
+      "lesson_duration": 30,
+      "is_postponed": false,
+      "is_recurring": false,
+      "is_trial": true,
+      "trial_date": "2024-01-25",
+      "trial_time": "3:00 PM",
+      "trial_datetime": "2024-01-25 15:00:00",
+      "schedules": [
+        {
+          "day": "الخميس",
+          "hour": "3:00 PM",
+          "is_trial": true,
+          "trial_date": "2024-01-25"
+        }
+      ],
+      "real_student_id": null
     }
   ]
 }
 ```
 
-> **Note:** Postponed schedules are only returned if they are in the future.
+> **Note:**
+>
+> - Postponed schedules are only returned if they are in the future.
+> - **Trial lessons** (تجريبي) from CRM are included with `is_trial: true` flag. These are scheduled trial sessions from the leads management system.
+> - Trial lessons have an `id` prefixed with `trial_` and include `lead_id`, `trial_date`, `trial_time`, and `trial_datetime` fields.
 
 ### Get Student's Family Wallet
 
@@ -1194,28 +1221,26 @@ GET /teacher/notifications/count
 
 ### Date & Time Handling
 
-All dates and times returned by the API are in the **Server's Local Time** (typically **Africa/Cairo**).
-The format is always `YYYY-MM-DD HH:MM:SS` (e.g., `2024-01-15 14:30:00`) without timezone offset info.
+All dates and times returned by the API are in **UTC**.
+The format is `YYYY-MM-DD HH:MM:SS` (e.g., `2024-01-15 12:30:00` for 14:30 Cairo time).
 
 **Flutter Handling Guide:**
 
-Since the API returns local server time, you should handle it carefully in your app, especially if your users are in different timezones.
+Since the API returns UTC strings without the `Z` suffix, you **must** treat them as UTC.
 
 ```dart
-// Helper to parse server time (assuming Server is Africa/Cairo)
-DateTime parseServerDate(String dateString) {
-  // 1. Parse the string
-  DateTime serverLocal = DateTime.parse(dateString);
+DateTime parseApiDate(String dateString) {
+  // 1. Append 'Z' or replace space with 'T' and append 'Z' to force UTC parsing
+  // e.g. "2024-01-15 12:30:00" -> "2024-01-15T12:30:00Z"
+  String isoString = dateString.replaceAll(' ', 'T') + 'Z';
 
-  // 2. Do NOT treat as UTC or device local yet.
-  // Ideally, know the server offset (e.g. +2 or 3 for Cairo)
-  // Or simply display as-is if "Server Time" is the reference.
+  // 2. Parse as UTC
+  DateTime utcDate = DateTime.parse(isoString);
 
-  return serverLocal;
+  // 3. Convert to device local time for display
+  return utcDate.toLocal();
 }
 ```
-
-> **Recommendation:** Validate the server timezone setting in WordPress (Settings > General). If widely distributed, consider normalizing on UTC in future versions. Use `current_time('mysql', 1)` in WP to get UTC.
 
 The Chat API provides real-time messaging between users based on their roles:
 
