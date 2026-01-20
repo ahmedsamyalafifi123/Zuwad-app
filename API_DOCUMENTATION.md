@@ -505,6 +505,62 @@ DELETE /students/{id}/profile-image
 
 > **Note:** Students can upload/delete their own profile images. Supervisors, administrators, and accountants can manage any student's profile image.
 
+### Update Student Trial Date
+
+Updates the trial date for a student in the CRM system. Finds the CRM lead record by student's user_id and updates the trial_date field.
+
+**Permission:** Authenticated users (students can update their own trial dates, teachers/supervisors can update their assigned students)
+
+```http
+PUT /students/{id}/trial
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "trial_date": "2024-01-25T15:00",
+  "teacher_id": 8,
+  "lesson_duration": 30
+}
+```
+
+#### Parameters
+
+| Field             | Type    | Required | Description                                                |
+| ----------------- | ------- | -------- | ---------------------------------------------------------- |
+| `trial_date`      | string  | Yes      | New trial datetime (formats: `Y-m-d H:i:s` or `Y-m-dTH:i`) |
+| `teacher_id`      | integer | No       | Optional: Update the trial teacher                         |
+| `lesson_duration` | integer | No       | Optional: Update trial lesson duration (minutes)           |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "lead_id": 456,
+    "student_id": 123,
+    "student_name": "Ahmed Mohamed",
+    "trial_date": "2024-01-25 15:00:00",
+    "teacher_id": 8,
+    "teacher_name": "Mohamed Ahmed",
+    "lesson_duration": 30,
+    "updated_fields": ["trial_date", "teacher_id", "lesson_duration"]
+  }
+}
+```
+
+**Error Responses:**
+
+| Code                 | Status | Description                                   |
+| -------------------- | ------ | --------------------------------------------- |
+| `student_not_found`  | 404    | Student with given ID/m_id not found          |
+| `not_a_student`      | 400    | User exists but is not a student              |
+| `lead_not_found`     | 404    | No CRM lead found for this student            |
+| `invalid_trial_date` | 400    | Invalid datetime format                       |
+| `invalid_teacher`    | 400    | Teacher ID does not exist or is not a teacher |
+
+> **Note:** This endpoint looks up the CRM lead by the student's WordPress user_id, so you only need to provide the student ID (not the lead_id).
+
 ---
 
 ## 👨‍🏫 Teachers API

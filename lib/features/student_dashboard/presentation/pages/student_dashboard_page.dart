@@ -701,7 +701,8 @@ class _DashboardContentState extends State<_DashboardContent> {
             if (kDebugMode) {
               print('Created trial lesson DateTime: $lessonDateTime');
               print('Current time: $now');
-              print('Is trial lesson in future? ${lessonDateTime.isAfter(now)}');
+              print(
+                  'Is trial lesson in future? ${lessonDateTime.isAfter(now)}');
             }
           } else {
             if (kDebugMode) {
@@ -1697,6 +1698,7 @@ class _DashboardContentState extends State<_DashboardContent> {
               currentLessonTime: currentLessonTime,
               currentLessonDate: currentLessonDate,
               scrollController: scrollController,
+              isTrial: _nextLesson?.isTrial ?? false,
               onSuccess: () {
                 // Refresh schedules after successful postpone
                 if (mounted) {

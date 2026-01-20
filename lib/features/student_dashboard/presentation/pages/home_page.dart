@@ -235,8 +235,7 @@ class _HomePageState extends State<HomePage> {
             '${schedule.trialDate}|${_normalizeTimeForComparison(schedule.hour)}';
         if (addedTrialLessons.contains(trialKey)) {
           if (kDebugMode) {
-            print(
-                'Skipping duplicate trial lesson: $trialKey (already added)');
+            print('Skipping duplicate trial lesson: $trialKey (already added)');
           }
           continue; // Skip duplicate trial lesson
         }
@@ -593,6 +592,7 @@ class _HomePageState extends State<HomePage> {
               currentLessonTime: currentLessonTime,
               currentLessonDate: currentLessonDate,
               scrollController: scrollController,
+              isTrial: schedule.isTrial,
               onSuccess: () {
                 // Refresh data
                 if (mounted) {

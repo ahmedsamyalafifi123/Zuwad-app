@@ -23,6 +23,7 @@ class PostponePage extends StatefulWidget {
   final ScrollController? scrollController;
   final Function? onSuccess;
   final String? teacherGender;
+  final bool isTrial;
 
   const PostponePage({
     super.key,
@@ -35,6 +36,7 @@ class PostponePage extends StatefulWidget {
     this.scrollController,
     this.onSuccess,
     this.teacherGender,
+    this.isTrial = false,
   });
 
   @override
@@ -718,65 +720,87 @@ class _PostponePageState extends State<PostponePage> {
         print('Creating event:');
         print('  Local: $localDateTime');
         print('  Egypt: $egyptDateStr $egyptTimeStr');
+        print('  Is Trial: ${widget.isTrial}');
       }
 
-      await _api.createPostponedEvent(
-        studentId: student.id,
-        teacherId: widget.teacherId,
-        originalDate: widget.currentLessonDate ??
-            egyptDateStr, // Use current lesson date or new date if unknown
-        originalTime: widget.currentLessonTime ?? egyptTimeStr,
-        newDate: egyptDateStr,
-        newTime: egyptTimeStr,
-      );
+      // Handle trial rescheduling differently
+      if (widget.isTrial) {
+        // For trial lessons: just update the trial_date, no postponed event or report
+        final trialDateTime = '${egyptDateStr}T${egyptTimeStr.substring(0, 5)}';
 
-      // Create student report for the CURRENT lesson being postponed
-      if (widget.currentLessonDate != null) {
         if (kDebugMode) {
-          print(
-              'DEBUG: Creating postponement report for student ${student.id}');
-          print('DEBUG: Teacher ID: ${widget.teacherId}');
-          print('DEBUG: Date: ${widget.currentLessonDate}');
-          print('DEBUG: Time: ${widget.currentLessonTime}');
-          print('DEBUG: Attendance: تأجيل ولي أمر');
+          print('DEBUG: Updating trial date for student ${student.id}');
+          print('DEBUG: New trial_date: $trialDateTime');
         }
 
-        // Calculate session number first
-        String sessionNumber = '0';
-        try {
-          final sessionData = await _api.calculateSessionNumber(
-            studentId: student.id,
-            attendance: 'تأجيل ولي أمر',
-          );
-          sessionNumber = sessionData['session_number']?.toString() ?? '0';
-          if (kDebugMode) {
-            print('DEBUG: Calculated session number: $sessionNumber');
-          }
-        } catch (e) {
-          if (kDebugMode) {
-            print('DEBUG: Failed to calculate session number: $e');
-            // Fallback to '0' or maybe try to fetch latest report?
-            // For now, keep '0' as fallback but ideally we want the real number
-          }
-        }
-
-        final reportResult = await _api.createStudentReport(
+        await _api.updateTrialDate(
           studentId: student.id,
+          trialDate: trialDateTime,
           teacherId: widget.teacherId,
-          attendance: 'تأجيل ولي أمر',
-          sessionNumber: sessionNumber,
-          date: widget.currentLessonDate!,
-          time: widget.currentLessonTime ?? '',
           lessonDuration: widget.studentLessonDuration,
-          isPostponed: 0,
         );
 
-        if (kDebugMode) {
-          print('DEBUG: Report creation result: $reportResult');
-        }
-      }
+        _showSuccessDialog(student.teacherGender ?? 'ذكر');
+      } else {
+        // For regular lessons: create postponed event and report
+        await _api.createPostponedEvent(
+          studentId: student.id,
+          teacherId: widget.teacherId,
+          originalDate: widget.currentLessonDate ??
+              egyptDateStr, // Use current lesson date or new date if unknown
+          originalTime: widget.currentLessonTime ?? egyptTimeStr,
+          newDate: egyptDateStr,
+          newTime: egyptTimeStr,
+        );
 
-      _showSuccessDialog(student.teacherGender ?? 'ذكر');
+        // Create student report for the CURRENT lesson being postponed
+        if (widget.currentLessonDate != null) {
+          if (kDebugMode) {
+            print(
+                'DEBUG: Creating postponement report for student ${student.id}');
+            print('DEBUG: Teacher ID: ${widget.teacherId}');
+            print('DEBUG: Date: ${widget.currentLessonDate}');
+            print('DEBUG: Time: ${widget.currentLessonTime}');
+            print('DEBUG: Attendance: تأجيل ولي أمر');
+          }
+
+          // Calculate session number first
+          String sessionNumber = '0';
+          try {
+            final sessionData = await _api.calculateSessionNumber(
+              studentId: student.id,
+              attendance: 'تأجيل ولي أمر',
+            );
+            sessionNumber = sessionData['session_number']?.toString() ?? '0';
+            if (kDebugMode) {
+              print('DEBUG: Calculated session number: $sessionNumber');
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('DEBUG: Failed to calculate session number: $e');
+              // Fallback to '0' or maybe try to fetch latest report?
+              // For now, keep '0' as fallback but ideally we want the real number
+            }
+          }
+
+          final reportResult = await _api.createStudentReport(
+            studentId: student.id,
+            teacherId: widget.teacherId,
+            attendance: 'تأجيل ولي أمر',
+            sessionNumber: sessionNumber,
+            date: widget.currentLessonDate!,
+            time: widget.currentLessonTime ?? '',
+            lessonDuration: widget.studentLessonDuration,
+            isPostponed: 0,
+          );
+
+          if (kDebugMode) {
+            print('DEBUG: Report creation result: $reportResult');
+          }
+        }
+
+        _showSuccessDialog(student.teacherGender ?? 'ذكر');
+      }
     } catch (e) {
       _showErrorDialog('فشل في إنشاء الحدث المؤجل: ${e.toString()}');
     } finally {
@@ -808,7 +832,7 @@ class _PostponePageState extends State<PostponePage> {
               ),
               const SizedBox(height: 10),
               Text(
-                'سيتم إشعار ${GenderHelper.getTeacherTitle(teacherGender)} بالموعد الجديد وبانتظار الموافقة.',
+                'سيتم إشعار ${GenderHelper.getTeacherTitle(teacherGender)} بالموعد الجديد.',
                 style: const TextStyle(
                   fontFamily: 'Qatar',
                   fontSize: 14,

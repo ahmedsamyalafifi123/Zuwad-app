@@ -37,6 +37,8 @@ class ApiConstants {
       '$v2BaseUrl/students/$studentId/family';
   static String studentUploadImageEndpoint(int studentId) =>
       '$v2BaseUrl/students/$studentId/upload-image';
+  static String studentTrialEndpoint(int studentId) =>
+      '$v2BaseUrl/students/$studentId/trial';
 
   // ============================================
   // Teachers Endpoints
