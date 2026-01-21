@@ -3,9 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../../domain/models/student_report.dart';
+import '../../services/quran_game_service.dart';
 
 class WordwallGameWidget extends StatefulWidget {
-  const WordwallGameWidget({super.key});
+  final StudentReport? lastReport;
+
+  const WordwallGameWidget({super.key, this.lastReport});
 
   @override
   State<WordwallGameWidget> createState() => _WordwallGameWidgetState();
@@ -15,14 +19,104 @@ class _WordwallGameWidgetState extends State<WordwallGameWidget> {
   WebViewController? _controller;
   bool _isLoading = true;
   bool _isWebViewInitialized = false;
-  final String _gameUrl =
-      'https://wordwall.net/ar/embed/913a5376b8444a0bbf32a3c56b0e6765?themeId=65&templateId=8&fontStackId=0';
+  String _gameUrl =
+      'https://wordwall.net/ar/embed/913a5376b8444a0bbf32a3c56b0e6765?themeId=65&templateId=8&fontStackId=0'; // Default game
+  final QuranGameService _gameService = QuranGameService();
+  final List<String> _shownGameIds = []; // Track shown game IDs
+  bool _isRefreshing = false; // Track refresh state
 
   @override
   void initState() {
     super.initState();
-    // We do NOT initialize the WebView here to prevent startup crashes.
-    // Initialization happens when the user clicks "Start Game".
+    _loadGameUrl();
+  }
+
+  /// Load game URL based on student's progress
+  /// [refresh] - Set to true when refreshing to get a new game
+  Future<void> _loadGameUrl({bool refresh = false}) async {
+    try {
+      if (widget.lastReport == null || widget.lastReport!.nextTasmii.isEmpty) {
+        // No report, use default game
+        return;
+      }
+
+      // Extract surah number from nextTasmii
+      final surahNumber =
+          _gameService.extractSurahNumber(widget.lastReport!.nextTasmii);
+
+      if (kDebugMode) {
+        print(
+            'QuranGame: nextTasmii="${widget.lastReport!.nextTasmii}", extracted surah=$surahNumber');
+        print('QuranGame: Excluding ${_shownGameIds.length} shown games');
+      }
+
+      // Get random game for surahs after the current one, excluding shown games
+      final game = await _gameService.getRandomGame(
+        surahNumber,
+        excludeGameIds: _shownGameIds,
+      );
+
+      if (game != null) {
+        final gameUrl = _gameService.getGameUrl(game);
+        final gameId = game['game_id'] as String?;
+
+        if (gameUrl != null && gameUrl.isNotEmpty) {
+          if (mounted) {
+            setState(() {
+              _gameUrl = gameUrl;
+              // Add current game ID to shown list
+              if (gameId != null && !_shownGameIds.contains(gameId)) {
+                _shownGameIds.add(gameId);
+              }
+            });
+          }
+          if (kDebugMode) {
+            print('QuranGame: Loaded game URL: $gameUrl (ID: $gameId)');
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('QuranGame: Error loading game: $e');
+      }
+      // Keep default game on error
+    }
+  }
+
+  /// Refresh to load a new game
+  Future<void> _refreshGame() async {
+    if (_isRefreshing) return; // Prevent multiple refreshes
+
+    setState(() {
+      _isRefreshing = true;
+      _isLoading = true; // Show loading indicator
+    });
+
+    try {
+      // Load a new game URL
+      await _loadGameUrl(refresh: true);
+
+      // Wait a bit for state to update
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // If WebView is initialized and we have a new URL, reload it
+      if (mounted && _isWebViewInitialized && _controller != null) {
+        if (kDebugMode) {
+          print('QuranGame: Reloading WebView with new URL: $_gameUrl');
+        }
+        await _controller!.loadRequest(Uri.parse(_gameUrl));
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('QuranGame: Error refreshing game: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
+    }
   }
 
   Future<void> _launchGameInBrowser() async {
@@ -86,6 +180,67 @@ class _WordwallGameWidgetState extends State<WordwallGameWidget> {
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Game widget
+        _buildGameWidget(),
+
+        // Refresh button - only show when game is initialized and not refreshing
+        if (_isWebViewInitialized && !_isRefreshing)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 0.0),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color.fromARGB(255, 253, 247, 89), // Light yellow
+                    Color.fromARGB(255, 240, 191, 12), // Lighter yellow
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _refreshGame,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text(
+                  'تغيير اللعبة',
+                  style: TextStyle(
+                    fontFamily: 'Qatar',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // Show loading indicator when refreshing
+        if (_isRefreshing)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 0.0),
+            child: CircularProgressIndicator(
+              color: Color(0xFFD4AF37),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildGameWidget() {
     // If not initialized, show the start button
     if (!_isWebViewInitialized) {
       return Container(

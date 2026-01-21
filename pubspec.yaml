@@ -144,6 +144,7 @@ flutter:
     - assets/images/customer.json
     - assets/images/alarm.json
     - assets/images/game.json
+    - assets/quran_games.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -2464,10 +2464,10 @@ class _DashboardContentState extends State<_DashboardContent> {
                       const SizedBox(height: 12),
 
                       // Wordwall Game Section
-                      const Padding(
-                        padding: EdgeInsets.symmetric(
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
                             horizontal: 0.0), // Widget has its own margin
-                        child: WordwallGameWidget(),
+                        child: WordwallGameWidget(lastReport: _lastReport),
                       ),
 
                       const SizedBox(height: 20),
