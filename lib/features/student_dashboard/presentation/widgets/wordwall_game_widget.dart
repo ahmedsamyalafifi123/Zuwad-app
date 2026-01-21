@@ -187,41 +187,44 @@ class _WordwallGameWidgetState extends State<WordwallGameWidget> {
 
         // Refresh button - only show when game is initialized and not refreshing
         if (_isWebViewInitialized && !_isRefreshing)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 0.0),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color.fromARGB(255, 253, 247, 89), // Light yellow
-                    Color.fromARGB(255, 240, 191, 12), // Lighter yellow
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: ElevatedButton.icon(
-                onPressed: _refreshGame,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 0.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color.fromARGB(255, 253, 247, 89), // Light yellow
+                      Color.fromARGB(255, 240, 191, 12), // Lighter yellow
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text(
-                  'تغيير اللعبة',
-                  style: TextStyle(
-                    fontFamily: 'Qatar',
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                child: ElevatedButton.icon(
+                  onPressed: _refreshGame,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text(
+                    'تغيير اللعبة',
+                    style: TextStyle(
+                      fontFamily: 'Qatar',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ),
