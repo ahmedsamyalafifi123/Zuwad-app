@@ -43,7 +43,10 @@ class ChatPage extends StatefulWidget {
     this.recipientRole,
     this.recipientGender,
     this.recipientImage,
+    this.initialMessage,
   });
+
+  final String? initialMessage;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -52,6 +55,8 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   late final ChatRepository _chatRepository;
   late final core.InMemoryChatController _chatController;
+  final TextEditingController _textController =
+      TextEditingController(); // Controller for input
   final ChatEventService _chatEventService = ChatEventService();
   bool _isLoading = false;
   bool _isInitializing = true;
@@ -78,6 +83,7 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _pollTimer?.cancel();
     _chatController.dispose();
+    _textController.dispose();
     super.dispose();
   }
 
@@ -87,6 +93,11 @@ class _ChatPageState extends State<ChatPage> {
     _chatRepository = ChatRepository();
     _chatController = core.InMemoryChatController();
     _serverConversationId = widget.conversationId;
+
+    // Initialize controller with initial message if provided
+    if (widget.initialMessage != null) {
+      _textController.text = widget.initialMessage!;
+    }
 
     // Initial load
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -464,161 +475,258 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(70),
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color.fromARGB(255, 255, 255, 255),
-                  Color.fromARGB(255, 234, 234, 234),
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Color.fromARGB(40, 0, 0, 0),
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(70),
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color.fromARGB(255, 255, 255, 255),
+                    Color.fromARGB(255, 234, 234, 234),
+                  ],
                 ),
-              ],
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color.fromARGB(40, 0, 0, 0),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
               ),
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 5),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                          color: Colors.black),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xFFD4AF37),
-                                width: 2,
-                              ),
-                            ),
-                            child: _buildAppBarAvatar(),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  // Show خدمة العملاء for supervisor
-                                  _isSupervisor
-                                      ? 'خدمة العملاء'
-                                      : widget.recipientName,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
-                                    fontFamily: 'Qatar',
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
+              child: SafeArea(
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8.0, vertical: 5),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                            color: Colors.black),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFFD4AF37),
+                                  width: 2,
                                 ),
-                                if (_isLoading || _isInitializing)
-                                  const Text(
-                                    'جاري التحميل...',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
+                              ),
+                              child: _buildAppBarAvatar(),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    // Show خدمة العملاء for supervisor
+                                    _isSupervisor
+                                        ? 'خدمة العملاء'
+                                        : widget.recipientName,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
                                       fontFamily: 'Qatar',
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                              ],
+                                  if (_isLoading || _isInitializing)
+                                    const Text(
+                                      'جاري التحميل...',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                        fontFamily: 'Qatar',
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.refresh_rounded,
-                          color: AppTheme.primaryColor),
-                      onPressed: () {
-                        setState(() {
-                          _currentPage = 1;
-                          _lastMessageId = 0;
-                          _knownServerIds.clear();
-                          _pendingToServerIds.clear();
-                        });
-                        _chatController.setMessages([]);
-                        _loadMessages();
-                      },
-                      tooltip: 'تحديث المحادثة',
-                    ),
-                  ],
+                      IconButton(
+                        icon: const Icon(Icons.refresh_rounded,
+                            color: AppTheme.primaryColor),
+                        onPressed: () {
+                          setState(() {
+                            _currentPage = 1;
+                            _lastMessageId = 0;
+                            _knownServerIds.clear();
+                            _pendingToServerIds.clear();
+                          });
+                          _chatController.setMessages([]);
+                          _loadMessages();
+                        },
+                        tooltip: 'تحديث المحادثة',
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        body: _isInitializing
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: AppTheme.primaryColor,
-                ),
-              )
-            : Container(
-                decoration: const BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage('assets/images/chat_bg.png'),
-                    fit: BoxFit.cover,
-                    colorFilter: ColorFilter.mode(
-                      Color(0x0D8B0628),
-                      BlendMode.dstATop,
-                    ),
+          body: _isInitializing
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    color: AppTheme.primaryColor,
                   ),
-                ),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: Chat(
-                        currentUserId: widget.studentId,
-                        resolveUser: (String userId) async {
-                          if (userId == widget.studentId) {
-                            return core.User(
-                              id: widget.studentId,
-                              name: widget.studentName,
-                            );
-                          } else {
-                            return core.User(
-                              id: widget.recipientId,
-                              name: widget.recipientName,
-                            );
-                          }
-                        },
-                        chatController: _chatController,
-                        onMessageSend: (String text) {
-                          _handleSendPressed(types.PartialText(text: text));
-                        },
-                        theme: ChatTheme.light().copyWith(
-                          colors: ChatTheme.light().colors.copyWith(
-                                primary: AppTheme.primaryColor,
-                                onPrimary: Colors.white,
-                              ),
-                        ),
+                )
+              : Container(
+                  decoration: const BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage('assets/images/chat_bg.png'),
+                      fit: BoxFit.cover,
+                      colorFilter: ColorFilter.mode(
+                        Color(0x0D8B0628),
+                        BlendMode.dstATop,
                       ),
                     ),
-                  ],
+                  ),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: Chat(
+                                currentUserId: widget.studentId,
+                                resolveUser: (String userId) async {
+                                  if (userId == widget.studentId) {
+                                    return core.User(
+                                      id: widget.studentId,
+                                      name: widget.studentName,
+                                    );
+                                  } else {
+                                    return core.User(
+                                      id: widget.recipientId,
+                                      name: widget.recipientName,
+                                    );
+                                  }
+                                },
+                                chatController: _chatController,
+                                onMessageSend: (String text) {
+                                  _handleSendPressed(
+                                      types.PartialText(text: text));
+                                },
+                                theme: ChatTheme.light().copyWith(
+                                  colors: ChatTheme.light().colors.copyWith(
+                                        primary: AppTheme.primaryColor,
+                                        onPrimary: Colors.white,
+                                      ),
+                                ),
+                                // inputOptions: InputOptions... removed as it's not defined
+                                // customBottomWidget: ... removed as it's not defined
+                              ),
+                            ),
+                            // Overlay custom input to hide default one and allow pre-filling
+                            Positioned(
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              child: _buildMessageInput(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+        ));
+  }
+
+  Widget _buildMessageInput() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _textController,
+                textCapitalization: TextCapitalization.sentences,
+                minLines: 1,
+                maxLines: 5,
+                style: const TextStyle(
+                  fontFamily: 'Qatar',
+                  fontSize: 16,
+                  color: Colors.black,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'اكتب رسالتك هنا...',
+                  hintStyle: TextStyle(
+                    fontFamily: 'Qatar',
+                    fontSize: 14,
+                    color: Colors.grey[400],
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              decoration: const BoxDecoration(
+                color: AppTheme.primaryColor,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                onPressed: () {
+                  final text = _textController.text.trim();
+                  if (text.isNotEmpty) {
+                    _handleSendPressed(types.PartialText(text: text));
+                    _textController.clear();
+                  }
+                },
+                icon: const Icon(
+                  Icons.send_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

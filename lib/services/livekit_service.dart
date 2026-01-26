@@ -257,6 +257,20 @@ class LiveKitService {
     return 'room_student_${studentId}_teacher_$teacherId';
   }
 
+  /// Check if a participant is a hidden KPI observer
+  /// KPI observers in stealth mode have [HIDDEN_KPI] prefix in their name
+  /// These should be filtered out from the UI
+  static bool isHiddenKPIObserver(Participant participant) {
+    final participantName = participant.name ?? '';
+    return participantName.contains('[HIDDEN_KPI]');
+  }
+
+  /// Filter out hidden KPI observers from a list of participants
+  /// Use this to get only visible participants for the UI
+  static List<Participant> filterHiddenObservers(List<Participant> participants) {
+    return participants.where((p) => !isHiddenKPIObserver(p)).toList();
+  }
+
   /// Dispose resources
   void dispose() {
     disconnect();

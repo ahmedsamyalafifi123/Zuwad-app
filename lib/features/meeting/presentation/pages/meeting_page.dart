@@ -285,9 +285,21 @@ class _MeetingPageState extends State<MeetingPage> {
         }
       });
 
-    // Set initial participants
+    // Set initial participants (filter out hidden KPI observers)
     _localParticipant = room.localParticipant;
-    _participants = room.remoteParticipants.values.toList();
+
+    // Filter out hidden KPI observers using the helper method
+    final allRemoteParticipants = room.remoteParticipants.values.toList();
+    _participants = LiveKitService.filterHiddenObservers(allRemoteParticipants);
+
+    if (kDebugMode) {
+      if (allRemoteParticipants.length != _participants.length) {
+        final hiddenCount = allRemoteParticipants.length - _participants.length;
+        print('MeetingPage: Initial setup - filtered out $hiddenCount hidden KPI observer(s)');
+      }
+      print('MeetingPage: Initial setup - ${_participants.length} visible participants (filtered from ${allRemoteParticipants.length} total)');
+    }
+
     _screenShareParticipant = _findScreenShareParticipant();
 
     // Enable camera and microphone by default
@@ -300,12 +312,21 @@ class _MeetingPageState extends State<MeetingPage> {
       setState(() {
         final room = _liveKitService.room!;
         _localParticipant = room.localParticipant;
-        _participants = room.remoteParticipants.values.toList();
+
+        // Filter out hidden KPI observers using the helper method
+        final allRemoteParticipants = room.remoteParticipants.values.toList();
+        _participants = LiveKitService.filterHiddenObservers(allRemoteParticipants);
+
+        if (kDebugMode && allRemoteParticipants.length != _participants.length) {
+          final hiddenCount = allRemoteParticipants.length - _participants.length;
+          print('MeetingPage: Filtered out $hiddenCount hidden KPI observer(s)');
+        }
+
         _screenShareParticipant = _findScreenShareParticipant();
 
         // Debug: Log participant and track information
         if (kDebugMode) {
-          print('Room update: ${_participants.length} remote participants');
+          print('Room update: ${_participants.length} visible remote participants (filtered from ${allRemoteParticipants.length} total)');
           for (final participant in _participants) {
             print(
                 'Participant ${participant.identity}: ${participant.audioTrackPublications.length} audio tracks, ${participant.videoTrackPublications.length} video tracks');
@@ -325,7 +346,13 @@ class _MeetingPageState extends State<MeetingPage> {
       ..._participants,
     ];
 
+    // Find first participant with screen share (excluding hidden KPI observers)
     for (final participant in allParticipants) {
+      // Skip hidden KPI observers
+      if (LiveKitService.isHiddenKPIObserver(participant)) {
+        continue;
+      }
+
       final hasScreen = participant.videoTrackPublications.any((pub) {
         final sourceName = pub.source.toString().toLowerCase();
         return sourceName.contains('screen') &&
@@ -411,7 +438,7 @@ class _MeetingPageState extends State<MeetingPage> {
                     const Icon(Icons.circle, color: Colors.white, size: 8),
                     const SizedBox(width: 4),
                     Text(
-                      'متصل (${_participants.length + 1})',
+                      'متصل (${_participants.length + 1})', // +1 for local participant
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,

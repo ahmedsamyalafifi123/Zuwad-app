@@ -2325,14 +2325,30 @@ String generateRoomName(int studentId, int teacherId) {
 
 Tokens are generated server-side using LiveKit API credentials.
 
-**Request:**
+**Request (Teacher/Student):**
 
 ```http
 POST /wp-admin/admin-ajax.php
 Content-Type: application/x-www-form-urlencoded
 
-action=get_meeting_token&room_name=room_student_123_teacher_456
+action=get_meeting_token&room_name=room_student_123_teacher_456&student_name=Student Name
 ```
+
+**Request (KPI Observer - Stealth Mode):**
+
+```http
+POST /wp-admin/admin-ajax.php
+Content-Type: application/x-www-form-urlencoded
+
+action=get_meeting_token&room_name=room_student_123_teacher_456&student_name=Student Name&is_stealth_hidden=true
+```
+
+| Parameter         | Required | Type    | Description                                                    |
+| ----------------- | -------- | ------- | -------------------------------------------------------------- |
+| `action`          | Yes      | string  | Must be `get_meeting_token`                                   |
+| `room_name`       | Yes      | string  | Room name in format `room_student_{id}_teacher_{id}`          |
+| `student_name`    | No       | string  | Student name for logging purposes                             |
+| `is_stealth_hidden`| No      | boolean | Set to `true` for KPI observation mode (hidden from participants) |
 
 **Response:**
 
@@ -2344,10 +2360,29 @@ action=get_meeting_token&room_name=room_student_123_teacher_456
     "room_name": "room_student_123_teacher_456",
     "server_url": "wss://livekit.zuwad-academy.com",
     "participant_name": "Teacher Name",
-    "participant_id": 456
+    "participant_id": 456,
+    "is_observer": false
   }
 }
 ```
+
+**Response (KPI Stealth Mode):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIs...",
+    "room_name": "room_student_123_teacher_456",
+    "server_url": "wss://livekit.zuwad-academy.com",
+    "participant_name": "[HIDDEN_KPI]KPI User Name",
+    "participant_id": 789,
+    "is_observer": true
+  }
+}
+```
+
+> **Note:** When `is_stealth_hidden=true`, the participant name is prefixed with `[HIDDEN_KPI]`. The client-side JavaScript filters out participants with this prefix, making KPI observers invisible to teachers and students in the room.
 
 ### LiveKit Server
 

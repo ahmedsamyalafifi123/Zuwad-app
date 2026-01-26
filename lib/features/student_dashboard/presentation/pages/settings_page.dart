@@ -16,6 +16,7 @@ import '../widgets/settings/settings_course_card.dart';
 import '../widgets/settings/settings_subscriptions_card.dart';
 import '../widgets/settings/settings_financial_card.dart';
 import '../widgets/settings/settings_bottom_actions.dart';
+import '../../../chat/presentation/pages/chat_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -341,6 +342,28 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  void _contactSupport(String message) {
+    if (_student?.supervisorId != null && _student!.supervisorId != 0) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatPage(
+            recipientId: _student!.supervisorId.toString(),
+            recipientName: _student!.supervisorName ?? 'خدمة العملاء',
+            studentId: _student!.id.toString(),
+            studentName: _student!.name,
+            recipientRole: 'supervisor',
+            initialMessage: message,
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى التواصل مع الإدارة')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -372,12 +395,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       const SizedBox(height: 16),
                       // 2. Action Buttons (NEW)
                       SettingsActionButtons(
-                        onAddStudent: () {
-                          // TODO: Navigate to add student
-                        },
-                        onNewExperience: () {
-                          // TODO: Navigate to new experience
-                        },
+                        onAddStudent: () => _contactSupport(
+                            "السلام عليكم، أود إضافة طالب جديد."),
+                        onNewExperience: () => _contactSupport(
+                            "السلام عليكم، أود تجربة مادة جديدة."),
                       ),
 
                       _buildDivider(),
@@ -387,15 +408,10 @@ class _SettingsPageState extends State<SettingsPage> {
                         SettingsCourseCard(
                           student: _student!,
                           onEditPackage: _showPackageEditDialog,
-                          onCancelRenewal: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text(
-                                        'يرجى التواصل مع الإدارة لإلغاء التجديد')));
-                          },
-                          onChangeTeacher: () {
-                            // TODO: Navigate to teacher change
-                          },
+                          onCancelRenewal: () => _contactSupport(
+                              "السلام عليكم، أود الغاء التجديد."),
+                          onChangeTeacher: () => _contactSupport(
+                              "السلام عليكم، أود تبديل المعلم (أو المعلمة)."),
                         ),
 
                       if (_student != null) _buildDivider(),
@@ -430,18 +446,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       // 6. Bottom Actions (NEW)
                       SettingsBottomActions(
                         onTransactions: _showTransactionsModal,
-                        onPostponePayment: () {
-                          // Placeholder
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('طلب تأجيل الدفع - قريباً')));
-                        },
-                        onPayFees: () {
-                          // Placeholder
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('تسديد الرسوم - قريباً')));
-                        },
+                        onPostponePayment: () => _contactSupport(
+                            "السلام عليكم، أود طلب تأجيل الدفع."),
+                        onPayFees: () => _contactSupport(
+                            "السلام عليكم، أود استفسار بخصوص تسديد الرسوم."),
                       ),
 
                       const SizedBox(height: 100), // Bottom padding
