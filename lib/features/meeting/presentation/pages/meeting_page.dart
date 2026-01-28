@@ -47,9 +47,9 @@ class _MeetingPageState extends State<MeetingPage> {
   Participant? _localParticipant;
   Participant? _screenShareParticipant;
 
-  // Celebration state
-  final Map<String, String> _participantCelebrations = {};
-  final Map<String, Timer> _celebrationTimers = {};
+  // Celebration state - now global for full-page effect
+  String? _activeCelebration;
+  Timer? _celebrationTimer;
 
   @override
   void initState() {
@@ -86,9 +86,7 @@ class _MeetingPageState extends State<MeetingPage> {
     _disablePiP();
     // Dispose event listener
     _roomListener.dispose();
-    for (final timer in _celebrationTimers.values) {
-      timer.cancel();
-    }
+    _celebrationTimer?.cancel();
     _liveKitService.disconnect();
     super.dispose();
   }
@@ -398,26 +396,8 @@ class _MeetingPageState extends State<MeetingPage> {
 
       if (payload['type'] == 'celebration') {
         final String variant = payload['variant'] ?? 'hearts';
-        final participant = event.participant; // Sender
-
-        // "Recipient-Focused" Logic:
-        // - If I sent it (Sender), show on everyone else
-        // - If someone else sent it (Receiver), show on ME
-        if (participant != null) {
-          if (participant == _localParticipant) {
-            // I am sender -> show on remotes
-            for (final p in _participants) {
-              _triggerCelebration(p.identity, variant);
-            }
-          } else {
-            // I am receiver -> show on me
-            if (_localParticipant != null) {
-              // Also check if the event was intended for specific user?
-              // LiveKit data is broadcast or unicast. If I received it, it's for the room or me.
-              _triggerCelebration(_localParticipant!.identity, variant);
-            }
-          }
-        }
+        // Trigger full-page celebration for 8 seconds
+        _triggerFullPageCelebration(variant);
       }
     } catch (e) {
       if (kDebugMode) {
@@ -426,23 +406,21 @@ class _MeetingPageState extends State<MeetingPage> {
     }
   }
 
-  void _triggerCelebration(String identity, String variant) {
-    // Check if widget is receiving the celebration
+  void _triggerFullPageCelebration(String variant) {
     if (kDebugMode) {
-      print('Triggering celebration ($variant) for $identity');
+      print('Triggering full-page celebration ($variant)');
     }
 
     if (mounted) {
       setState(() {
-        _participantCelebrations[identity] = variant;
+        _activeCelebration = variant;
       });
 
-      _celebrationTimers[identity]?.cancel();
-      _celebrationTimers[identity] = Timer(const Duration(seconds: 3), () {
+      _celebrationTimer?.cancel();
+      _celebrationTimer = Timer(const Duration(seconds: 8), () {
         if (mounted) {
           setState(() {
-            _participantCelebrations.remove(identity);
-            _celebrationTimers.remove(identity); // access to key safe? yes
+            _activeCelebration = null;
           });
         }
       });
@@ -661,8 +639,6 @@ class _MeetingPageState extends State<MeetingPage> {
               ? ParticipantWidget(
                   participant: _screenShareParticipant!,
                   isLocal: _screenShareParticipant == _localParticipant,
-                  celebrationVariant: _participantCelebrations[
-                      _screenShareParticipant!.identity],
                 )
               : _buildSquareGrid(allParticipants),
         ),
@@ -688,8 +664,6 @@ class _MeetingPageState extends State<MeetingPage> {
                       child: ParticipantWidget(
                         participant: p,
                         isLocal: p == _localParticipant,
-                        celebrationVariant:
-                            _participantCelebrations[p.identity],
                       ),
                     ),
                   );
@@ -697,6 +671,9 @@ class _MeetingPageState extends State<MeetingPage> {
               ),
             ),
           ),
+
+        // Full-page celebration overlay
+        if (_activeCelebration != null) _buildFullPageCelebration(),
 
         // Control bar at bottom
         Positioned(
@@ -750,7 +727,6 @@ class _MeetingPageState extends State<MeetingPage> {
                 child: ParticipantWidget(
                   participant: p,
                   isLocal: p == _localParticipant,
-                  celebrationVariant: _participantCelebrations[p.identity],
                 ),
               );
             },
@@ -761,4 +737,169 @@ class _MeetingPageState extends State<MeetingPage> {
   }
 
   // Removed unused "more participants" indicator for the new grid layout
+
+  Widget _buildFullPageCelebration() {
+    return Positioned.fill(
+      child: _CelebrationOverlay(
+        variant: _activeCelebration!,
+      ),
+    );
+  }
+}
+
+class _CelebrationOverlay extends StatefulWidget {
+  final String variant;
+
+  const _CelebrationOverlay({required this.variant});
+
+  @override
+  State<_CelebrationOverlay> createState() => _CelebrationOverlayState();
+}
+
+class _CelebrationOverlayState extends State<_CelebrationOverlay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  // Confetti colors
+  static const List<Color> _confettiColors = [
+    Colors.red,
+    Colors.blue,
+    Colors.green,
+    Colors.yellow,
+    Colors.purple,
+    Colors.orange,
+    Colors.pink,
+    Colors.cyan,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    );
+
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.linear,
+    );
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        if (_controller.status == AnimationStatus.dismissed) {
+          return const SizedBox.shrink();
+        }
+
+        final bool isConfetti = widget.variant == 'confetti';
+        final int particleCount = isConfetti ? 40 : 15; // Fewer particles for emojis, more for confetti
+
+        return Stack(
+          children: List.generate(particleCount, (index) {
+            // Generate random positions for full-page effect
+            final random = math.Random(index);
+            final double xPos = random.nextDouble();
+            final double stagger = random.nextDouble() * 0.3;
+            final double speed = 0.8 + random.nextDouble() * 0.4;
+
+            // Calculate progress - allow it to go beyond 1.0 so all particles complete their journey
+            double progress = (_animation.value * speed) - stagger;
+
+            // Only hide if particle has completed full journey (past 1.0) AND faded out
+            if (progress < 0.0 || progress > 1.3) {
+              return const SizedBox.shrink();
+            }
+
+            // Clamp progress for position calculation (0.0 to 1.0)
+            final clampedProgress = progress.clamp(0.0, 1.0);
+            final double yPos = 1.0 - clampedProgress; // Bottom to top
+
+            // Add sine wave horizontal movement
+            final double waveOffset = math.sin(clampedProgress * math.pi * 2 + index) * 0.05;
+
+            return Positioned(
+              left: (xPos + waveOffset) * MediaQuery.of(context).size.width,
+              top: yPos * MediaQuery.of(context).size.height,
+              child: Opacity(
+                opacity: _calculateOpacity(clampedProgress),
+                child: Transform.scale(
+                  scale: 0.8 + (clampedProgress * 0.4), // Grow as they rise
+                  child: isConfetti
+                      ? _buildConfettiPiece(random, clampedProgress)
+                      : _buildEmoji(widget.variant),
+                ),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+
+  double _calculateOpacity(double progress) {
+    // Start fading out when progress > 0.7 (70% of animation)
+    // Full opacity until 0.7, then smooth fade to 0
+    if (progress < 0.7) {
+      return 1.0;
+    } else {
+      // Map 0.7-1.0 to 1.0-0.0 for smooth fade
+      final fadeProgress = (progress - 0.7) / 0.3;
+      return (1.0 - fadeProgress).clamp(0.0, 1.0);
+    }
+  }
+
+  Widget _buildEmoji(String variant) {
+    String emoji;
+    switch (variant) {
+      case 'hearts':
+        emoji = '❤️';
+        break;
+      case 'claps':
+        emoji = '👏';
+        break;
+      case 'thumbs':
+        emoji = '👍';
+        break;
+      default:
+        emoji = '❤️';
+    }
+
+    return Text(
+      emoji,
+      style: const TextStyle(
+        fontSize: 50,
+        decoration: TextDecoration.none,
+      ),
+    );
+  }
+
+  Widget _buildConfettiPiece(math.Random random, double progress) {
+    final color = _confettiColors[random.nextInt(_confettiColors.length)];
+    final size = 10.0 + random.nextDouble() * 15.0; // 10-25px
+
+    return Transform.rotate(
+      angle: progress * math.pi * 4, // Spin as it rises
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
 }

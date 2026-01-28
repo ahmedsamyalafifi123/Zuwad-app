@@ -7,59 +7,33 @@ import '../../../../core/theme/app_theme.dart';
 class ParticipantWidget extends StatefulWidget {
   final Participant participant;
   final bool isLocal;
-  final String? celebrationVariant;
 
   const ParticipantWidget({
     super.key,
     required this.participant,
     required this.isLocal,
-    this.celebrationVariant,
   });
 
   @override
   State<ParticipantWidget> createState() => _ParticipantWidgetState();
 }
 
-class _ParticipantWidgetState extends State<ParticipantWidget>
-    with SingleTickerProviderStateMixin {
+class _ParticipantWidgetState extends State<ParticipantWidget> {
   VideoTrack? _videoTrack;
   bool _isVideoEnabled = true;
   bool _isAudioEnabled = true;
   bool _isScreenSharing = false;
-
-  late AnimationController _celebrationController;
-  late Animation<double> _celebrationAnimation;
 
   @override
   void initState() {
     super.initState();
     _setupParticipant();
     widget.participant.addListener(_onParticipantChanged);
-
-    _celebrationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    );
-
-    _celebrationAnimation = CurvedAnimation(
-      parent: _celebrationController,
-      curve: Curves.easeOut,
-    );
-  }
-
-  @override
-  void didUpdateWidget(ParticipantWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.celebrationVariant != oldWidget.celebrationVariant &&
-        widget.celebrationVariant != null) {
-      _celebrationController.forward(from: 0.0);
-    }
   }
 
   @override
   void dispose() {
     widget.participant.removeListener(_onParticipantChanged);
-    _celebrationController.dispose();
     super.dispose();
   }
 
@@ -174,94 +148,10 @@ class _ParticipantWidgetState extends State<ParticipantWidget>
 
             // Media status indicators
             _buildMediaStatusIndicators(),
-
-            // Celebration Overlay
-            if (widget.celebrationVariant != null) _buildCelebrationOverlay(),
           ],
         ),
       ),
     );
-  }
-
-  // Revised _buildCelebrationOverlay using Alignment for proper relative positioning within the Container
-  Widget _buildCelebrationOverlay() {
-    return LayoutBuilder(builder: (context, constraints) {
-      return AnimatedBuilder(
-        animation: _celebrationAnimation,
-        builder: (context, child) {
-          if (_celebrationController.status == AnimationStatus.dismissed)
-            return const SizedBox.shrink();
-
-          String emoji;
-          bool isRising;
-
-          switch (widget.celebrationVariant) {
-            case 'hearts':
-              emoji = '❤️';
-              isRising = true;
-              break;
-            case 'claps':
-              emoji = '👏';
-              isRising = true;
-              break;
-            case 'thumbs':
-              emoji = '👍';
-              isRising = true;
-              break;
-            case 'confetti':
-              emoji = '🎉';
-              isRising = false;
-              break;
-            default:
-              emoji = '❤️';
-              isRising = true;
-          }
-
-          return Stack(
-            children: List.generate(8, (index) {
-              // Generate pseudo-random positions based on index
-              final double seed = index * 13.0; // deterministic random-ish
-              final double xPos = (seed % 100) / 100.0; // 0.0 to 1.0
-
-              final double stagger = (index % 4) * 0.1;
-              double progress =
-                  (_celebrationAnimation.value * 1.5 - stagger).clamp(0.0, 1.0);
-
-              if (progress <= 0 || progress >= 1)
-                return const SizedBox.shrink();
-
-              final double yPos = isRising
-                  ? 1.0 - progress // Bottom to Top
-                  : progress; // Top to Bottom
-
-              // Add some sine wave horizontal movement
-              final double xOffset =
-                  math.sin(progress * math.pi * 2 + seed) * 0.1;
-
-              return Align(
-                alignment: Alignment(
-                    (xPos - 0.5) * 2 + xOffset, // Map 0..1 to -1..1
-                    (yPos - 0.5) * 2 // Map 0..1 to -1..1
-                    ),
-                child: Opacity(
-                  opacity: 1.0 - progress,
-                  child: Transform.scale(
-                    scale: 0.5 + (progress * 0.5), // Grow slightly
-                    child: Text(
-                      emoji,
-                      style: TextStyle(
-                        fontSize: constraints.maxWidth * 0.2, // Responsive size
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          );
-        },
-      );
-    });
   }
 
   Widget _buildVideoOrAvatar() {
