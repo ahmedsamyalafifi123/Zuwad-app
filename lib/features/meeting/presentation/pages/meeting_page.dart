@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:convert';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:livekit_client/livekit_client.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -45,6 +47,10 @@ class _MeetingPageState extends State<MeetingPage> {
   Participant? _localParticipant;
   Participant? _screenShareParticipant;
 
+  // Celebration state
+  final Map<String, String> _participantCelebrations = {};
+  final Map<String, Timer> _celebrationTimers = {};
+
   @override
   void initState() {
     if (kDebugMode) {
@@ -80,6 +86,9 @@ class _MeetingPageState extends State<MeetingPage> {
     _disablePiP();
     // Dispose event listener
     _roomListener.dispose();
+    for (final timer in _celebrationTimers.values) {
+      timer.cancel();
+    }
     _liveKitService.disconnect();
     super.dispose();
   }
@@ -287,6 +296,12 @@ class _MeetingPageState extends State<MeetingPage> {
             _onRoomUpdate();
           });
         }
+      })
+      ..on<DataReceivedEvent>((event) {
+        if (kDebugMode) {
+          print('MeetingPage: Data received');
+        }
+        _handleDataReceived(event);
       });
 
     // Set initial participants (filter out hidden KPI observers)
@@ -373,6 +388,65 @@ class _MeetingPageState extends State<MeetingPage> {
       if (hasScreen) return participant;
     }
     return null;
+  }
+
+  void _handleDataReceived(DataReceivedEvent event) {
+    try {
+      // Decode data (UTF-8)
+      final String decoded = utf8.decode(event.data);
+      final Map<String, dynamic> payload = jsonDecode(decoded);
+
+      if (payload['type'] == 'celebration') {
+        final String variant = payload['variant'] ?? 'hearts';
+        final participant = event.participant; // Sender
+
+        // "Recipient-Focused" Logic:
+        // - If I sent it (Sender), show on everyone else
+        // - If someone else sent it (Receiver), show on ME
+        if (participant != null) {
+          if (participant == _localParticipant) {
+            // I am sender -> show on remotes
+            for (final p in _participants) {
+              _triggerCelebration(p.identity, variant);
+            }
+          } else {
+            // I am receiver -> show on me
+            if (_localParticipant != null) {
+              // Also check if the event was intended for specific user?
+              // LiveKit data is broadcast or unicast. If I received it, it's for the room or me.
+              _triggerCelebration(_localParticipant!.identity, variant);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error parsing data received: $e');
+      }
+    }
+  }
+
+  void _triggerCelebration(String identity, String variant) {
+    // Check if widget is receiving the celebration
+    if (kDebugMode) {
+      print('Triggering celebration ($variant) for $identity');
+    }
+
+    if (mounted) {
+      setState(() {
+        _participantCelebrations[identity] = variant;
+      });
+
+      _celebrationTimers[identity]?.cancel();
+      _celebrationTimers[identity] = Timer(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _participantCelebrations.remove(identity);
+            _celebrationTimers.remove(identity); // access to key safe? yes
+          });
+        }
+      });
+    }
   }
 
   Future<void> _toggleCamera() async {
@@ -587,6 +661,8 @@ class _MeetingPageState extends State<MeetingPage> {
               ? ParticipantWidget(
                   participant: _screenShareParticipant!,
                   isLocal: _screenShareParticipant == _localParticipant,
+                  celebrationVariant: _participantCelebrations[
+                      _screenShareParticipant!.identity],
                 )
               : _buildSquareGrid(allParticipants),
         ),
@@ -612,6 +688,8 @@ class _MeetingPageState extends State<MeetingPage> {
                       child: ParticipantWidget(
                         participant: p,
                         isLocal: p == _localParticipant,
+                        celebrationVariant:
+                            _participantCelebrations[p.identity],
                       ),
                     ),
                   );
@@ -672,6 +750,7 @@ class _MeetingPageState extends State<MeetingPage> {
                 child: ParticipantWidget(
                   participant: p,
                   isLocal: p == _localParticipant,
+                  celebrationVariant: _participantCelebrations[p.identity],
                 ),
               );
             },

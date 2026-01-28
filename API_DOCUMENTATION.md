@@ -2343,12 +2343,12 @@ Content-Type: application/x-www-form-urlencoded
 action=get_meeting_token&room_name=room_student_123_teacher_456&student_name=Student Name&is_stealth_hidden=true
 ```
 
-| Parameter         | Required | Type    | Description                                                    |
-| ----------------- | -------- | ------- | -------------------------------------------------------------- |
-| `action`          | Yes      | string  | Must be `get_meeting_token`                                   |
-| `room_name`       | Yes      | string  | Room name in format `room_student_{id}_teacher_{id}`          |
-| `student_name`    | No       | string  | Student name for logging purposes                             |
-| `is_stealth_hidden`| No      | boolean | Set to `true` for KPI observation mode (hidden from participants) |
+| Parameter           | Required | Type    | Description                                                       |
+| ------------------- | -------- | ------- | ----------------------------------------------------------------- |
+| `action`            | Yes      | string  | Must be `get_meeting_token`                                       |
+| `room_name`         | Yes      | string  | Room name in format `room_student_{id}_teacher_{id}`              |
+| `student_name`      | No       | string  | Student name for logging purposes                                 |
+| `is_stealth_hidden` | No       | boolean | Set to `true` for KPI observation mode (hidden from participants) |
 
 **Response:**
 
@@ -2631,3 +2631,112 @@ The page relies on `SettingsRepository` for all data operations.
 - Uses `SettingsRepository` to isolate API calls.
 - Updates local state variables (`_student`, `_walletInfo`, `_familyMembers`) upon fetching.
 - Handles loading and error states for each section.
+
+---
+
+## 🎉 Real-time Celebration Events (LiveKit)
+
+This section details how to implement the celebration animations (Hearts, Confetti, etc.) in the Flutter app to match the web experience.
+
+### Overview
+
+Celebrations are broadcasted to all participants in the room using **LiveKit Data Channels**.
+
+- **Transport**: `room.localParticipant.publishData(data, { reliable: true })`
+- **Event**: `room.on(RoomEvent.DataReceived, ...)`
+- **Encoding**: JSON string encoded as bytes (UTF-8).
+
+### 1. Payload Structure
+
+The data payload is a JSON object converted to a byte array.
+
+```json
+{
+  "type": "celebration",
+  "variant": "hearts"
+}
+```
+
+**Supported Variants:**
+
+- `"hearts"` (Default)
+- `"confetti"`
+- `"claps"`
+- `"thumbs"`
+
+### 2. Sending Celebrations (Flutter -> Web/Mobile)
+
+When the user (e.g., Teacher) taps a celebration button in the Flutter app:
+
+1.  **Construct JSON**: `{"type": "celebration", "variant": "hearts"}`
+2.  **Encode**: Convert string to bytes (UTF-8).
+3.  **Publish**: Use `publishData` with `reliable: true`.
+
+#### Example (Flutter/Dart pseudo-code):
+
+```dart
+Future<void> sendCelebration(String variant) async {
+  if (room.localParticipant == null) return;
+
+  final data = jsonEncode({
+    'type': 'celebration',
+    'variant': variant,
+  });
+
+  // Send to all participants
+  await room.localParticipant!.publishData(
+    utf8.encode(data),
+    reliable: true,
+  );
+
+  // OPTIONAL: Trigger local animation manually if you want the sender to see it too
+  // (BUT web logic is "Recipient-Focused", so typically sender doesn't see it on themselves).
+}
+```
+
+### 3. Receiving Celebrations (Web/Mobile -> Flutter)
+
+Your app should listen for incoming data events.
+
+#### Example (Flutter/Dart):
+
+```dart
+room.addListener(RoomEvent.dataReceived, (data, participant, kind, topic) {
+  try {
+    final String decoded = utf8.decode(data);
+    final Map<String, dynamic> payload = jsonDecode(decoded);
+
+    if (payload['type'] == 'celebration') {
+      final String variant = payload['variant'];
+      final String senderIdentity = participant?.identity ?? 'unknown';
+
+      // Trigger your animation function
+      showCelebrationAnimation(variant, senderIdentity);
+    }
+  } catch (e) {
+    print('Error parsing celebration data: $e');
+  }
+});
+```
+
+### 4. Display Logic (The "Recipient-Focused" Rule)
+
+To match the web behavior, follow these targeting rules:
+
+- **Logic**: The animation should appear on **Everyone EXCEPT the Sender**.
+  - **If I am the Sender (Me)**: I should see the animation on **everyone else's video tiles** (or screens), but **NOT** on my own video tile.
+  - **If I am the Receiver**: I should see the animation on **MY own video tile** (and other participants), but **NOT** on the Sender's video tile.
+
+**Practical Implementation for Mobile:**
+
+- **Scenario A: Teacher (Mobile) sends to Student (Web/Mobile):**
+  - Teacher sees hearts floating on the **Student's video**.
+  - Student sees hearts floating on **Their Own video**.
+
+- **Scenario B: Student (Mobile) receives from Teacher:**
+  - Student sees hearts floating on **Their Own video** (because they are the recipient).
+
+**Visual Style:**
+
+- **Hearts/Thumbs/Claps**: Float from **Bottom to Top** of the video frame.
+- **Confetti**: Falls from **Top to Bottom**.
