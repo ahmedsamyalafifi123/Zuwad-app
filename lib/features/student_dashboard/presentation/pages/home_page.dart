@@ -798,6 +798,10 @@ class _HomePageState extends State<HomePage> {
       teacherFirstName = teacherName.split(' ')[0];
     }
 
+    // Responsive sizing
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 600;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -808,7 +812,6 @@ class _HomePageState extends State<HomePage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Right Side: Date/Time (Placed first for RTL)
             // Right Side: Date/Time (Placed first for RTL)
             Container(
               width: 120, // Increased width as requested
@@ -1011,7 +1014,7 @@ class _HomePageState extends State<HomePage> {
                         Opacity(
                           opacity: showRescheduleButton ? 1.0 : 0.4,
                           child: Container(
-                            height: 30,
+                            height: isDesktop ? 45 : 30,
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: showRescheduleButton
@@ -1058,7 +1061,7 @@ class _HomePageState extends State<HomePage> {
                                 'إعادة الجدولة',
                                 style: TextStyle(
                                   fontFamily: 'Qatar',
-                                  fontSize: 11,
+                                  fontSize: isDesktop ? 14 : 11,
                                   fontWeight: FontWeight.bold,
                                   color: showRescheduleButton
                                       ? Colors.black

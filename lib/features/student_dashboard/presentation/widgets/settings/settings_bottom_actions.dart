@@ -14,12 +14,15 @@ class SettingsBottomActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.of(context).size.width >= 600;
+
     return Row(
       children: [
         Expanded(
           child: _buildActionButton(
             label: 'سجل المعاملات',
             onTap: onTransactions,
+            isDesktop: isDesktop,
           ),
         ),
         const SizedBox(width: 8),
@@ -27,6 +30,7 @@ class SettingsBottomActions extends StatelessWidget {
           child: _buildActionButton(
             label: 'طلب تأجيل الدفع',
             onTap: onPostponePayment,
+            isDesktop: isDesktop,
           ),
         ),
         const SizedBox(width: 8),
@@ -42,6 +46,7 @@ class SettingsBottomActions extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
+            isDesktop: isDesktop,
           ),
         ),
       ],
@@ -52,6 +57,7 @@ class SettingsBottomActions extends StatelessWidget {
     required String label,
     required VoidCallback onTap,
     Gradient? gradient,
+    required bool isDesktop,
   }) {
     if (gradient != null) {
       return Container(
@@ -68,7 +74,8 @@ class SettingsBottomActions extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            padding: EdgeInsets.symmetric(
+                vertical: isDesktop ? 16 : 8, horizontal: 8),
             minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             elevation: 0,
@@ -76,9 +83,9 @@ class SettingsBottomActions extends StatelessWidget {
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Qatar',
-              fontSize: 12,
+              fontSize: isDesktop ? 14 : 12,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
@@ -97,16 +104,17 @@ class SettingsBottomActions extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        padding:
+            EdgeInsets.symmetric(vertical: isDesktop ? 16 : 8, horizontal: 8),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       child: Text(
         label,
         textAlign: TextAlign.center,
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: 'Qatar',
-          fontSize: 12, // Adjusted for space
+          fontSize: isDesktop ? 14 : 12, // Adjusted for space
           fontWeight: FontWeight.bold,
           color: Colors.white,
         ),

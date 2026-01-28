@@ -8,9 +8,9 @@ class CustomButton extends StatelessWidget {
   final Color? backgroundColor;
   final Color? textColor;
   final double? width;
-  final double height;
+  final double? height;
   final double borderRadius;
-  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? padding;
 
   const CustomButton({
     super.key,
@@ -20,22 +20,32 @@ class CustomButton extends StatelessWidget {
     this.backgroundColor,
     this.textColor,
     this.width,
-    this.height = 50,
+    this.height, // Nullable layout
     this.borderRadius = 8,
-    this.padding = const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+    this.padding, // Nullable layout
   });
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 600;
+
+    final effectiveHeight = height ?? (isDesktop ? 60.0 : 50.0);
+    final effectiveFontSize = isDesktop ? 18.0 : 16.0;
+    final effectivePadding = padding ??
+        (isDesktop
+            ? const EdgeInsets.symmetric(vertical: 20, horizontal: 32)
+            : const EdgeInsets.symmetric(vertical: 15, horizontal: 20));
+
     return SizedBox(
       width: width,
-      height: height,
+      height: effectiveHeight,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: backgroundColor ?? AppTheme.primaryColor,
           foregroundColor: textColor ?? AppTheme.whiteColor,
-          padding: padding,
+          padding: effectivePadding,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(borderRadius),
           ),
@@ -52,8 +62,8 @@ class CustomButton extends StatelessWidget {
               )
             : Text(
                 text,
-                style: const TextStyle(
-                  fontSize: 16,
+                style: TextStyle(
+                  fontSize: effectiveFontSize,
                   fontWeight: FontWeight.bold,
                 ),
                 textDirection: TextDirection.rtl,

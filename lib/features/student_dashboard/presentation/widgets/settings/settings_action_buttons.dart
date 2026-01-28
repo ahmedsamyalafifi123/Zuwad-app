@@ -41,8 +41,10 @@ class SettingsActionButtons extends StatelessWidget {
     IconData icon,
     VoidCallback onTap,
   ) {
+    final isDesktop = MediaQuery.of(context).size.width >= 600;
+
     return SizedBox(
-      height: 40,
+      height: isDesktop ? 60 : 40,
       child: OutlinedButton(
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
@@ -53,19 +55,19 @@ class SettingsActionButtons extends StatelessWidget {
           ),
           backgroundColor: Colors.transparent,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: EdgeInsets.symmetric(horizontal: isDesktop ? 24 : 12),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            Icon(icon, size: 20, color: Colors.white),
+            Icon(icon, size: isDesktop ? 24 : 20, color: Colors.white),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Qatar',
-                  fontSize: 14,
+                  fontSize: isDesktop ? 16 : 14,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),

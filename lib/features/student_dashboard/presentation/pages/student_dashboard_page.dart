@@ -1159,6 +1159,7 @@ class _DashboardContentState extends State<_DashboardContent> {
     // Get screen size for responsive design
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
+    final isDesktop = screenWidth >= 600;
 
     // Responsive sizes
     final containerPadding = isSmallScreen ? 12.0 : 16.0;
@@ -1168,9 +1169,11 @@ class _DashboardContentState extends State<_DashboardContent> {
     final timeFontSize = isSmallScreen ? 12.0 : 14.0;
     final teacherLabelSize = isSmallScreen ? 10.0 : 11.0;
     final teacherNameSize = isSmallScreen ? 11.0 : 13.0;
-    final buttonFontSize = isSmallScreen ? 12.0 : 14.0;
-    final buttonPaddingH = isSmallScreen ? 10.0 : 16.0;
-    final buttonPaddingV = isSmallScreen ? 4.0 : 8.0;
+
+    // Desktop: Larger buttons
+    final buttonFontSize = isDesktop ? 16.0 : (isSmallScreen ? 12.0 : 14.0);
+    final buttonPaddingH = isDesktop ? 24.0 : (isSmallScreen ? 10.0 : 16.0);
+    final buttonPaddingV = isDesktop ? 16.0 : (isSmallScreen ? 4.0 : 8.0);
 
     return Column(
       children: [

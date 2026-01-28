@@ -4,6 +4,7 @@ import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/custom_button.dart';
 import '../../../student_dashboard/presentation/pages/student_dashboard_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -291,50 +292,30 @@ class _LoginPageState extends State<LoginPage> {
                           const SizedBox(height: 14),
 
                           // Login Button
-                          SizedBox(
-                            height: 50,
-                            child: ElevatedButton(
-                              onPressed: state is AuthLoading
-                                  ? null
-                                  : () {
-                                      if (_formKey.currentState!.validate()) {
-                                        context.read<AuthBloc>().add(
-                                              LoginWithPhoneEvent(
-                                                phone: _phoneController.text
-                                                    .trim(),
-                                                password:
-                                                    _passwordController.text,
-                                              ),
-                                            );
-                                      }
-                                    },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: goldColor,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(22),
-                                ),
-                                elevation: 0,
-                              ),
-                              child: state is AuthLoading
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'تسجيل الدخول',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontFamily: 'Qatar',
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                            ),
+                          CustomButton(
+                            text: 'تسجيل الدخول',
+                            onPressed: state is AuthLoading
+                                ? () {} // pass empty logic or handle in CustomButton via isLoading
+                                : () {
+                                    if (_formKey.currentState!.validate()) {
+                                      context.read<AuthBloc>().add(
+                                            LoginWithPhoneEvent(
+                                              phone:
+                                                  _phoneController.text.trim(),
+                                              password:
+                                                  _passwordController.text,
+                                            ),
+                                          );
+                                    }
+                                  },
+                            isLoading: state is AuthLoading,
+                            backgroundColor: goldColor,
+                            // Text is black in original, but foreground was white.
+                            // CustomButton uses textColor for foreground.
+                            // If we want black text, we should pass black.
+                            textColor: Colors.black,
+                            borderRadius: 22,
+                            // Inherit responsive height/padding from CustomButton
                           ),
                         ],
                       ),

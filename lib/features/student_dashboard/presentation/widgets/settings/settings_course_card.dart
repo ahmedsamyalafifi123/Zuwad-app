@@ -193,6 +193,7 @@ class SettingsCourseCard extends StatelessWidget {
           children: [
             Expanded(
               child: _buildActionButton(
+                context: context,
                 label: student.teacherGender == 'أنثى'
                     ? 'تبديل المعلمة'
                     : 'تبديل المعلم',
@@ -202,6 +203,7 @@ class SettingsCourseCard extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: _buildActionButton(
+                context: context,
                 label: 'الغاء التجديد',
                 onTap: onCancelRenewal,
               ),
@@ -209,6 +211,7 @@ class SettingsCourseCard extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: _buildActionButton(
+                context: context,
                 label: 'تعديل الباقة',
                 onTap: onEditPackage,
                 gradient: const LinearGradient(
@@ -269,13 +272,17 @@ class SettingsCourseCard extends StatelessWidget {
   }
 
   Widget _buildActionButton({
+    required BuildContext context,
     required String label,
     required VoidCallback onTap,
     Gradient? gradient,
     Color? textColor,
   }) {
+    final isDesktop = MediaQuery.of(context).size.width >= 600;
+
     if (gradient != null) {
       return Container(
+        height: isDesktop ? 50 : 36, // Increased height for desktop
         decoration: BoxDecoration(
           gradient: gradient,
           borderRadius: BorderRadius.circular(12),
@@ -289,7 +296,8 @@ class SettingsCourseCard extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            padding: EdgeInsets.symmetric(
+                vertical: isDesktop ? 16 : 8, horizontal: 8),
             minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             elevation: 0,
@@ -299,7 +307,7 @@ class SettingsCourseCard extends StatelessWidget {
             style: TextStyle(
               fontFamily: 'Qatar',
               fontWeight: FontWeight.bold,
-              fontSize: 12,
+              fontSize: isDesktop ? 15 : 12, // Increased font size
               color: textColor ?? Colors.white,
             ),
             textAlign: TextAlign.center,
@@ -310,31 +318,35 @@ class SettingsCourseCard extends StatelessWidget {
       );
     }
 
-    return OutlinedButton(
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: Colors.white,
-        side: const BorderSide(color: Colors.white, width: 1.5),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+    return SizedBox(
+      height: isDesktop ? 50 : 36, // Increased height for desktop
+      child: OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.white,
+          side: const BorderSide(color: Colors.white, width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding:
+              EdgeInsets.symmetric(vertical: isDesktop ? 16 : 8, horizontal: 8),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          elevation: 0,
+          backgroundColor: Colors.transparent,
         ),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontFamily: 'Qatar',
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-          color: Colors.white,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Qatar',
+            fontWeight: FontWeight.bold,
+            fontSize: isDesktop ? 15 : 12, // Increased font size
+            color: Colors.white,
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-        textAlign: TextAlign.center,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
       ),
     );
   }
