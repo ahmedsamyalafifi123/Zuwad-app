@@ -111,6 +111,7 @@ class _MeetingPageState extends State<MeetingPage> {
   }
 
   Future<void> _enablePiP() async {
+    if (kIsWeb) return;
     try {
       await _pipChannel.invokeMethod('enablePip');
       if (kDebugMode) {
@@ -124,6 +125,7 @@ class _MeetingPageState extends State<MeetingPage> {
   }
 
   Future<void> _disablePiP() async {
+    if (kIsWeb) return;
     try {
       await _pipChannel.invokeMethod('disablePip');
       if (kDebugMode) {
@@ -143,8 +145,10 @@ class _MeetingPageState extends State<MeetingPage> {
     final permissions = <Permission>[
       Permission.camera,
       Permission.microphone,
-      Permission.bluetooth,
-      Permission.bluetoothConnect,
+      if (!kIsWeb) ...[
+        Permission.bluetooth,
+        Permission.bluetoothConnect,
+      ],
     ];
 
     if (kDebugMode) {
@@ -295,9 +299,11 @@ class _MeetingPageState extends State<MeetingPage> {
     if (kDebugMode) {
       if (allRemoteParticipants.length != _participants.length) {
         final hiddenCount = allRemoteParticipants.length - _participants.length;
-        print('MeetingPage: Initial setup - filtered out $hiddenCount hidden KPI observer(s)');
+        print(
+            'MeetingPage: Initial setup - filtered out $hiddenCount hidden KPI observer(s)');
       }
-      print('MeetingPage: Initial setup - ${_participants.length} visible participants (filtered from ${allRemoteParticipants.length} total)');
+      print(
+          'MeetingPage: Initial setup - ${_participants.length} visible participants (filtered from ${allRemoteParticipants.length} total)');
     }
 
     _screenShareParticipant = _findScreenShareParticipant();
@@ -315,18 +321,23 @@ class _MeetingPageState extends State<MeetingPage> {
 
         // Filter out hidden KPI observers using the helper method
         final allRemoteParticipants = room.remoteParticipants.values.toList();
-        _participants = LiveKitService.filterHiddenObservers(allRemoteParticipants);
+        _participants =
+            LiveKitService.filterHiddenObservers(allRemoteParticipants);
 
-        if (kDebugMode && allRemoteParticipants.length != _participants.length) {
-          final hiddenCount = allRemoteParticipants.length - _participants.length;
-          print('MeetingPage: Filtered out $hiddenCount hidden KPI observer(s)');
+        if (kDebugMode &&
+            allRemoteParticipants.length != _participants.length) {
+          final hiddenCount =
+              allRemoteParticipants.length - _participants.length;
+          print(
+              'MeetingPage: Filtered out $hiddenCount hidden KPI observer(s)');
         }
 
         _screenShareParticipant = _findScreenShareParticipant();
 
         // Debug: Log participant and track information
         if (kDebugMode) {
-          print('Room update: ${_participants.length} visible remote participants (filtered from ${allRemoteParticipants.length} total)');
+          print(
+              'Room update: ${_participants.length} visible remote participants (filtered from ${allRemoteParticipants.length} total)');
           for (final participant in _participants) {
             print(
                 'Participant ${participant.identity}: ${participant.audioTrackPublications.length} audio tracks, ${participant.videoTrackPublications.length} video tracks');
