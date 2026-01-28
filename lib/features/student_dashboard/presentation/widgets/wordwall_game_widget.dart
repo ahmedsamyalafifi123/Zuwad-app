@@ -1,10 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 import '../../domain/models/student_report.dart';
 import '../../services/quran_game_service.dart';
+import 'wordwall_webview_stub.dart'
+    if (dart.library.html) 'wordwall_webview_web.dart'
+    if (dart.library.io) 'wordwall_webview_mobile.dart';
 
 class WordwallGameWidget extends StatefulWidget {
   final StudentReport? lastReport;
@@ -16,9 +17,7 @@ class WordwallGameWidget extends StatefulWidget {
 }
 
 class _WordwallGameWidgetState extends State<WordwallGameWidget> {
-  WebViewController? _controller;
-  bool _isLoading = true;
-  bool _isWebViewInitialized = false;
+  bool _isGameStarted = false;
   String _gameUrl =
       'https://wordwall.net/ar/embed/913a5376b8444a0bbf32a3c56b0e6765?themeId=65&templateId=8&fontStackId=0'; // Default game
   final QuranGameService _gameService = QuranGameService();
@@ -89,23 +88,14 @@ class _WordwallGameWidgetState extends State<WordwallGameWidget> {
 
     setState(() {
       _isRefreshing = true;
-      _isLoading = true; // Show loading indicator
     });
 
     try {
       // Load a new game URL
       await _loadGameUrl(refresh: true);
 
-      // Wait a bit for state to update
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      // If WebView is initialized and we have a new URL, reload it
-      if (mounted && _isWebViewInitialized && _controller != null) {
-        if (kDebugMode) {
-          print('QuranGame: Reloading WebView with new URL: $_gameUrl');
-        }
-        await _controller!.loadRequest(Uri.parse(_gameUrl));
-      }
+      // Artificial delay - though Key change handles rebuild immediately
+      await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
       if (kDebugMode) {
         print('QuranGame: Error refreshing game: $e');
@@ -119,63 +109,10 @@ class _WordwallGameWidgetState extends State<WordwallGameWidget> {
     }
   }
 
-  Future<void> _launchGameInBrowser() async {
-    final uri = Uri.parse(_gameUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  void _initializeWebView() {
-    try {
-      // Check platform using foundation to be safe
-      if (!kIsWeb &&
-          (defaultTargetPlatform == TargetPlatform.android ||
-              defaultTargetPlatform == TargetPlatform.iOS)) {
-        setState(() {
-          _isWebViewInitialized = true;
-          _isLoading = true;
-        });
-
-        _controller = WebViewController()
-          ..setJavaScriptMode(JavaScriptMode.unrestricted)
-          ..setBackgroundColor(const Color(0x00000000))
-          ..setNavigationDelegate(
-            NavigationDelegate(
-              onPageStarted: (String url) {
-                if (mounted) {
-                  setState(() {
-                    _isLoading = true;
-                  });
-                }
-              },
-              onPageFinished: (String url) {
-                if (mounted) {
-                  setState(() {
-                    _isLoading = false;
-                  });
-                }
-              },
-              onWebResourceError: (WebResourceError error) {
-                debugPrint('Wordwall WebView Error: ${error.description}');
-              },
-            ),
-          )
-          ..loadRequest(Uri.parse(_gameUrl));
-      } else {
-        // Desktop or Web - Fallback
-        _launchGameInBrowser();
-      }
-    } catch (e) {
-      debugPrint('Error initializing WebView: $e');
-      setState(() {
-        _isWebViewInitialized = false;
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading game: $e')),
-      );
-    }
+  void _startGame() {
+    setState(() {
+      _isGameStarted = true;
+    });
   }
 
   @override
@@ -185,8 +122,8 @@ class _WordwallGameWidgetState extends State<WordwallGameWidget> {
         // Game widget
         _buildGameWidget(),
 
-        // Refresh button - only show when game is initialized and not refreshing
-        if (_isWebViewInitialized && !_isRefreshing)
+        // Refresh button - only show when game is started and not refreshing
+        if (_isGameStarted && !_isRefreshing)
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: Padding(
@@ -244,8 +181,8 @@ class _WordwallGameWidgetState extends State<WordwallGameWidget> {
   }
 
   Widget _buildGameWidget() {
-    // If not initialized, show the start button
-    if (!_isWebViewInitialized) {
+    // If not started, show the start button
+    if (!_isGameStarted) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 16.0),
@@ -280,9 +217,8 @@ class _WordwallGameWidgetState extends State<WordwallGameWidget> {
               height: 150,
               fit: BoxFit.contain,
             ),
-            // Removed SizedBox here to eliminate extra space
             ElevatedButton.icon(
-              onPressed: _initializeWebView,
+              onPressed: _startGame,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF8b0628), // App primary color
                 foregroundColor: Colors.white,
@@ -308,41 +244,7 @@ class _WordwallGameWidgetState extends State<WordwallGameWidget> {
       );
     }
 
-    // Checking _controller availability for safety (though it should be set if _isWebViewInitialized is true for mobile)
-    if (_controller == null &&
-        !kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.android ||
-            defaultTargetPlatform == TargetPlatform.iOS)) {
-      // Should not happen, but safe fallback
-      return const SizedBox();
-    }
-
-    // For Desktop fallback when initialized (it would have launched browser, but we can return the placeholder again or a "Playing in browser" message)
-    if (!kIsWeb &&
-        (defaultTargetPlatform != TargetPlatform.android &&
-            defaultTargetPlatform != TargetPlatform.iOS)) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x1A000000),
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: const Center(
-            child: Text('تم فتح اللعبة في المتصفح',
-                style: TextStyle(fontFamily: 'Qatar'))),
-      );
-    }
-
-    // Mobile View
+    // Game View (Mobile or Web embedded)
     return Container(
       width: double.infinity,
       height: 480,
@@ -360,16 +262,9 @@ class _WordwallGameWidgetState extends State<WordwallGameWidget> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          children: [
-            if (_controller != null) WebViewWidget(controller: _controller!),
-            if (_isLoading)
-              const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFF8b0628), // App primary color
-                ),
-              ),
-          ],
+        child: WordwallWebView(
+          key: ValueKey(_gameUrl), // Key forces rebuild when URL changes
+          url: _gameUrl,
         ),
       ),
     );

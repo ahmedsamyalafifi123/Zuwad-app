@@ -83,6 +83,7 @@ dependencies:
   alarm: ^5.1.5
   webview_flutter: ^4.13.1
   url_launcher: ^6.3.2
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
