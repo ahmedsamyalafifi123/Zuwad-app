@@ -17,6 +17,7 @@ import '../widgets/settings/settings_subscriptions_card.dart';
 import '../widgets/settings/settings_financial_card.dart';
 import '../widgets/settings/settings_bottom_actions.dart';
 import '../../../chat/presentation/pages/chat_page.dart';
+import '../../../../core/widgets/responsive_content_wrapper.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -379,81 +380,84 @@ class _SettingsPageState extends State<SettingsPage> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: EdgeInsets.fromLTRB(
                       16, MediaQuery.of(context).padding.top + 20.0, 16, 16),
-                  child: Column(
-                    children: [
-                      // 1. Personal Data (PRESERVED)
-                      _buildExpandableSection(
-                        title: _student?.name ?? 'البيانات الشخصية',
-                        subtitle: 'تعديل بيانات الطالب',
-                        icon: Icons.person_rounded,
-                        isExpanded: _personalExpanded,
-                        onTap: () => setState(
-                            () => _personalExpanded = !_personalExpanded),
-                        avatar: _buildProfileAvatar(),
-                        content: _buildPersonalDataContent(),
-                      ),
-                      const SizedBox(height: 16),
-                      // 2. Action Buttons (NEW)
-                      SettingsActionButtons(
-                        onAddStudent: () => _contactSupport(
-                            "السلام عليكم، أود إضافة طالب جديد."),
-                        onNewExperience: () => _contactSupport(
-                            "السلام عليكم، أود تجربة مادة جديدة."),
-                      ),
-
-                      _buildDivider(),
-
-                      // 3. Course Details (NEW)
-                      if (_student != null)
-                        SettingsCourseCard(
-                          student: _student!,
-                          onEditPackage: _showPackageEditDialog,
-                          onCancelRenewal: () => _contactSupport(
-                              "السلام عليكم، أود الغاء التجديد."),
-                          onChangeTeacher: () => _contactSupport(
-                              "السلام عليكم، أود تبديل المعلم (أو المعلمة)."),
+                  child: ResponsiveContentWrapper(
+                    child: Column(
+                      children: [
+                        // 1. Personal Data (PRESERVED)
+                        _buildExpandableSection(
+                          title: _student?.name ?? 'البيانات الشخصية',
+                          subtitle: 'تعديل بيانات الطالب',
+                          icon: Icons.person_rounded,
+                          isExpanded: _personalExpanded,
+                          onTap: () => setState(
+                              () => _personalExpanded = !_personalExpanded),
+                          avatar: _buildProfileAvatar(),
+                          content: _buildPersonalDataContent(),
+                        ),
+                        const SizedBox(height: 16),
+                        // 2. Action Buttons (NEW)
+                        SettingsActionButtons(
+                          onAddStudent: () => _contactSupport(
+                              "السلام عليكم، أود إضافة طالب جديد."),
+                          onNewExperience: () => _contactSupport(
+                              "السلام عليكم، أود تجربة مادة جديدة."),
                         ),
 
-                      if (_student != null) _buildDivider(),
-                      if (_familyMembers.isNotEmpty)
-                        SettingsSubscriptionsCard(
-                          familyMembers: _familyMembers
-                              .where((s) => s['payment_status'] != 'متوقف')
-                              .toList(),
+                        _buildDivider(),
+
+                        // 3. Course Details (NEW)
+                        if (_student != null)
+                          SettingsCourseCard(
+                            student: _student!,
+                            onEditPackage: _showPackageEditDialog,
+                            onCancelRenewal: () => _contactSupport(
+                                "السلام عليكم، أود الغاء التجديد."),
+                            onChangeTeacher: () => _contactSupport(
+                                "السلام عليكم، أود تبديل المعلم (أو المعلمة)."),
+                          ),
+
+                        if (_student != null) _buildDivider(),
+                        if (_familyMembers.isNotEmpty)
+                          SettingsSubscriptionsCard(
+                            familyMembers: _familyMembers
+                                .where((s) => s['payment_status'] != 'متوقف')
+                                .toList(),
+                          ),
+
+                        if (_familyMembers.isNotEmpty) _buildDivider(),
+
+                        // 5. Financial Info (NEW)
+                        if (_walletInfo != null)
+                          SettingsFinancialCard(
+                            walletInfo: _walletInfo!,
+                            totalAmount: _familyMembers
+                                .where((s) => s['payment_status'] != 'متوقف')
+                                .fold(
+                                    0.0,
+                                    (sum, s) =>
+                                        sum +
+                                        (double.tryParse(
+                                                s['amount']?.toString() ??
+                                                    '0') ??
+                                            0.0)),
+                            dueAmount: _walletInfo!.balance +
+                                _walletInfo!.pendingBalance,
+                          ),
+
+                        const SizedBox(height: 16),
+
+                        // 6. Bottom Actions (NEW)
+                        SettingsBottomActions(
+                          onTransactions: _showTransactionsModal,
+                          onPostponePayment: () => _contactSupport(
+                              "السلام عليكم، أود طلب تأجيل الدفع."),
+                          onPayFees: () => _contactSupport(
+                              "السلام عليكم، أود استفسار بخصوص تسديد الرسوم."),
                         ),
 
-                      if (_familyMembers.isNotEmpty) _buildDivider(),
-
-                      // 5. Financial Info (NEW)
-                      if (_walletInfo != null)
-                        SettingsFinancialCard(
-                          walletInfo: _walletInfo!,
-                          totalAmount: _familyMembers
-                              .where((s) => s['payment_status'] != 'متوقف')
-                              .fold(
-                                  0.0,
-                                  (sum, s) =>
-                                      sum +
-                                      (double.tryParse(
-                                              s['amount']?.toString() ?? '0') ??
-                                          0.0)),
-                          dueAmount: _walletInfo!.balance +
-                              _walletInfo!.pendingBalance,
-                        ),
-
-                      const SizedBox(height: 16),
-
-                      // 6. Bottom Actions (NEW)
-                      SettingsBottomActions(
-                        onTransactions: _showTransactionsModal,
-                        onPostponePayment: () => _contactSupport(
-                            "السلام عليكم، أود طلب تأجيل الدفع."),
-                        onPayFees: () => _contactSupport(
-                            "السلام عليكم، أود استفسار بخصوص تسديد الرسوم."),
-                      ),
-
-                      const SizedBox(height: 100), // Bottom padding
-                    ],
+                        const SizedBox(height: 100), // Bottom padding
+                      ],
+                    ),
                   ),
                 ),
               ),

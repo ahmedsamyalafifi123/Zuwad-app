@@ -22,6 +22,7 @@ import '../../data/repositories/schedule_repository.dart';
 import '../../data/repositories/report_repository.dart';
 import '../../domain/models/schedule.dart';
 import '../../domain/models/student_report.dart';
+import '../../../../core/widgets/responsive_content_wrapper.dart';
 import 'postpone_page.dart';
 import 'alarm_settings_page.dart';
 import 'report_details_page.dart';
@@ -2202,276 +2203,280 @@ class _DashboardContentState extends State<_DashboardContent> {
                     0.0,
                     bottomPadding,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Welcome header
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 20.0, left: 24.0),
-                        padding: const EdgeInsets.only(
-                          right: 16.0,
-                          top: 12.0,
-                          bottom: 12.0,
-                          left: 20.0,
-                        ),
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Color.fromARGB(
-                                255,
-                                255,
-                                255,
-                                255,
-                              ), // Warm cream white
-                              Color.fromARGB(
-                                255,
-                                234,
-                                234,
-                                234,
-                              ), // Subtle gold tint
+                  child: ResponsiveContentWrapper(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Welcome header
+                        Container(
+                          margin:
+                              const EdgeInsets.only(bottom: 20.0, left: 24.0),
+                          padding: const EdgeInsets.only(
+                            right: 16.0,
+                            top: 12.0,
+                            bottom: 12.0,
+                            left: 20.0,
+                          ),
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color.fromARGB(
+                                  255,
+                                  255,
+                                  255,
+                                  255,
+                                ), // Warm cream white
+                                Color.fromARGB(
+                                  255,
+                                  234,
+                                  234,
+                                  234,
+                                ), // Subtle gold tint
+                              ],
+                            ),
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.zero,
+                              bottomLeft: Radius.circular(50),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color.fromARGB(120, 0, 0, 0),
+                                blurRadius: 8,
+                                offset: Offset(0, 4),
+                              ),
                             ],
                           ),
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.zero,
-                            bottomLeft: Radius.circular(50),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Color.fromARGB(120, 0, 0, 0),
-                              blurRadius: 8,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.black,
-                                  width: 1.5,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.black,
+                                    width: 1.5,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.4),
+                                      blurRadius: 1,
+                                      spreadRadius: 1,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.4),
-                                    blurRadius: 1,
-                                    spreadRadius: 1,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
+                                child: CircleAvatar(
+                                  radius: 30,
+                                  backgroundColor: const Color(
+                                    0x33FFFFFF,
+                                  ), // 0.2 opacity white
+                                  backgroundImage: student.profileImageUrl !=
+                                              null &&
+                                          student.profileImageUrl!.isNotEmpty
+                                      ? NetworkImage(student.profileImageUrl!)
+                                      : const AssetImage(
+                                          'assets/images/male_avatar.webp',
+                                        ) as ImageProvider,
+                                ),
                               ),
-                              child: CircleAvatar(
-                                radius: 30,
-                                backgroundColor: const Color(
-                                  0x33FFFFFF,
-                                ), // 0.2 opacity white
-                                backgroundImage:
-                                    student.profileImageUrl != null &&
-                                            student.profileImageUrl!.isNotEmpty
-                                        ? NetworkImage(student.profileImageUrl!)
-                                        : const AssetImage(
-                                            'assets/images/male_avatar.webp',
-                                          ) as ImageProvider,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Flexible(
-                              fit: FlexFit.loose,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'مرحباً، ${student.name}',
-                                    style: const TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black, // Black text
+                              const SizedBox(width: 16),
+                              Flexible(
+                                fit: FlexFit.loose,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'مرحباً، ${student.name}',
+                                      style: const TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black, // Black text
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Container(
-                                    margin: const EdgeInsets.only(top: 4),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color.fromARGB(
-                                        28,
-                                        0,
-                                        0,
-                                        0,
-                                      ), // Very light grey bg
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          student.displayLessonName,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.black87, // Dark text
-                                            fontWeight: FontWeight.w600,
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color.fromARGB(
+                                          28,
+                                          0,
+                                          0,
+                                          0,
+                                        ), // Very light grey bg
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            student.displayLessonName,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              color:
+                                                  Colors.black87, // Dark text
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          overflow: TextOverflow.ellipsis,
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12), // Separate arrow
+                              GestureDetector(
+                                onTap: () {
+                                  if (_arrowKey.currentContext != null) {
+                                    _showAccountSelection(
+                                      _arrowKey.currentContext!,
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  key: _arrowKey,
+                                  margin: const EdgeInsets.only(top: 24.0),
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: const Color.fromARGB(
+                                      28,
+                                      0,
+                                      0,
+                                      0,
+                                    ), // Very light grey bg
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color: Colors.black,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: _loadingFamily
+                                      ? const SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.black54,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.keyboard_arrow_down,
+                                          size: 24,
+                                          color: Colors.black54,
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
+                          ),
+                        ),
+
+                        // Quick Action Buttons Section
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              // First button - الدروس القادمة
+                              _buildQuickActionButton(
+                                imagePath: 'assets/images/lottie.json',
+                                label: 'الدروس القادمة',
+                                onTap: () {
+                                  // TODO: Navigate to upcoming lessons
+                                },
+                              ),
+                              const Spacer(),
+                              // Simple Alarm Button with Bell Lottie above text - aligned to bottom
+                              Align(
+                                alignment: Alignment.bottomCenter,
+                                child: InkWell(
+                                  onTap: _openAlarmSettings,
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 8.0),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Lottie.asset(
+                                          'assets/images/alarm.json',
+                                          width: 70,
+                                          height: 70,
+                                          fit: BoxFit.contain,
+                                        ),
+                                        Transform.translate(
+                                          offset: const Offset(0, -15),
+                                          child: Text(
+                                            'اعدادات المنبه',
+                                            style: TextStyle(
+                                              fontFamily: 'Qatar',
+                                              fontSize: 12,
+                                              color: Color.fromARGB(
+                                                221,
+                                                255,
+                                                255,
+                                                255,
+                                              ),
+                                            ),
+                                          ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12), // Separate arrow
-                            GestureDetector(
-                              onTap: () {
-                                if (_arrowKey.currentContext != null) {
-                                  _showAccountSelection(
-                                    _arrowKey.currentContext!,
-                                  );
-                                }
-                              },
-                              child: Container(
-                                key: _arrowKey,
-                                margin: const EdgeInsets.only(top: 24.0),
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: const Color.fromARGB(
-                                    28,
-                                    0,
-                                    0,
-                                    0,
-                                  ), // Very light grey bg
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(
-                                    color: Colors.black,
-                                    width: 1,
-                                  ),
-                                ),
-                                child: _loadingFamily
-                                    ? const SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.black54,
-                                        ),
-                                      )
-                                    : const Icon(
-                                        Icons.keyboard_arrow_down,
-                                        size: 24,
-                                        color: Colors.black54,
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                          ],
-                        ),
-                      ),
-
-                      // Quick Action Buttons Section
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            // First button - الدروس القادمة
-                            _buildQuickActionButton(
-                              imagePath: 'assets/images/lottie.json',
-                              label: 'الدروس القادمة',
-                              onTap: () {
-                                // TODO: Navigate to upcoming lessons
-                              },
-                            ),
-                            const Spacer(),
-                            // Simple Alarm Button with Bell Lottie above text - aligned to bottom
-                            Align(
-                              alignment: Alignment.bottomCenter,
-                              child: InkWell(
-                                onTap: _openAlarmSettings,
-                                borderRadius: BorderRadius.circular(8),
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      Lottie.asset(
-                                        'assets/images/alarm.json',
-                                        width: 70,
-                                        height: 70,
-                                        fit: BoxFit.contain,
-                                      ),
-                                      Transform.translate(
-                                        offset: const Offset(0, -15),
-                                        child: Text(
-                                          'اعدادات المنبه',
-                                          style: TextStyle(
-                                            fontFamily: 'Qatar',
-                                            fontSize: 12,
-                                            color: Color.fromARGB(
-                                              221,
-                                              255,
-                                              255,
-                                              255,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: 4),
+                        const SizedBox(height: 4),
 
-                      // Next Lesson Section
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: _buildNextLessonSection(),
-                      ),
+                        // Next Lesson Section
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: _buildNextLessonSection(),
+                        ),
 
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
-                      // Wordwall Game Section Header
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16.0),
-                        child: Row(
-                          children: [
-                            Icon(Icons.brightness_low_outlined,
-                                color: Color(0xFFD4AF37), size: 32),
-                            SizedBox(width: 8),
-                            Text(
-                              'العب مع زواد',
-                              style: TextStyle(
-                                fontFamily: 'Qatar',
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                        // Wordwall Game Section Header
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Row(
+                            children: [
+                              Icon(Icons.brightness_low_outlined,
+                                  color: Color(0xFFD4AF37), size: 32),
+                              SizedBox(width: 8),
+                              Text(
+                                'العب مع زواد',
+                                style: TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
+                        const SizedBox(height: 12),
 
-                      // Wordwall Game Section
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 0.0), // Widget has its own margin
-                        child: WordwallGameWidget(lastReport: _lastReport),
-                      ),
+                        // Wordwall Game Section
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 0.0), // Widget has its own margin
+                          child: WordwallGameWidget(lastReport: _lastReport),
+                        ),
 
-                      const SizedBox(height: 20),
-                    ],
+                        const SizedBox(height: 20),
+                      ],
+                    ),
                   ),
                 ),
               );

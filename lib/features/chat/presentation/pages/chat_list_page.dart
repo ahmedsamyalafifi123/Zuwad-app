@@ -13,6 +13,7 @@ import 'package:zuwad/core/utils/gender_helper.dart';
 import 'chat_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
+import '../../../../core/widgets/responsive_content_wrapper.dart';
 
 /// Chat list page showing available contacts and recent conversations.
 ///
@@ -277,15 +278,20 @@ class _ChatListPageState extends State<ChatListPage> {
       return _buildEmptyState();
     }
 
-    return ListView(
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
           16.0, MediaQuery.of(context).padding.top + 20.0, 16.0, 16.0),
-      children: [
-        ..._contacts.map((contact) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _buildContactTile(contact),
-            )),
-      ],
+      child: ResponsiveContentWrapper(
+        child: Column(
+          children: [
+            ..._contacts.map((contact) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildContactTile(contact),
+                )),
+          ],
+        ),
+      ),
     );
   }
 

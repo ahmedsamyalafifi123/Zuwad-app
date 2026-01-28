@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
+import '../../../../core/widgets/responsive_content_wrapper.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/gender_helper.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -1535,61 +1536,63 @@ class _HomePageState extends State<HomePage> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(
               16, MediaQuery.of(context).padding.top + 20.0, 16, 16 + 80),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Quick Action Buttons Section - Two centered buttons
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildQuickActionButton(
-                      imagePath: 'assets/images/Calender.json',
-                      label: 'الحصص القادمة',
-                      isActive: _activeTab == 0,
-                      onTap: () {
-                        setState(() {
-                          _activeTab = 0;
-                        });
-                      },
-                    ),
-                    // White border separator
-                    Container(
-                      width: 2,
-                      height: 60,
-                      margin: const EdgeInsets.symmetric(horizontal: 40),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(1),
+          child: ResponsiveContentWrapper(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Quick Action Buttons Section - Two centered buttons
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildQuickActionButton(
+                        imagePath: 'assets/images/Calender.json',
+                        label: 'الحصص القادمة',
+                        isActive: _activeTab == 0,
+                        onTap: () {
+                          setState(() {
+                            _activeTab = 0;
+                          });
+                        },
                       ),
-                    ),
-                    _buildQuickActionButton(
-                      imagePath: 'assets/images/lottie.json',
-                      label: 'الحصص السابقة',
-                      isActive: _activeTab == 1,
-                      onTap: () {
-                        setState(() {
-                          _activeTab = 1;
-                        });
-                      },
-                    ),
-                  ],
+                      // White border separator
+                      Container(
+                        width: 2,
+                        height: 60,
+                        margin: const EdgeInsets.symmetric(horizontal: 40),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                      _buildQuickActionButton(
+                        imagePath: 'assets/images/lottie.json',
+                        label: 'الحصص السابقة',
+                        isActive: _activeTab == 1,
+                        onTap: () {
+                          setState(() {
+                            _activeTab = 1;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
-              // Show section based on active tab
-              if (_activeTab == 0) ...[
-                // Next Lessons Section
-                _buildNextLessonsSection(),
-              ] else ...[
-                // Reports Section
-                _buildReportsSection(),
+                // Show section based on active tab
+                if (_activeTab == 0) ...[
+                  // Next Lessons Section
+                  _buildNextLessonsSection(),
+                ] else ...[
+                  // Reports Section
+                  _buildReportsSection(),
+                ],
+
+                // Add extra padding at the bottom
+                const SizedBox(height: 80),
               ],
-
-              // Add extra padding at the bottom
-              const SizedBox(height: 80),
-            ],
+            ),
           ),
         ),
       ),
