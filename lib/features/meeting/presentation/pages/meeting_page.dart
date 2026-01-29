@@ -48,9 +48,12 @@ class _MeetingPageState extends State<MeetingPage> {
   Participant? _localParticipant;
   Participant? _screenShareParticipant;
 
-  // Celebration state - now global for full-page effect
-  String? _activeCelebration;
-  Timer? _celebrationTimer;
+  // Celebration state - now triggers via an object to avoid duplicate adds on rebuild
+  _ReactionEvent? _reactionEvent;
+  // Throttling variables
+  DateTime _lastReactionTime = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastAudioTime = DateTime.fromMillisecondsSinceEpoch(0);
+
   late final AudioPlayer _audioPlayer;
 
   @override
@@ -92,7 +95,7 @@ class _MeetingPageState extends State<MeetingPage> {
     _disablePiP();
     // Dispose event listener
     _roomListener.dispose();
-    _celebrationTimer?.cancel();
+    // _celebrationTimer removed in optimization
     _audioPlayer.dispose();
     _liveKitService.disconnect();
     super.dispose();
@@ -425,9 +428,19 @@ class _MeetingPageState extends State<MeetingPage> {
 
       if (payload['type'] == 'celebration') {
         final String variant = payload['variant'] ?? 'hearts';
-        // Trigger full-page celebration for 8 seconds
-        _triggerFullPageCelebration(variant);
-        _playCelebrationSound(variant);
+        final now = DateTime.now();
+
+        // Throttle visuals - max 1 every 300ms
+        if (now.difference(_lastReactionTime).inMilliseconds > 300) {
+          _triggerFullPageCelebration(variant);
+          _lastReactionTime = now;
+        }
+
+        // Throttle audio - max 1 every 500ms
+        if (now.difference(_lastAudioTime).inMilliseconds > 500) {
+          _playCelebrationSound(variant);
+          _lastAudioTime = now;
+        }
       }
     } catch (e) {
       if (kDebugMode) {
@@ -442,18 +455,12 @@ class _MeetingPageState extends State<MeetingPage> {
     }
 
     if (mounted) {
+      // Update state with unique timestamp to force didUpdateWidget detection
       setState(() {
-        _activeCelebration = variant;
+        _reactionEvent = _ReactionEvent(variant, DateTime.now());
       });
 
-      _celebrationTimer?.cancel();
-      _celebrationTimer = Timer(const Duration(seconds: 8), () {
-        if (mounted) {
-          setState(() {
-            _activeCelebration = null;
-          });
-        }
-      });
+      // We don't clear it, so the overlay stays mounted (preserving existing particles)
     }
   }
 
@@ -738,7 +745,7 @@ class _MeetingPageState extends State<MeetingPage> {
           ),
 
         // Full-page celebration overlay
-        if (_activeCelebration != null) _buildFullPageCelebration(),
+        if (_reactionEvent != null) _buildFullPageCelebration(),
 
         // Control bar at bottom
         Positioned(
@@ -806,16 +813,22 @@ class _MeetingPageState extends State<MeetingPage> {
   Widget _buildFullPageCelebration() {
     return Positioned.fill(
       child: _CelebrationOverlay(
-        variant: _activeCelebration!,
+        event: _reactionEvent!,
       ),
     );
   }
 }
 
-class _CelebrationOverlay extends StatefulWidget {
+class _ReactionEvent {
   final String variant;
+  final DateTime timestamp;
+  _ReactionEvent(this.variant, this.timestamp);
+}
 
-  const _CelebrationOverlay({required this.variant});
+class _CelebrationOverlay extends StatefulWidget {
+  final _ReactionEvent event;
+
+  const _CelebrationOverlay({required this.event});
 
   @override
   State<_CelebrationOverlay> createState() => _CelebrationOverlayState();
@@ -824,34 +837,101 @@ class _CelebrationOverlay extends StatefulWidget {
 class _CelebrationOverlayState extends State<_CelebrationOverlay>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _animation;
-
-  // Confetti colors
-  static const List<Color> _confettiColors = [
-    Colors.red,
-    Colors.blue,
-    Colors.green,
-    Colors.yellow,
-    Colors.purple,
-    Colors.orange,
-    Colors.pink,
-    Colors.cyan,
-  ];
+  final List<Particle> _particles = [];
+  final math.Random _random = math.Random();
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 8),
-    );
+        vsync: this, duration: const Duration(seconds: 1000));
+    _controller.addListener(() {
+      if (_particles.isNotEmpty) {
+        setState(() {
+          _updateParticles();
+        });
+      } else if (_controller.isAnimating) {
+        _controller.stop();
+      }
+    });
+    // Trigger first batch
+    _addParticles(widget.event.variant);
+    _controller.repeat();
+  }
 
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.linear,
-    );
+  @override
+  void didUpdateWidget(_CelebrationOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only add if it's a NEW event (timestamp check causes equality failure for new instances)
+    if (widget.event != oldWidget.event) {
+      _addParticles(widget.event.variant);
+      if (!_controller.isAnimating) {
+        _controller.repeat();
+      }
+    }
+  }
 
-    _controller.forward();
+  void _addParticles(String variant) {
+    final bool isConfetti = variant == 'confetti';
+    // Increased particle count as requested (was 20/5)
+    final int count = isConfetti ? 50 : 20;
+
+    for (int i = 0; i < count; i++) {
+      _particles.add(Particle(
+        x: _random.nextDouble(), // 0.0 to 1.0
+        y: 1.1, // Start slightly below screen
+        speed: 0.005 + _random.nextDouble() * 0.01,
+        angle: 0, // No rotation
+        spinSpeed: 0, // No spin
+        color: isConfetti ? _getRandomColor() : null,
+        emoji: isConfetti ? null : _getEmoji(variant),
+        size: isConfetti
+            ? (5 + _random.nextDouble() * 10)
+            : (30 + _random.nextDouble() * 20), // Slightly larger emojis
+        wobbleOffset: _random.nextDouble() * 2 * math.pi,
+      ));
+    }
+  }
+
+  Color _getRandomColor() {
+    const colors = [
+      Colors.red,
+      Colors.blue,
+      Colors.green,
+      Colors.yellow,
+      Colors.purple,
+      Colors.orange,
+      Colors.pink,
+      Colors.cyan
+    ];
+    return colors[_random.nextInt(colors.length)];
+  }
+
+  String _getEmoji(String variant) {
+    switch (variant) {
+      case 'hearts':
+        return '❤️';
+      case 'claps':
+        return '👏';
+      case 'thumbs':
+        return '👍';
+      default:
+        return '❤️';
+    }
+  }
+
+  void _updateParticles() {
+    for (var i = _particles.length - 1; i >= 0; i--) {
+      final p = _particles[i];
+      p.y -= p.speed;
+      p.angle += p.spinSpeed;
+      p.wobble += 0.05;
+
+      // Remove if off screen
+      if (p.y < -0.1) {
+        _particles.removeAt(i);
+      }
+    }
   }
 
   @override
@@ -862,112 +942,90 @@ class _CelebrationOverlayState extends State<_CelebrationOverlay>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        if (_controller.status == AnimationStatus.dismissed) {
-          return const SizedBox.shrink();
-        }
+    return IgnorePointer(
+      child: CustomPaint(
+        painter: ParticlePainter(_particles),
+        size: Size.infinite,
+      ),
+    );
+  }
+}
 
-        final bool isConfetti = widget.variant == 'confetti';
-        final int particleCount = isConfetti
-            ? 40
-            : 15; // Fewer particles for emojis, more for confetti
+class Particle {
+  double x;
+  double y;
+  double speed;
+  double angle; // for rotation
+  double spinSpeed;
+  Color? color;
+  String? emoji;
+  double size;
+  double wobbleOffset;
+  double wobble = 0;
 
-        return Stack(
-          children: List.generate(particleCount, (index) {
-            // Generate random positions for full-page effect
-            final random = math.Random(index);
-            final double xPos = random.nextDouble();
-            final double stagger = random.nextDouble() * 0.3;
-            final double speed = 0.8 + random.nextDouble() * 0.4;
+  Particle({
+    required this.x,
+    required this.y,
+    required this.speed,
+    required this.angle,
+    required this.spinSpeed,
+    this.color,
+    this.emoji,
+    required this.size,
+    required this.wobbleOffset,
+  });
+}
 
-            // Calculate progress - allow it to go beyond 1.0 so all particles complete their journey
-            double progress = (_animation.value * speed) - stagger;
+class ParticlePainter extends CustomPainter {
+  final List<Particle> particles;
+  final TextPainter _textPainter =
+      TextPainter(textDirection: TextDirection.ltr);
 
-            // Only hide if particle has completed full journey (past 1.0) AND faded out
-            if (progress < 0.0 || progress > 1.3) {
-              return const SizedBox.shrink();
-            }
+  ParticlePainter(this.particles);
 
-            // Clamp progress for position calculation (0.0 to 1.0)
-            final clampedProgress = progress.clamp(0.0, 1.0);
-            final double yPos = 1.0 - clampedProgress; // Bottom to top
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
 
-            // Add sine wave horizontal movement
-            final double waveOffset =
-                math.sin(clampedProgress * math.pi * 2 + index) * 0.05;
+    for (var p in particles) {
+      final x = (p.x * size.width) + (math.sin(p.wobble + p.wobbleOffset) * 10);
+      final y = p.y * size.height;
 
-            return Positioned(
-              left: (xPos + waveOffset) * MediaQuery.of(context).size.width,
-              top: yPos * MediaQuery.of(context).size.height,
-              child: Opacity(
-                opacity: _calculateOpacity(clampedProgress),
-                child: Transform.scale(
-                  scale: 0.8 + (clampedProgress * 0.4), // Grow as they rise
-                  child: isConfetti
-                      ? _buildConfettiPiece(random, clampedProgress)
-                      : _buildEmoji(widget.variant),
-                ),
-              ),
-            );
-          }),
+      // Calculate opacity based on Y position (fade out at top)
+      // 1.0 at y=0.5 -> 0.0 at y=0.0
+      double opacity = 1.0;
+      if (p.y < 0.3) {
+        opacity = (p.y / 0.3).clamp(0.0, 1.0);
+      }
+
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(p.angle); // Angle is now always 0 (no rotation)
+
+      if (p.emoji != null) {
+        // Apply opacity to text
+        _textPainter.text = TextSpan(
+          text: p.emoji,
+          style: TextStyle(
+            fontSize: p.size,
+            color: Colors.white.withOpacity(opacity), // Fading opacity
+          ),
         );
-      },
-    );
-  }
+        _textPainter.layout();
+        _textPainter.paint(
+            canvas, Offset(-_textPainter.width / 2, -_textPainter.height / 2));
+      } else if (p.color != null) {
+        paint.color = p.color!.withOpacity(opacity); // Fading opacity
+        canvas.drawRect(
+          Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size),
+          paint,
+        );
+      }
 
-  double _calculateOpacity(double progress) {
-    // Start fading out when progress > 0.7 (70% of animation)
-    // Full opacity until 0.7, then smooth fade to 0
-    if (progress < 0.7) {
-      return 1.0;
-    } else {
-      // Map 0.7-1.0 to 1.0-0.0 for smooth fade
-      final fadeProgress = (progress - 0.7) / 0.3;
-      return (1.0 - fadeProgress).clamp(0.0, 1.0);
+      canvas.restore();
     }
   }
 
-  Widget _buildEmoji(String variant) {
-    String emoji;
-    switch (variant) {
-      case 'hearts':
-        emoji = '❤️';
-        break;
-      case 'claps':
-        emoji = '👏';
-        break;
-      case 'thumbs':
-        emoji = '👍';
-        break;
-      default:
-        emoji = '❤️';
-    }
-
-    return Text(
-      emoji,
-      style: const TextStyle(
-        fontSize: 50,
-        decoration: TextDecoration.none,
-      ),
-    );
-  }
-
-  Widget _buildConfettiPiece(math.Random random, double progress) {
-    final color = _confettiColors[random.nextInt(_confettiColors.length)];
-    final size = 10.0 + random.nextDouble() * 15.0; // 10-25px
-
-    return Transform.rotate(
-      angle: progress * math.pi * 4, // Spin as it rises
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    );
-  }
+  @override
+  bool shouldRepaint(covariant ParticlePainter oldDelegate) => true;
 }
