@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../../core/services/alarm_service.dart';
@@ -38,6 +39,81 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
   void initState() {
     super.initState();
     _loadSettings();
+    _checkBatteryOptimization();
+  }
+
+  /// Check if battery optimization is enabled and show dialog if needed
+  Future<void> _checkBatteryOptimization() async {
+    final status = await Permission.ignoreBatteryOptimizations.status;
+    if (!status.isGranted) {
+      // Show dialog after a short delay to avoid interrupting the user immediately
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          _showBatteryOptimizationDialog();
+        }
+      });
+    }
+  }
+
+  /// Show dialog requesting battery optimization exemption
+  void _showBatteryOptimizationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text(
+            'تفعيل المنبه في الخلفية',
+            style: TextStyle(fontFamily: 'Qatar', fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            'للتأكد من عمل المنبهات حتى عند إغلاق التطبيق، يرجى السماح للتطبيق بالعمل في الخلفية وتعطيل توفير الطاقة للتطبيق.',
+            style: TextStyle(fontFamily: 'Qatar'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'لاحقاً',
+                style: TextStyle(fontFamily: 'Qatar'),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _requestBatteryOptimizationExemption();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8b0628),
+              ),
+              child: const Text(
+                'إعدادات البطارية',
+                style: TextStyle(
+                  fontFamily: 'Qatar',
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Request battery optimization exemption
+  Future<void> _requestBatteryOptimizationExemption() async {
+    try {
+      final status = await Permission.ignoreBatteryOptimizations.request();
+      if (!status.isGranted) {
+        // Open app settings if user denied
+        await openAppSettings();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error requesting battery optimization exemption: $e');
+      }
+    }
   }
 
   Future<void> _loadSettings() async {

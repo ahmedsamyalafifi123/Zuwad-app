@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
+import 'package:alarm/alarm.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/alarm_service.dart';
+import 'core/services/foreground_alarm_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/timezone_helper.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
@@ -23,6 +25,19 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 bool get _isFcmSupported {
   if (kIsWeb) return true;
   return Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+}
+
+/// Callback to handle alarm ringing when app is in background or terminated
+@pragma('vm:entry-point')
+void onAlarmRinging(AlarmSettings alarmSettings) {
+  if (kDebugMode) {
+    print('Alarm triggered: ${alarmSettings.id}');
+    print('Alarm title: ${alarmSettings.notificationSettings?.title}');
+    print('Alarm body: ${alarmSettings.notificationSettings?.body}');
+  }
+
+  // The alarm plugin will automatically show the notification
+  // You can add custom logic here if needed (e.g., play custom sound, vibrate)
 }
 
 void main() async {
@@ -44,6 +59,16 @@ void main() async {
 
   // Initialize alarm service
   await AlarmService.initialize();
+
+  // Start foreground service to keep app alive for alarms (Android only)
+  if (Platform.isAndroid) {
+    await ForegroundAlarmService.initialize();
+  }
+
+  // Set up alarm callback for background/terminated state
+  Alarm.ringStream.stream.listen((alarmSettings) {
+    onAlarmRinging(alarmSettings);
+  });
 
   // Initialize timezone helper for schedule time conversions
   await TimezoneHelper.initialize();

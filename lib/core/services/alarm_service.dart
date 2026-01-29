@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:alarm/alarm.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
+import 'native_alarm_service.dart' as native_alarm;
 
 /// Service for managing lesson alarms with custom sound
 class AlarmService {
@@ -17,12 +19,49 @@ class AlarmService {
   static Future<void> initialize() async {
     try {
       await Alarm.init();
+
+      // Initialize native alarm service for Android
+      if (Platform.isAndroid) {
+        await native_alarm.NativeAlarmService.initialize();
+        await _requestBatteryOptimizationExemption();
+      }
+
       if (kDebugMode) {
         print('AlarmService: Initialized successfully');
       }
     } catch (e) {
       if (kDebugMode) {
         print('AlarmService: Error initializing: $e');
+      }
+    }
+  }
+
+  /// Request battery optimization exemption for Android
+  static Future<void> _requestBatteryOptimizationExemption() async {
+    try {
+      // Check if we can request ignore battery optimizations
+      final status = await Permission.ignoreBatteryOptimizations.status;
+
+      if (!status.isGranted) {
+        if (kDebugMode) {
+          print('AlarmService: Requesting battery optimization exemption...');
+        }
+
+        // Request the permission
+        await Permission.ignoreBatteryOptimizations.request();
+
+        if (kDebugMode) {
+          final newStatus = await Permission.ignoreBatteryOptimizations.status;
+          print('AlarmService: Battery optimization exemption granted: ${newStatus.isGranted}');
+        }
+      } else {
+        if (kDebugMode) {
+          print('AlarmService: Battery optimization exemption already granted');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AlarmService: Error requesting battery optimization exemption: $e');
       }
     }
   }
@@ -219,7 +258,31 @@ class AlarmService {
         print('AlarmService: Creating alarm with ID: $alarmId');
       }
 
-      // Configure alarm settings
+      if (kDebugMode) {
+        print('AlarmService: Setting alarm...');
+      }
+
+      // Create notification body
+      final notificationBody =
+          'الحصة مع $teacherName - $lessonName\nستبدأ بعد ${hoursBeforeLesson > 0 ? "$hoursBeforeLesson ساعة و" : ""}$minutesBeforeLesson دقيقة';
+
+      // Only use native alarm in release mode (debug mode has issues)
+      final bool useNativeAlarm = !kDebugMode && Platform.isAndroid;
+
+      if (useNativeAlarm) {
+        final nativeSuccess = await native_alarm.NativeAlarmService.scheduleAlarm(
+          id: alarmId,
+          dateTime: alarmTime,
+          title: 'منبه الحصة',
+          body: notificationBody,
+        );
+
+        if (kDebugMode) {
+          print('AlarmService: Native alarm scheduled: $nativeSuccess');
+        }
+      }
+
+      // Schedule with alarm package
       final alarmSettings = AlarmSettings(
         id: alarmId,
         dateTime: alarmTime,
@@ -232,17 +295,12 @@ class AlarmService {
         ),
         notificationSettings: NotificationSettings(
           title: 'منبه الحصة',
-          body:
-              'الحصة مع $teacherName - $lessonName\nستبدأ بعد ${hoursBeforeLesson > 0 ? "$hoursBeforeLesson ساعة و" : ""}$minutesBeforeLesson دقيقة',
+          body: notificationBody,
           stopButton: 'إيقاف',
-          icon: 'launcher_icon',
+          icon: '@mipmap/launcher_icon',
         ),
         warningNotificationOnKill: true,
       );
-
-      if (kDebugMode) {
-        print('AlarmService: Setting alarm...');
-      }
 
       // Set the alarm with timeout
       await Alarm.set(alarmSettings: alarmSettings).timeout(
@@ -275,6 +333,11 @@ class AlarmService {
     try {
       if (kDebugMode) {
         print('AlarmService: Attempting to cancel all alarms');
+      }
+
+      // Cancel native Android alarms
+      if (Platform.isAndroid) {
+        await native_alarm.NativeAlarmService.cancelAllAlarms();
       }
 
       // Add timeout to prevent hanging
