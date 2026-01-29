@@ -11,6 +11,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../services/livekit_service.dart';
 import '../widgets/participant_widget.dart';
 import '../widgets/control_bar.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class MeetingPage extends StatefulWidget {
   final String roomName;
@@ -50,6 +51,7 @@ class _MeetingPageState extends State<MeetingPage> {
   // Celebration state - now global for full-page effect
   String? _activeCelebration;
   Timer? _celebrationTimer;
+  late final AudioPlayer _audioPlayer;
 
   @override
   void initState() {
@@ -63,6 +65,10 @@ class _MeetingPageState extends State<MeetingPage> {
 
     // Enable PiP mode for this page
     _enablePiP();
+
+    // Initialize AudioPlayer
+    _audioPlayer = AudioPlayer();
+    _initAudio();
 
     if (kDebugMode) {
       print('MeetingPage: Creating LiveKitService');
@@ -87,6 +93,7 @@ class _MeetingPageState extends State<MeetingPage> {
     // Dispose event listener
     _roomListener.dispose();
     _celebrationTimer?.cancel();
+    _audioPlayer.dispose();
     _liveKitService.disconnect();
     super.dispose();
   }
@@ -115,6 +122,28 @@ class _MeetingPageState extends State<MeetingPage> {
         print('MeetingPage: Failed to disable wake lock: $e');
       }
     }
+  }
+
+  Future<void> _initAudio() async {
+    // Configure audio context to mix with other sources (LiveKit)
+    // This is crucial to prevent the meeting audio from being interrupted
+    await _audioPlayer.setAudioContext(AudioContext(
+      android: const AudioContextAndroid(
+        isSpeakerphoneOn: true,
+        stayAwake: true,
+        contentType: AndroidContentType.sonification,
+        usageType: AndroidUsageType.assistanceSonification,
+        audioFocus: AndroidAudioFocus
+            .none, // Do not request focus to avoid ducking LiveKit
+      ),
+      iOS: AudioContextIOS(
+        category: AVAudioSessionCategory
+            .playback, // Changed to playback to allow mixWithOthers
+        options: const {
+          AVAudioSessionOptions.mixWithOthers,
+        },
+      ),
+    ));
   }
 
   Future<void> _enablePiP() async {
@@ -398,6 +427,7 @@ class _MeetingPageState extends State<MeetingPage> {
         final String variant = payload['variant'] ?? 'hearts';
         // Trigger full-page celebration for 8 seconds
         _triggerFullPageCelebration(variant);
+        _playCelebrationSound(variant);
       }
     } catch (e) {
       if (kDebugMode) {
@@ -424,6 +454,41 @@ class _MeetingPageState extends State<MeetingPage> {
           });
         }
       });
+    }
+  }
+
+  Future<void> _playCelebrationSound(String variant) async {
+    try {
+      String soundPath;
+      switch (variant) {
+        case 'hearts':
+          soundPath = 'audio/hearts.mp3';
+          break;
+        case 'confetti':
+          soundPath = 'audio/Confetti.mp3';
+          break;
+        case 'claps':
+          soundPath = 'audio/claps.mp3';
+          break;
+        case 'thumbs':
+          soundPath = 'audio/Thumbs.mp3';
+          break;
+        default:
+          return;
+      }
+
+      if (kDebugMode) {
+        print('Playing celebration sound: $soundPath');
+      }
+
+      // Stop any currently playing sound to avoid overlap
+      await _audioPlayer.stop();
+      await _audioPlayer.play(AssetSource(soundPath),
+          mode: PlayerMode.lowLatency);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error playing celebration sound: $e');
+      }
     }
   }
 
@@ -805,7 +870,9 @@ class _CelebrationOverlayState extends State<_CelebrationOverlay>
         }
 
         final bool isConfetti = widget.variant == 'confetti';
-        final int particleCount = isConfetti ? 40 : 15; // Fewer particles for emojis, more for confetti
+        final int particleCount = isConfetti
+            ? 40
+            : 15; // Fewer particles for emojis, more for confetti
 
         return Stack(
           children: List.generate(particleCount, (index) {
@@ -828,7 +895,8 @@ class _CelebrationOverlayState extends State<_CelebrationOverlay>
             final double yPos = 1.0 - clampedProgress; // Bottom to top
 
             // Add sine wave horizontal movement
-            final double waveOffset = math.sin(clampedProgress * math.pi * 2 + index) * 0.05;
+            final double waveOffset =
+                math.sin(clampedProgress * math.pi * 2 + index) * 0.05;
 
             return Positioned(
               left: (xPos + waveOffset) * MediaQuery.of(context).size.width,

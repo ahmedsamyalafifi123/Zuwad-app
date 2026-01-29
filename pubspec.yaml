@@ -83,6 +83,7 @@ dependencies:
   alarm: ^5.1.5
   webview_flutter: ^4.13.1
   url_launcher: ^6.3.2
+  audioplayers: ^6.0.0
   web: ^1.1.1
 
 dev_dependencies:
