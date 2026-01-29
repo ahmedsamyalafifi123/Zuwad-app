@@ -258,7 +258,7 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
         throw Exception('لا توجد حصص مجدولة');
       }
 
-      final now = TimezoneHelper.nowInEgypt();
+      final now = DateTime.now();
       Schedule? nextLesson;
       DateTime? nextLessonDateTime;
 
@@ -309,7 +309,7 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
         throw Exception('لا توجد حصص مجدولة');
       }
 
-      final now = TimezoneHelper.nowInEgypt();
+      final now = DateTime.now();
       final authState = context.read<AuthBloc>().state;
       final student = (authState as AuthAuthenticated).student!;
 
@@ -429,9 +429,8 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
       final isAM = timeString.toUpperCase().contains('AM');
 
       // Remove AM/PM if present
-      String cleanTime = timeString
-          .replaceAll(RegExp(r'[APMapm\s]+'), '')
-          .trim();
+      String cleanTime =
+          timeString.replaceAll(RegExp(r'[APMapm\s]+'), '').trim();
 
       final parts = cleanTime.split(':');
       if (parts.length >= 2) {
@@ -693,9 +692,8 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
                             Expanded(
                               flex: 1,
                               child: ElevatedButton(
-                                onPressed: _isSaving
-                                    ? null
-                                    : _saveAndScheduleAlarm,
+                                onPressed:
+                                    _isSaving ? null : _saveAndScheduleAlarm,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF8b0628),
                                   foregroundColor: Colors.white,
@@ -714,8 +712,8 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
                                           strokeWidth: 2,
                                           valueColor:
                                               AlwaysStoppedAnimation<Color>(
-                                                Colors.white,
-                                              ),
+                                            Colors.white,
+                                          ),
                                         ),
                                       )
                                     : const Text(

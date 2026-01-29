@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:alarm/alarm.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
-import '../utils/timezone_helper.dart';
 
 /// Service for managing lesson alarms with custom sound
 class AlarmService {
@@ -171,6 +171,23 @@ class AlarmService {
     required String teacherName,
   }) async {
     try {
+      // Check for exact alarm permission on Android 12+
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        if (await Permission.scheduleExactAlarm.isDenied) {
+          if (kDebugMode) {
+            print(
+                'AlarmService: Schedule Exact Alarm permission denied, requesting...');
+          }
+          final status = await Permission.scheduleExactAlarm.request();
+          if (!status.isGranted) {
+            if (kDebugMode) {
+              print(
+                  'AlarmService: Schedule Exact Alarm permission NOT granted');
+            }
+            return false;
+          }
+        }
+      }
       // Calculate alarm time
       final alarmTime = lessonDateTime.subtract(
         Duration(hours: hoursBeforeLesson, minutes: minutesBeforeLesson),
@@ -185,7 +202,7 @@ class AlarmService {
       }
 
       // Check if alarm time is in the future
-      final now = TimezoneHelper.nowInEgypt();
+      final now = DateTime.now();
       if (alarmTime.isBefore(now)) {
         if (kDebugMode) {
           print(
@@ -218,7 +235,7 @@ class AlarmService {
           body:
               'الحصة مع $teacherName - $lessonName\nستبدأ بعد ${hoursBeforeLesson > 0 ? "$hoursBeforeLesson ساعة و" : ""}$minutesBeforeLesson دقيقة',
           stopButton: 'إيقاف',
-          icon: 'notification_icon',
+          icon: 'launcher_icon',
         ),
         warningNotificationOnKill: true,
       );
