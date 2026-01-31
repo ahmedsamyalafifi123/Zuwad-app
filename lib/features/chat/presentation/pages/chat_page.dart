@@ -239,7 +239,18 @@ class _ChatPageState extends State<ChatPage> {
 
           setState(() {
             final allMessages = [...existingMessages, ...newMessages];
-            allMessages.sort((a, b) => a.createdAt!.compareTo(b.createdAt!));
+            // Sort by message ID first (for server messages - they're sequential)
+            // Only use timestamp for temp messages (like 'temp_xxx')
+            allMessages.sort((a, b) {
+              final aId = int.tryParse(a.id) ?? 0;
+              final bId = int.tryParse(b.id) ?? 0;
+              // Both have numeric IDs (server messages) - sort by ID
+              if (aId > 0 && bId > 0) {
+                return aId.compareTo(bId);
+              }
+              // At least one is a temp message - use timestamp
+              return a.createdAt!.compareTo(b.createdAt!);
+            });
             _chatController.setMessages(allMessages);
           });
 
@@ -330,8 +341,17 @@ class _ChatPageState extends State<ChatPage> {
                   ))
               .toList();
 
-          // Sort messages oldest first
-          coreMessages.sort((a, b) => a.createdAt!.compareTo(b.createdAt!));
+          // Sort by message ID first (sequential from server), then timestamp for temp messages
+          coreMessages.sort((a, b) {
+            final aId = int.tryParse(a.id) ?? 0;
+            final bId = int.tryParse(b.id) ?? 0;
+            // Both have numeric IDs (server messages) - sort by ID
+            if (aId > 0 && bId > 0) {
+              return aId.compareTo(bId);
+            }
+            // At least one is a temp message - use timestamp
+            return a.createdAt!.compareTo(b.createdAt!);
+          });
           _chatController.setMessages(coreMessages);
           _currentPage++;
           _isLoading = false;
@@ -374,7 +394,15 @@ class _ChatPageState extends State<ChatPage> {
     setState(() {
       final currentMessages = List<core.Message>.from(_chatController.messages);
       currentMessages.add(textMessage);
-      currentMessages.sort((a, b) => a.createdAt!.compareTo(b.createdAt!));
+      // Sort by ID first, then timestamp
+      currentMessages.sort((a, b) {
+        final aId = int.tryParse(a.id) ?? 0;
+        final bId = int.tryParse(b.id) ?? 0;
+        if (aId > 0 && bId > 0) {
+          return aId.compareTo(bId);
+        }
+        return a.createdAt!.compareTo(b.createdAt!);
+      });
       _chatController.setMessages(currentMessages);
     });
 
@@ -408,6 +436,7 @@ class _ChatPageState extends State<ChatPage> {
         }
 
         // Update the message: replace temp ID with server ID and mark as sent
+        // IMPORTANT: Use server timestamp to ensure correct ordering
         setState(() {
           final currentMessages =
               List<core.Message>.from(_chatController.messages);
@@ -416,7 +445,7 @@ class _ChatPageState extends State<ChatPage> {
               return core.TextMessage(
                 id: sentMessage.id, // Use server ID
                 authorId: msg.authorId,
-                createdAt: msg.createdAt,
+                createdAt: sentMessage.timestamp, // Use server timestamp!
                 text: msg.text,
                 status: core.MessageStatus.sent, // Single checkmark ✓
               );
