@@ -4,12 +4,14 @@ class SettingsBottomActions extends StatelessWidget {
   final VoidCallback onTransactions;
   final VoidCallback onPostponePayment;
   final VoidCallback onPayFees;
+  final String payFeesLabel;
 
   const SettingsBottomActions({
     super.key,
     required this.onTransactions,
     required this.onPostponePayment,
     required this.onPayFees,
+    this.payFeesLabel = 'تسديد الرسوم',
   });
 
   @override
@@ -34,7 +36,7 @@ class SettingsBottomActions extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _buildActionButton(
-            label: 'تسديد الرسوم',
+            label: payFeesLabel,
             onTap: onPayFees,
             gradient: const LinearGradient(
               colors: [

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -19,6 +20,8 @@ import '../widgets/settings/settings_financial_card.dart';
 import '../widgets/settings/settings_bottom_actions.dart';
 import '../../../chat/presentation/pages/chat_page.dart';
 import '../../../../core/widgets/responsive_content_wrapper.dart';
+import 'fawaterk_payment_webview_page.dart';
+import '../../../../core/api/fawaterk_api.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -494,8 +497,8 @@ class _SettingsPageState extends State<SettingsPage> {
                           onTransactions: _showTransactionsModal,
                           onPostponePayment: () => _contactSupport(
                               "السلام عليكم، أود طلب تأجيل الدفع."),
-                          onPayFees: () => _contactSupport(
-                              "السلام عليكم، أود استفسار بخصوص تسديد الرسوم."),
+                          onPayFees: _handlePayFees,
+                          payFeesLabel: _getPayFeesLabel(),
                         ),
 
                         const SizedBox(height: 100), // Bottom padding
@@ -1522,6 +1525,1001 @@ class _SettingsPageState extends State<SettingsPage> {
               }
             },
             child: const Text('تغيير'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================
+  // Fawaterk Payment Methods
+  // ============================================
+
+  /// Get the appropriate label for the pay fees button based on balance.
+  String _getPayFeesLabel() {
+    try {
+      final currency = _walletInfo?.currency ?? 'EGP';
+      final balance = _walletInfo?.balance ?? 0;
+      final pendingBalance = _walletInfo?.pendingBalance ?? 0;
+      final dueAmount = balance + pendingBalance;
+
+      // For all currencies: negative = owes money (تسديد الرسوم), positive/zero = add balance (إضافة رصيد)
+      return dueAmount < 0 ? 'تسديد الرسوم' : 'إضافة رصيد';
+    } catch (e) {
+      return 'تسديد الرسوم';
+    }
+  }
+
+  /// Handle pay fees button click.
+  Future<void> _handlePayFees() async {
+    try {
+      if (!mounted) return;
+
+      final currency = _walletInfo?.currency ?? 'EGP';
+      final dueAmount =
+          (_walletInfo?.balance ?? 0) + (_walletInfo?.pendingBalance ?? 0);
+      final familyId = _walletInfo?.familyId ?? _student?.id ?? 0;
+
+      if (familyId == 0) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('فشل تحميل بيانات العائلة'),
+                backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+
+      // EGP and OMR: Show payment options (فودافون كاش, انستا باي, فيزا)
+      if (currency == 'EGP' || currency == 'OMR') {
+        if (dueAmount < 0) {
+          // Negative: Pay due amount directly - show payment options
+          if (currency == 'OMR') {
+            _showOMRPaymentOptions(dueAmount.abs(), currency);
+          } else {
+            await _showEGPPaymentOptions(dueAmount.abs(), currency, familyId);
+          }
+        } else {
+          // Positive/Zero: Show add balance dialog first, then payment options
+          if (currency == 'OMR') {
+            await _showAddBalanceDialogForOMR(currency, familyId);
+          } else {
+            await _showAddBalanceDialogForEGP(currency, familyId);
+          }
+        }
+        return;
+      }
+
+      // Other currencies: Use Fawaterk directly
+      if (dueAmount < 0) {
+        // User owes money - pay due amount
+        final paymentAmount = dueAmount.abs();
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) =>
+              _buildPaymentConfirmationDialog(paymentAmount, currency),
+        );
+        if (confirmed == true && mounted) {
+          _createFawaterkInvoiceAndPay(paymentAmount, currency, familyId);
+        }
+      } else {
+        // User has credit or zero balance - show add balance dialog
+        await _showAddBalanceDialog(currency, familyId);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  /// Show dialog to input custom amount for adding balance.
+  Future<void> _showAddBalanceDialog(String currency, int familyId) async {
+    try {
+      if (!mounted) return;
+
+      // Step 1: Show input dialog
+      final result = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          final controller = TextEditingController();
+          return AlertDialog(
+            title: const Text(
+              'إضافة رصيد',
+              style:
+                  TextStyle(fontFamily: 'Qatar', fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            content: TextField(
+              controller: controller,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                hintText: '0.00',
+                suffixText: currency,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child:
+                    const Text('إلغاء', style: TextStyle(fontFamily: 'Qatar')),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final input = controller.text;
+                  final inputAmount = double.tryParse(input);
+                  if (inputAmount == null || inputAmount <= 0) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      const SnackBar(content: Text('يرجى إدخال مبلغ صحيح')),
+                    );
+                    return;
+                  }
+                  Navigator.pop(dialogContext, input);
+                },
+                child:
+                    const Text('التالي', style: TextStyle(fontFamily: 'Qatar')),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (result == null || !mounted) return;
+
+      final amount = double.tryParse(result);
+      if (amount == null || amount <= 0) return;
+
+      // Step 2: Show confirmation dialog
+      if (!mounted) return;
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title:
+              const Text('تأكيد الدفع', style: TextStyle(fontFamily: 'Qatar')),
+          content: Text('سيتم إضافة $amount $currency إلى رصيدك'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('إلغاء', style: TextStyle(fontFamily: 'Qatar')),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('تأكيد', style: TextStyle(fontFamily: 'Qatar')),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true && mounted) {
+        await _createFawaterkInvoiceAndPay(amount, currency, familyId);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  /// Build payment confirmation dialog.
+  Widget _buildPaymentConfirmationDialog(double amount, String currency) {
+    return AlertDialog(
+      title: const Text(
+        'تأكيد الدفع',
+        style: TextStyle(fontFamily: 'Qatar', fontWeight: FontWeight.bold),
+        textAlign: TextAlign.center,
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.payment, size: 48, color: Color(0xFFD4AF37)),
+          const SizedBox(height: 16),
+          Text(
+            'المبلغ المستحق',
+            style: TextStyle(
+                fontFamily: 'Qatar', fontSize: 14, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$amount $currency',
+            style: const TextStyle(
+              fontFamily: 'Qatar',
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF8b0628),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('إلغاء', style: TextStyle(fontFamily: 'Qatar')),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8b0628)),
+          child: const Text('دفع',
+              style:
+                  TextStyle(fontFamily: 'Qatar', fontWeight: FontWeight.bold)),
+        ),
+      ],
+    );
+  }
+
+  /// Create Fawaterk invoice and navigate to payment WebView.
+  Future<void> _createFawaterkInvoiceAndPay(
+      double amount, String currency, int familyId) async {
+    try {
+      if (!mounted) return;
+
+      if (_student == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('فشل تحميل بيانات الطالب'),
+                backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+
+      if (!mounted) return;
+
+      final parentContext = context;
+
+      // Show loading dialog
+      showDialog(
+        context: parentContext,
+        barrierDismissible: false,
+        builder: (dialogContext) => const Center(child: LoadingWidget()),
+      );
+
+      // Split student name
+      final nameParts = _student!.name.trim().split(' ');
+      final firstName = nameParts.isNotEmpty ? nameParts[0] : 'عميل';
+      final lastName =
+          nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'زواد';
+
+      // Create invoice via API
+      final fawaterkApi = FawaterkApi();
+      final result = await fawaterkApi.createInvoiceLink(
+        firstName: firstName,
+        lastName: lastName,
+        phone: _student!.phone ?? '',
+        email: _student!.email ?? '',
+        amount: amount,
+        currency: currency,
+        familyId: familyId,
+      );
+
+      // Close loading dialog
+      if (parentContext.mounted) {
+        Navigator.pop(parentContext);
+      }
+
+      if (result['success'] == true) {
+        final paymentUrl = result['url'] as String;
+
+        // Open WebView with payment URL
+        if (parentContext.mounted) {
+          Navigator.push(
+            parentContext,
+            MaterialPageRoute(
+              builder: (navContext) =>
+                  FawaterkPaymentWebViewPage(paymentUrl: paymentUrl),
+            ),
+          );
+        }
+      } else {
+        final errorMessage = result['message'] ?? 'فشل إنشاء رابط الدفع';
+        if (parentContext.mounted) {
+          ScaffoldMessenger.of(parentContext).showSnackBar(
+            SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // ============================================
+  // EGP/OMR Payment Methods
+  // ============================================
+
+  /// Show add balance dialog for EGP/OMR currencies.
+  Future<void> _showAddBalanceDialogForEGP(
+      String currency, int familyId) async {
+    try {
+      if (!mounted) return;
+
+      final result = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          final controller = TextEditingController();
+          return AlertDialog(
+            title: const Text(
+              'إضافة رصيد',
+              style:
+                  TextStyle(fontFamily: 'Qatar', fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            content: TextField(
+              controller: controller,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                hintText: '0.00',
+                suffixText: currency,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child:
+                    const Text('إلغاء', style: TextStyle(fontFamily: 'Qatar')),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final input = controller.text;
+                  final inputAmount = double.tryParse(input);
+                  if (inputAmount == null || inputAmount <= 0) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      const SnackBar(content: Text('يرجى إدخال مبلغ صحيح')),
+                    );
+                    return;
+                  }
+                  Navigator.pop(dialogContext, input);
+                },
+                child:
+                    const Text('التالي', style: TextStyle(fontFamily: 'Qatar')),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (result == null || !mounted) return;
+
+      final amount = double.tryParse(result);
+      if (amount == null || amount <= 0) return;
+
+      if (!mounted) return;
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title:
+              const Text('تأكيد الدفع', style: TextStyle(fontFamily: 'Qatar')),
+          content: Text('سيتم إضافة $amount $currency إلى رصيدك'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('إلغاء', style: TextStyle(fontFamily: 'Qatar')),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('تأكيد', style: TextStyle(fontFamily: 'Qatar')),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true && mounted) {
+        await _showEGPPaymentOptions(amount, currency, familyId);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  /// Show EGP payment options (فودافون كاش, انستا باي, فيزا).
+  Future<void> _showEGPPaymentOptions(
+      double amount, String currency, int familyId) async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text(
+          'اختر طريقة الدفع',
+          style: TextStyle(fontFamily: 'Qatar', fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'المبلغ: $amount $currency',
+              style: const TextStyle(
+                fontFamily: 'Qatar',
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF8b0628),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            _buildPaymentOptionButton(
+              icon: Icons.money,
+              label: 'فودافون كاش',
+              color: Color(0xFFE60000),
+              onTap: () {
+                Navigator.pop(dialogContext);
+                _showVodafoneCash(amount, currency);
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildPaymentOptionButton(
+              icon: Icons.phone_android,
+              label: 'انستا باي',
+              color: Color(0xFF6C63FF),
+              onTap: () {
+                Navigator.pop(dialogContext);
+                _showInstapayOptions(amount, currency);
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildPaymentOptionButton(
+              icon: Icons.credit_card,
+              label: 'فيزا',
+              color: Color(0xFF1A1F71),
+              onTap: () {
+                Navigator.pop(dialogContext);
+                _createFawaterkInvoiceAndPay(amount, currency, familyId);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build payment option button.
+  Widget _buildPaymentOptionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color, width: 2),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Qatar',
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Show Vodafone Cash payment instructions.
+  void _showVodafoneCash(double amount, String currency) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'فودافون كاش',
+          style: TextStyle(fontFamily: 'Qatar', fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Center(
+                child: Icon(Icons.phone, size: 48, color: Color(0xFFE60000)),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'أهلًا وسهلًا بك 🌟\nلإتمام الدفع وتأكيد الاشتراك، يُرجى اتباع الخطوات التالية:',
+                style: TextStyle(fontFamily: 'Qatar', fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '1️⃣ تحويل الدفع الي هذا الرقم:',
+                style:
+                    TextStyle(fontFamily: 'Qatar', fontWeight: FontWeight.bold),
+              ),
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Color(0xFFE60000).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE60000)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      '01060525136',
+                      style: TextStyle(
+                        fontFamily: 'Qatar',
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFE60000),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: '01060525136'));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('تم نسخ الرقم'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      child: const Icon(
+                        Icons.copy,
+                        size: 18,
+                        color: Color(0xFFE60000),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '📩 بعد الدفع:\nيرجى إرسال صورة إيصال الدفع أو سكرين شوت على واتساب رقم:\n+20 101 045 4826 لتأكيد الاشتراك.',
+                style: TextStyle(fontFamily: 'Qatar', fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'شكرًا لاختيارك أكاديمية زواد، ونتمنى لك تجربة مميزة معنا! 🌿',
+                style: TextStyle(
+                    fontFamily: 'Qatar', fontSize: 12, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('حسناً', style: TextStyle(fontFamily: 'Qatar')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show Instapay payment instructions.
+  void _showInstapayOptions(double amount, String currency) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'انستا باي',
+          style: TextStyle(fontFamily: 'Qatar', fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Center(
+                child: Icon(Icons.phone_android,
+                    size: 48, color: Color(0xFF6C63FF)),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'أهلًا وسهلًا بك 🌟\nلإتمام الدفع وتأكيد الاشتراك، يُرجى اتباع الخطوات التالية:',
+                style: TextStyle(fontFamily: 'Qatar', fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              _buildInstapayOption(
+                title: '1️⃣ إنستا باي (Instapay):',
+                link: 'https://ipn.eg/S/laila.elkemary/instapay/8pOZfu',
+                email: 'laila.elkemary@instapay',
+                name: 'Laila Ahmed',
+              ),
+              const SizedBox(height: 16),
+              _buildInstapayOption(
+                title: '2️⃣ التحويل البنكي (CIB):',
+                accountNumber: '100048695641',
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '📩 بعد الدفع:\nيرجى إرسال صورة إيصال الدفع أو سكرين شوت على واتساب رقم:\n+20 101 045 4826 لتأكيد الاشتراك.',
+                style: TextStyle(fontFamily: 'Qatar', fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'شكرًا لاختيارك أكاديمية زواد، ونتمنى لك تجربة مميزة معنا! 🌿',
+                style: TextStyle(
+                    fontFamily: 'Qatar', fontSize: 12, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('حسناً', style: TextStyle(fontFamily: 'Qatar')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build Instapay payment option.
+  Widget _buildInstapayOption({
+    required String title,
+    String? link,
+    String? email,
+    String? name,
+    String? accountNumber,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF6C63FF).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF6C63FF).withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontFamily: 'Qatar',
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF6C63FF),
+            ),
+          ),
+          if (link != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Text('• الرابط: ', style: TextStyle(fontFamily: 'Qatar')),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      // Open link in external browser
+                    },
+                    child: Text(
+                      link,
+                      style: const TextStyle(
+                        fontFamily: 'Qatar',
+                        color: Colors.blue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (email != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Text('• البريد: ', style: TextStyle(fontFamily: 'Qatar')),
+                Expanded(
+                  child: Text(
+                    email,
+                    style: const TextStyle(fontFamily: 'Qatar'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (name != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Text('• الاسم: ', style: TextStyle(fontFamily: 'Qatar')),
+                Expanded(
+                  child: Text(
+                    name,
+                    style: const TextStyle(fontFamily: 'Qatar'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (accountNumber != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Text('• رقم الحساب: ',
+                    style: TextStyle(fontFamily: 'Qatar')),
+                Expanded(
+                  child: Text(
+                    accountNumber,
+                    style: const TextStyle(
+                      fontFamily: 'Qatar',
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Show add balance dialog for OMR currency.
+  Future<void> _showAddBalanceDialogForOMR(
+      String currency, int familyId) async {
+    try {
+      if (!mounted) return;
+
+      final result = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          final controller = TextEditingController();
+          return AlertDialog(
+            title: const Text(
+              'إضافة رصيد',
+              style:
+                  TextStyle(fontFamily: 'Qatar', fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            content: TextField(
+              controller: controller,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                hintText: '0.00',
+                suffixText: currency,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child:
+                    const Text('إلغاء', style: TextStyle(fontFamily: 'Qatar')),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final input = controller.text;
+                  final inputAmount = double.tryParse(input);
+                  if (inputAmount == null || inputAmount <= 0) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      const SnackBar(content: Text('يرجى إدخال مبلغ صحيح')),
+                    );
+                    return;
+                  }
+                  Navigator.pop(dialogContext, input);
+                },
+                child:
+                    const Text('التالي', style: TextStyle(fontFamily: 'Qatar')),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (result == null || !mounted) return;
+
+      final amount = double.tryParse(result);
+      if (amount == null || amount <= 0) return;
+
+      if (!mounted) return;
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title:
+              const Text('تأكيد الدفع', style: TextStyle(fontFamily: 'Qatar')),
+          content: Text('سيتم إضافة $amount $currency إلى رصيدك'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('إلغاء', style: TextStyle(fontFamily: 'Qatar')),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('تأكيد', style: TextStyle(fontFamily: 'Qatar')),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true && mounted) {
+        _showOMRPaymentOptions(amount, currency);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  /// Show OMR payment instructions (مصلحة).
+  void _showOMRPaymentOptions(double amount, String currency) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'الدفع',
+          style: TextStyle(fontFamily: 'Qatar', fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Center(
+                child: Icon(Icons.account_balance_wallet,
+                    size: 48, color: Color(0xFFD4AF37)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'المبلغ: $amount $currency',
+                style: const TextStyle(
+                  fontFamily: 'Qatar',
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF8b0628),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'أهلًا وسهلًا بك 🌟\nلإتمام الدفع وتأكيد الاشتراك، يُرجى اتباع الخطوات التالية:',
+                style: TextStyle(fontFamily: 'Qatar', fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD4AF37).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFD4AF37), width: 2),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '1️⃣ الدفع عن طريق بنك مسقط الي هذا الرقم :',
+                      style: TextStyle(
+                        fontFamily: 'Qatar',
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF8b0628),
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    const Text(
+                      'اسم الحساب: Somya',
+                      style: TextStyle(
+                        fontFamily: 'Qatar',
+                        fontSize: 14,
+                        color: Color(0xFF8b0628),
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFD4AF37)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            '78392964',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF8b0628),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: '78392964'));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('تم نسخ الرقم'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                            child: const Icon(
+                              Icons.copy,
+                              size: 20,
+                              color: Color(0xFFD4AF37),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '📩 بعد الدفع:\nيرجى إرسال صورة إيصال الدفع أو سكرين شوت على واتساب رقم:\n+20 101 045 4826 لتأكيد الاشتراك.',
+                style: TextStyle(fontFamily: 'Qatar', fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'شكرًا لاختيارك أكاديمية زواد، ونتمنى لك تجربة مميزة معنا! 🌿',
+                style: TextStyle(
+                    fontFamily: 'Qatar', fontSize: 12, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('حسناً', style: TextStyle(fontFamily: 'Qatar')),
           ),
         ],
       ),
