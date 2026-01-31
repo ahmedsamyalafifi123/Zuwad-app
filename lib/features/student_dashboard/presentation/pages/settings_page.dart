@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/loading_widget.dart';
+import '../../../../core/services/settings_cache_service.dart';
 import '../../../auth/domain/models/student.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -28,6 +29,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   final SettingsRepository _repository = SettingsRepository();
+  final SettingsCacheService _cache = SettingsCacheService.instance;
 
   // Expansion states
   bool _personalExpanded = false; // Default open for personal data
@@ -286,7 +288,7 @@ class _SettingsPageState extends State<SettingsPage> {
     super.dispose();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool forceRefresh = false}) async {
     try {
       setState(() => _isLoading = true);
 
@@ -296,25 +298,43 @@ class _SettingsPageState extends State<SettingsPage> {
         _populateControllers();
       }
 
-      try {
-        final freshProfile = await _repository.getProfile();
-        if (mounted) {
-          _student = freshProfile;
-          _populateControllers();
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          print('SettingsPage._loadData - Could not fetch fresh profile: $e');
-        }
+      // Clear cache if force refresh (pull-to-refresh)
+      if (forceRefresh) {
+        _repository.clearCache();
       }
 
-      final walletInfo = await _repository.getWalletInfo();
-      final familyMembers = await _repository.getFamilyMembers();
+      // Check if we have cached data and not forcing refresh
+      if (!forceRefresh && _repository.hasCachedData) {
+        if (mounted) {
+          setState(() {
+            _student = _repository.cachedStudent;
+            _populateControllers();
+            _walletInfo = _repository.cachedWalletInfo;
+            _familyMembers = _repository.cachedFamilyMembers ?? [];
+            _isLoading = false;
+          });
+        }
+        // Fetch fresh data in background without showing loading
+        _fetchFreshDataInBackground();
+        return;
+      }
+
+      // No cache or force refresh - fetch all data
+      final results = await Future.wait([
+        _repository.getProfile().catchError((e) {
+          if (kDebugMode) print('Error fetching profile: $e');
+          throw e;
+        }),
+        _repository.getWalletInfo(),
+        _repository.getFamilyMembers(),
+      ]);
 
       if (mounted) {
         setState(() {
-          _walletInfo = walletInfo;
-          _familyMembers = familyMembers;
+          _student = results[0] as Student;
+          _populateControllers();
+          _walletInfo = results[1] as WalletInfo;
+          _familyMembers = results[2] as List<Map<String, dynamic>>;
           _isLoading = false;
         });
       }
@@ -328,6 +348,29 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         );
       }
+    }
+  }
+
+  /// Fetch fresh data in background and update state without loading indicator
+  Future<void> _fetchFreshDataInBackground() async {
+    try {
+      final results = await Future.wait([
+        _repository.getProfile(),
+        _repository.getWalletInfo(),
+        _repository.getFamilyMembers(),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _student = results[0] as Student;
+          _populateControllers();
+          _walletInfo = results[1] as WalletInfo;
+          _familyMembers = results[2] as List<Map<String, dynamic>>;
+        });
+      }
+    } catch (e) {
+      // Silent fail - user already has cached data
+      if (kDebugMode) print('Background refresh failed: $e');
     }
   }
 
@@ -374,7 +417,7 @@ class _SettingsPageState extends State<SettingsPage> {
         body: _isLoading
             ? const LoadingWidget()
             : RefreshIndicator(
-                onRefresh: _loadData,
+                onRefresh: () => _loadData(forceRefresh: true),
                 color: AppTheme.primaryColor,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),

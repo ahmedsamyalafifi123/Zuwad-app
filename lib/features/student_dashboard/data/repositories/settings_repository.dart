@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../../../core/api/wordpress_api.dart';
 import '../../../../core/services/secure_storage_service.dart';
+import '../../../../core/services/settings_cache_service.dart';
 import '../../../auth/domain/models/student.dart';
 import '../../domain/models/wallet_info.dart';
 
@@ -9,16 +10,37 @@ import '../../domain/models/wallet_info.dart';
 class SettingsRepository {
   final WordPressApi _api = WordPressApi();
   final SecureStorageService _secureStorage = SecureStorageService();
+  final SettingsCacheService _cache = SettingsCacheService.instance;
+
+  /// Check if cached data is available
+  bool get hasCachedData => _cache.hasCachedData;
+
+  /// Get cached student if available
+  Student? get cachedStudent => _cache.cachedStudent;
+
+  /// Get cached wallet info if available
+  WalletInfo? get cachedWalletInfo => _cache.cachedWalletInfo;
+
+  /// Get cached family members if available
+  List<Map<String, dynamic>>? get cachedFamilyMembers => _cache.cachedFamilyMembers;
+
+  /// Clear all cached data
+  void clearCache() => _cache.clearCache();
 
   /// Get current user's student profile.
-  Future<Student> getProfile() async {
+  Future<Student> getProfile({bool forceRefresh = false}) async {
     final userId = await _secureStorage.getUserIdAsInt();
     if (userId == null) {
       throw Exception('User not logged in');
     }
 
     final data = await _api.getStudentProfile(userId);
-    return Student.fromApiV2(data);
+    final student = Student.fromApiV2(data);
+
+    // Update cache
+    _cache.setStudent(student);
+
+    return student;
   }
 
   /// Upload profile image.
@@ -124,7 +146,12 @@ class SettingsRepository {
       final walletWithTransactions = Map<String, dynamic>.from(walletData);
       walletWithTransactions['transactions'] = transactionsData;
 
-      return WalletInfo.fromJson(walletWithTransactions);
+      final walletInfo = WalletInfo.fromJson(walletWithTransactions);
+
+      // Update cache
+      _cache.setWalletInfo(walletInfo);
+
+      return walletInfo;
     } catch (e) {
       if (kDebugMode) {
         print('SettingsRepository.getWalletInfo - Error: $e');
@@ -156,33 +183,39 @@ class SettingsRepository {
       // We fetch the profile for each member to get the correct amount
       // Family size is typically small, so this N+1 is acceptable for data accuracy
       try {
-        for (var i = 0; i < modifiableMembers.length; i++) {
+        final futures = modifiableMembers.map((member) async {
           try {
-            final memberId = modifiableMembers[i]['id'];
+            final memberId = member['id'];
             final profile = await _api.getStudentProfile(memberId);
-
-            modifiableMembers[i] =
-                Map<String, dynamic>.from(modifiableMembers[i]);
-            modifiableMembers[i]['amount'] = profile['amount'];
-            // Map remaining_lessons from profile to the family member map
-            modifiableMembers[i]['remaining_lessons'] =
-                profile['remaining_lessons'];
+            final updatedMember = Map<String, dynamic>.from(member);
+            updatedMember['amount'] = profile['amount'];
+            updatedMember['remaining_lessons'] = profile['remaining_lessons'];
             if (profile['currency'] != null) {
-              modifiableMembers[i]['currency'] = profile['currency'];
+              updatedMember['currency'] = profile['currency'];
             }
+            return updatedMember;
           } catch (e) {
             if (kDebugMode) {
               print(
-                  'SettingsRepository.getFamilyMembers - Error fetching profile for member ${modifiableMembers[i]['id']}: $e');
+                  'SettingsRepository.getFamilyMembers - Error fetching profile for member ${member['id']}: $e');
             }
+            return member; // Return original if fetch fails
           }
-        }
+        });
+
+        final results = await Future.wait(futures);
+        modifiableMembers
+          ..clear()
+          ..addAll(results);
       } catch (e) {
         if (kDebugMode) {
           print(
               'SettingsRepository.getFamilyMembers - Error in profile fetch loop: $e');
         }
       }
+
+      // Update cache
+      _cache.setFamilyMembers(modifiableMembers);
 
       return modifiableMembers;
     } catch (e) {

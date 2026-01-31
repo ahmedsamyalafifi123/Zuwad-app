@@ -16,26 +16,24 @@ class SettingsBottomActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 600;
 
-    return Row(
-      children: [
-        Expanded(
-          child: _buildActionButton(
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildActionButton(
             label: 'سجل المعاملات',
             onTap: onTransactions,
             isDesktop: isDesktop,
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildActionButton(
+          const SizedBox(width: 8),
+          _buildActionButton(
             label: 'طلب تأجيل الدفع',
             onTap: onPostponePayment,
             isDesktop: isDesktop,
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildActionButton(
+          const SizedBox(width: 8),
+          _buildActionButton(
             label: 'تسديد الرسوم',
             onTap: onPayFees,
             gradient: const LinearGradient(
@@ -48,8 +46,8 @@ class SettingsBottomActions extends StatelessWidget {
             ),
             isDesktop: isDesktop,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -83,6 +81,8 @@ class SettingsBottomActions extends StatelessWidget {
           child: Text(
             label,
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.visible,
             style: TextStyle(
               fontFamily: 'Qatar',
               fontSize: isDesktop ? 14 : 12,
@@ -112,6 +112,8 @@ class SettingsBottomActions extends StatelessWidget {
       child: Text(
         label,
         textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.visible,
         style: TextStyle(
           fontFamily: 'Qatar',
           fontSize: isDesktop ? 14 : 12, // Adjusted for space

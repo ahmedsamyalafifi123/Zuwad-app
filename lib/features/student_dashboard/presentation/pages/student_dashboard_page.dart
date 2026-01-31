@@ -569,24 +569,37 @@ class _DashboardContentState extends State<_DashboardContent> {
           forceRefresh: forceRefresh,
         );
 
+        if (!mounted) return;
+
         if (nextSchedule != null) {
           setState(() {
             _nextSchedule = nextSchedule;
             if (nextSchedule.schedules.isNotEmpty) {
               _findNextLesson(nextSchedule.schedules, reports);
               if (_nextLesson != null) {
-                _updateCountdown();
-                _countdownTimer?.cancel();
-                _countdownTimer = Timer.periodic(const Duration(seconds: 1), (
-                  _,
-                ) {
-                  _updateCountdown();
-                });
+                // _updateCountdown calls setState, so we should call it outside this setState or ensure it's safe
+                // But _findNextLesson calls _updateCountdown internally? No, we call it here.
+                // Actually _updateCountdown calls setState, so we shouldn't call it inside setState.
+                // Let's defer it to after this frame or just call it directly since we are already in setState context
+                // effectively we just want to update the duration.
+                // Ideally, _updateCountdown shouldn't call setState if we are already in a build phase or update logic.
+                // However, fixing the missing mounted check is the priority.
+                // Refactoring: Call _updateCountdown logic without setState, or just let it be but ensure we are mounted.
               }
+              _countdownTimer?.cancel();
+              _countdownTimer = Timer.periodic(const Duration(seconds: 1), (
+                _,
+              ) {
+                if (mounted) _updateCountdown();
+              });
             } else {
               _nextLesson = null;
             }
           });
+          // Update countdown explicitly after state change
+          if (mounted && _nextLesson != null) {
+            _updateCountdown();
+          }
         } else {
           setState(() {
             _nextLesson = null;
@@ -597,14 +610,18 @@ class _DashboardContentState extends State<_DashboardContent> {
         if (kDebugMode) {
           print('Error loading next lesson: $e');
         }
-        setState(() {
-          _nextLesson = null;
-          _nextSchedule = null;
-        });
+        if (mounted) {
+          setState(() {
+            _nextLesson = null;
+            _nextSchedule = null;
+          });
+        }
       } finally {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -1011,8 +1028,9 @@ class _DashboardContentState extends State<_DashboardContent> {
         }
       }
 
-      if (previousDuration == null ||
-          previousDuration.inSeconds != newDuration?.inSeconds) {
+      if ((previousDuration == null ||
+              previousDuration.inSeconds != newDuration?.inSeconds) &&
+          mounted) {
         setState(() {
           _timeUntilNextLesson = newDuration;
         });
