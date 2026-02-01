@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../../../features/student_dashboard/domain/services/student_selection_service.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
 
@@ -72,6 +73,38 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       if (success) {
         try {
+          // Smart Student Selection Logic
+          try {
+            if (kDebugMode) {
+              print('Smart Selection: Fetching family members...');
+            }
+            final family = await _authRepository.getFamilyMembers();
+
+            if (family.length > 1) {
+              if (kDebugMode) {
+                print(
+                    'Smart Selection: Found ${family.length} family members, calculating best student...');
+              }
+              final selectionService = StudentSelectionService();
+              final bestStudent =
+                  await selectionService.determineBestStudent(family);
+
+              if (kDebugMode) {
+                print(
+                    'Smart Selection: Best student determined: ${bestStudent.name} (${bestStudent.id})');
+              }
+
+              // Switch to the best student before loading profile
+              // This updates the stored user ID so getStudentProfile fetches the correct one
+              await _authRepository.switchUser(bestStudent);
+            }
+          } catch (e) {
+            // Silently fail smart selection and proceed with default student
+            if (kDebugMode) {
+              print('Smart Selection Error: $e');
+            }
+          }
+
           final student = await _authRepository.getStudentProfile();
           if (kDebugMode) {
             print('Student profile after login: ${student.toDebugString()}');

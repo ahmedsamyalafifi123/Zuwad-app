@@ -738,11 +738,15 @@ class _HomePageState extends State<HomePage> {
           itemCount: _nextLessons.length,
           itemBuilder: (context, index) {
             final lessonData = _nextLessons[index];
-            return _buildNextLessonCard(
-              lessonData['schedule'] as Schedule,
-              lessonData['dateTime'] as DateTime,
-              lessonData['sessionNumber'] as int? ?? 0,
-              showRescheduleButton: index == 0, // Only show for first card
+            return KeyedSubtree(
+              key: ValueKey(
+                  '${lessonData['dateStr']}_${lessonData['sessionNumber']}'),
+              child: _buildNextLessonCard(
+                lessonData['schedule'] as Schedule,
+                lessonData['dateTime'] as DateTime,
+                lessonData['sessionNumber'] as int? ?? 0,
+                showRescheduleButton: index == 0, // Only show for first card
+              ),
             );
           },
         ),
@@ -913,59 +917,72 @@ class _HomePageState extends State<HomePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Lesson Number (Right visual / Start in RTL)
-                        Text(
-                          schedule.isTrial
-                              ? 'حصة تجريبية'
-                              : schedule.isPostponed
-                                  ? 'حصة مؤجلة'
-                                  : 'الحصة $sessionNumber',
-                          style: const TextStyle(
-                            fontFamily: 'Qatar',
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
+                        Flexible(
+                          child: Text(
+                            schedule.isTrial
+                                ? 'حصة تجريبية'
+                                : schedule.isPostponed
+                                    ? 'حصة مؤجلة'
+                                    : 'الحصة $sessionNumber',
+                            style: const TextStyle(
+                              fontFamily: 'Qatar',
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        Row(
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  GenderHelper.getFormalTitle(teacherGender),
-                                  style: TextStyle(
-                                    fontFamily: 'Qatar',
-                                    fontSize: 10,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                Text(
-                                  teacherFirstName,
-                                  style: const TextStyle(
-                                    fontFamily: 'Qatar',
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                    color: const Color(0xFFD4AF37), width: 1.5),
-                              ),
-                              child: CircleAvatar(
-                                radius: 16,
-                                backgroundColor: Colors.grey[200],
-                                backgroundImage: AssetImage(
-                                  GenderHelper.getTeacherImage(teacherGender),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      GenderHelper.getFormalTitle(
+                                          teacherGender),
+                                      style: TextStyle(
+                                        fontFamily: 'Qatar',
+                                        fontSize: 10,
+                                        color: Colors.grey[600],
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      teacherFirstName,
+                                      style: const TextStyle(
+                                        fontFamily: 'Qatar',
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: const Color(0xFFD4AF37),
+                                      width: 1.5),
+                                ),
+                                child: CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: Colors.grey[200],
+                                  backgroundImage: AssetImage(
+                                    GenderHelper.getTeacherImage(teacherGender),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -1111,7 +1128,10 @@ class _HomePageState extends State<HomePage> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: _reports.length,
-            itemBuilder: (context, index) => _buildReportCard(_reports[index]),
+            itemBuilder: (context, index) => KeyedSubtree(
+              key: ValueKey('${_reports[index].date}_${_reports[index].time}'),
+              child: _buildReportCard(_reports[index]),
+            ),
           ),
       ],
     );
@@ -1316,86 +1336,100 @@ class _HomePageState extends State<HomePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Session Number & Evaluation
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                report.isPostponed
-                                    ? 'حصة مجدولة'
-                                    : report.attendance == 'اجازة معلم'
-                                        ? 'اجازة معلم'
-                                        : 'الحصة ${report.sessionNumber}',
-                                style: const TextStyle(
-                                  fontFamily: 'Qatar',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              if (report.evaluation.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        _getEvaluationColor(report.evaluation),
-                                    borderRadius: BorderRadius.circular(10),
+                          Flexible(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  report.isPostponed
+                                      ? 'حصة مجدولة'
+                                      : report.attendance == 'اجازة معلم'
+                                          ? 'اجازة معلم'
+                                          : 'الحصة ${report.sessionNumber}',
+                                  style: const TextStyle(
+                                    fontFamily: 'Qatar',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
                                   ),
-                                  child: Text(
-                                    report.evaluation,
-                                    style: const TextStyle(
-                                      fontFamily: 'Qatar',
-                                      fontSize: 10,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (report.evaluation.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _getEvaluationColor(
+                                          report.evaluation),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      report.evaluation,
+                                      style: const TextStyle(
+                                        fontFamily: 'Qatar',
+                                        fontSize: 10,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        GenderHelper.getFormalTitle(
+                                            teacherGender),
+                                        style: TextStyle(
+                                          fontFamily: 'Qatar',
+                                          fontSize: 10,
+                                          color: Colors.grey[600],
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        teacherFirstName,
+                                        style: const TextStyle(
+                                          fontFamily: 'Qatar',
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: const Color(0xFFD4AF37),
+                                        width: 1.5),
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: Colors.grey[200],
+                                    backgroundImage: AssetImage(
+                                      GenderHelper.getTeacherImage(
+                                          teacherGender),
                                     ),
                                   ),
                                 ),
                               ],
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    GenderHelper.getFormalTitle(teacherGender),
-                                    style: TextStyle(
-                                      fontFamily: 'Qatar',
-                                      fontSize: 10,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  Text(
-                                    teacherFirstName,
-                                    style: const TextStyle(
-                                      fontFamily: 'Qatar',
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                      color: const Color(0xFFD4AF37),
-                                      width: 1.5),
-                                ),
-                                child: CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: Colors.grey[200],
-                                  backgroundImage: AssetImage(
-                                    GenderHelper.getTeacherImage(teacherGender),
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ],
                       ),

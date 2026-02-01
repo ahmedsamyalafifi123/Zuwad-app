@@ -5,7 +5,6 @@ import 'package:alarm/alarm.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
-import 'native_alarm_service.dart' as native_alarm;
 
 /// Service for managing lesson alarms with custom sound
 class AlarmService {
@@ -22,7 +21,6 @@ class AlarmService {
 
       // Initialize native alarm service for Android
       if (Platform.isAndroid) {
-        await native_alarm.NativeAlarmService.initialize();
         await _requestBatteryOptimizationExemption();
       }
 
@@ -52,7 +50,8 @@ class AlarmService {
 
         if (kDebugMode) {
           final newStatus = await Permission.ignoreBatteryOptimizations.status;
-          print('AlarmService: Battery optimization exemption granted: ${newStatus.isGranted}');
+          print(
+              'AlarmService: Battery optimization exemption granted: ${newStatus.isGranted}');
         }
       } else {
         if (kDebugMode) {
@@ -61,7 +60,8 @@ class AlarmService {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('AlarmService: Error requesting battery optimization exemption: $e');
+        print(
+            'AlarmService: Error requesting battery optimization exemption: $e');
       }
     }
   }
@@ -266,22 +266,6 @@ class AlarmService {
       final notificationBody =
           'الحصة مع $teacherName - $lessonName\nستبدأ بعد ${hoursBeforeLesson > 0 ? "$hoursBeforeLesson ساعة و" : ""}$minutesBeforeLesson دقيقة';
 
-      // Only use native alarm in release mode (debug mode has issues)
-      final bool useNativeAlarm = !kDebugMode && Platform.isAndroid;
-
-      if (useNativeAlarm) {
-        final nativeSuccess = await native_alarm.NativeAlarmService.scheduleAlarm(
-          id: alarmId,
-          dateTime: alarmTime,
-          title: 'منبه الحصة',
-          body: notificationBody,
-        );
-
-        if (kDebugMode) {
-          print('AlarmService: Native alarm scheduled: $nativeSuccess');
-        }
-      }
-
       // Schedule with alarm package
       final alarmSettings = AlarmSettings(
         id: alarmId,
@@ -336,9 +320,6 @@ class AlarmService {
       }
 
       // Cancel native Android alarms
-      if (Platform.isAndroid) {
-        await native_alarm.NativeAlarmService.cancelAllAlarms();
-      }
 
       // Add timeout to prevent hanging
       await Alarm.stopAll().timeout(

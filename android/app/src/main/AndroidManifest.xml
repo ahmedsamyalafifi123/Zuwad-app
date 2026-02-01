@@ -89,24 +89,7 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- Foreground service to keep app alive for alarms -->
-        <service
-            android:name="com.zuwad.AlarmForegroundService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="dataSync|specialUse"
-            android:stopWithTask="false" />
 
-        <!-- Alarm receiver to handle alarm triggers -->
-        <receiver
-            android:name="com.zuwad.AlarmReceiver"
-            android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.zuwad.ALARM_TRIGGER" />
-                <action android:name="STOP_ALARM" />
-            </intent-filter>
-        </receiver>
 
         <service
             android:name="com.cloudwebrtc.webrtc.FlutterWebRTCPlugin$ForegroundService"
