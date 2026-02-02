@@ -4,12 +4,14 @@ class IslamicBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
   final int chatUnreadCount; // Total unread chat messages
+  final Map<int, GlobalKey>? itemKeys;
 
   const IslamicBottomNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
     this.chatUnreadCount = 0,
+    this.itemKeys,
   });
 
   static const List<Map<String, dynamic>> navItems = [
@@ -127,6 +129,7 @@ class IslamicBottomNavBar extends StatelessWidget {
     final bool showBadge = index == 2 && chatUnreadCount > 0; // Messages tab
 
     return GestureDetector(
+      key: itemKeys?[index],
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(

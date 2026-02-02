@@ -14,6 +14,8 @@ import '../../domain/models/student_report.dart';
 import '../../domain/models/schedule.dart';
 import 'report_details_page.dart';
 import 'postpone_page.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../auth/domain/models/student.dart';
 
 class HomePage extends StatefulWidget {
@@ -38,6 +40,11 @@ class _HomePageState extends State<HomePage> {
   // Tab state: 0 = upcoming lessons, 1 = previous reports
   int _activeTab = 0;
 
+  // Tutorial Keys
+  final GlobalKey _upcomingTabKey = GlobalKey();
+  final GlobalKey _previousTabKey = GlobalKey();
+  TutorialCoachMark? _tutorialCoachMark;
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +54,216 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
+
+    // Check for tutorial part 2
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndShowTutorial();
+    });
+  }
+
+  Future<void> _checkAndShowTutorial() async {
+    // kDebugMode allows testing easily - ALWAYS SHOWS IN DEBUG as requested
+    if (kDebugMode) {
+      // Small delay to ensure UI is built
+      Future.delayed(const Duration(seconds: 1), () {
+        _showTutorial();
+      });
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final seenPart1 = prefs.getBool('seen_dashboard_tutorial') ?? false;
+    final seenPart2 = prefs.getBool('seen_schedule_tutorial') ?? false;
+
+    // Only show part 2 if part 1 is seen AND part 2 is not
+    if (seenPart1 && !seenPart2) {
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) _showTutorial();
+      });
+    }
+  }
+
+  void _showTutorial() {
+    _tutorialCoachMark = TutorialCoachMark(
+      targets: _createTargets(),
+      colorShadow: Colors.black,
+      textSkip: "تخطي",
+      textStyleSkip: const TextStyle(
+        fontFamily: 'Qatar',
+        color: Colors.white,
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+      ),
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+      onFinish: () {
+        _markTutorialSeen();
+      },
+      onSkip: () {
+        _markTutorialSeen();
+        return true;
+      },
+    )..show(context: context);
+  }
+
+  Future<void> _markTutorialSeen() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('seen_schedule_tutorial', true);
+  }
+
+  List<TargetFocus> _createTargets() {
+    List<TargetFocus> targets = [];
+
+    // 1. Upcoming Lessons Tab
+    targets.add(
+      TargetFocus(
+        identify: "upcoming_tab",
+        keyTarget: _upcomingTabKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "الحصص القادمة",
+                    style: TextStyle(
+                      fontFamily: 'Qatar',
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10.0),
+                    child: Text(
+                      "اضغط هنا لعرض جدول الحصص القادمة.",
+                      style: TextStyle(
+                        fontFamily: 'Qatar',
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => controller.next(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF820c22),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: const Text("التالي",
+                              style: TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 10,
+      ),
+    );
+
+    // 2. Previous Reports Tab
+    targets.add(
+      TargetFocus(
+        identify: "previous_tab",
+        keyTarget: _previousTabKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "الحصص السابقة",
+                    style: TextStyle(
+                      fontFamily: 'Qatar',
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10.0),
+                    child: Text(
+                      "اضغط هنا لعرض تقارير الحصص التي تم الانتهاء منها.",
+                      style: TextStyle(
+                        fontFamily: 'Qatar',
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      // Back Button (Previous) - Flex 1
+                      Expanded(
+                        flex: 1,
+                        child: ElevatedButton(
+                          onPressed: () => controller.previous(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF820c22),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: const Text("السابق",
+                              style: TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Next/Finish Button - Flex 2
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: () => controller.next(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF820c22),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: const Text("إنهاء",
+                              style: TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 10,
+      ),
+    );
+
+    return targets;
   }
 
   Future<void> _loadData({bool forceRefresh = false}) async {
@@ -1584,6 +1801,7 @@ class _HomePageState extends State<HomePage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _buildQuickActionButton(
+                        key: _upcomingTabKey,
                         imagePath: 'assets/images/Calender.json',
                         label: 'الحصص القادمة',
                         isActive: _activeTab == 0,
@@ -1604,6 +1822,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       _buildQuickActionButton(
+                        key: _previousTabKey,
                         imagePath: 'assets/images/lottie.json',
                         label: 'الحصص السابقة',
                         isActive: _activeTab == 1,
@@ -1639,10 +1858,12 @@ class _HomePageState extends State<HomePage> {
   Widget _buildQuickActionButton({
     required String imagePath,
     required String label,
+    required bool isActive,
     required VoidCallback onTap,
-    bool isActive = true,
+    Key? key,
   }) {
     return GestureDetector(
+      key: key,
       onTap: onTap,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 200),

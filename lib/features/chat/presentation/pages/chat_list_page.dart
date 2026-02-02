@@ -14,6 +14,8 @@ import 'chat_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
 import '../../../../core/widgets/responsive_content_wrapper.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Chat list page showing available contacts and recent conversations.
 ///
@@ -55,6 +57,12 @@ class _ChatListPageState extends State<ChatListPage> {
   String _errorMessage = '';
   Timer? _refreshTimer;
   StreamSubscription<ChatEvent>? _chatEventSubscription;
+
+  // Tutorial Keys
+  final GlobalKey _teacherKey = GlobalKey();
+  final GlobalKey _supervisorKey = GlobalKey();
+  bool _hasTeacher = false;
+  bool _hasSupervisor = false;
 
   @override
   void initState() {
@@ -103,8 +111,35 @@ class _ChatListPageState extends State<ChatListPage> {
       if (mounted) {
         setState(() {
           _contacts = results[0] as List<Contact>;
+
+          // Sort contacts: Supervisor (Customer Service) first, then Teacher, then others
+          _contacts.sort((a, b) {
+            final aIsSupervisor = a.role.toLowerCase() == 'supervisor' ||
+                a.relation.toLowerCase() == 'supervisor';
+            final bIsSupervisor = b.role.toLowerCase() == 'supervisor' ||
+                b.relation.toLowerCase() == 'supervisor';
+
+            if (aIsSupervisor && !bIsSupervisor) return -1;
+            if (!aIsSupervisor && bIsSupervisor) return 1;
+
+            final aIsTeacher = a.role.toLowerCase() == 'teacher' ||
+                a.relation.toLowerCase() == 'teacher';
+            final bIsTeacher = b.role.toLowerCase() == 'teacher' ||
+                b.relation.toLowerCase() == 'teacher';
+
+            if (aIsTeacher && !bIsTeacher) return -1;
+            if (!aIsTeacher && bIsTeacher) return 1;
+
+            return 0;
+          });
+
           _conversations = results[1] as List<Conversation>;
           _isLoading = false;
+        });
+
+        // Check for tutorial after data load
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _checkAndShowTutorial();
         });
 
         if (kDebugMode) {
@@ -285,10 +320,18 @@ class _ChatListPageState extends State<ChatListPage> {
       child: ResponsiveContentWrapper(
         child: Column(
           children: [
-            ..._contacts.map((contact) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _buildContactTile(contact),
-                )),
+            ..._contacts.map((contact) {
+              // Reset flags if it's the start of the list?
+              // Actually map is called on every build, but keys must not be duplicated.
+              // We will handle key assignment in _buildContactTile with logic to only assign once per build cycle if needed,
+              // but stateless widgets/keys in map require care.
+              // Simpler: Determine which contact gets the key BEFORE mapping or inside map securely.
+              // Since keys are final, we just attach them to the specific contact.
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildContactTile(contact),
+              );
+            }),
           ],
         ),
       ),
@@ -403,6 +446,7 @@ class _ChatListPageState extends State<ChatListPage> {
         ],
       ),
       child: Material(
+        key: _getContactKey(contact), // Assign Key logic here
         color: Colors.transparent,
         child: InkWell(
           onTap: () => _openChat(contact, displayNameOverride: displayName),
@@ -561,6 +605,258 @@ class _ChatListPageState extends State<ChatListPage> {
         ),
       ),
     );
+  }
+
+  // Helper to safely assign keys
+  GlobalKey? _getContactKey(Contact contact) {
+    // We need to ensure we only assign the key to ONE item to avoid GlobalKey duplications
+    // Current simple logic: existing variables _hasTeacher/Supervisor are difficult to reset inside build loop cleanly without side effects.
+    // Better approach: Find the index of the first teacher/supervisor in the list once, inside build or checking here.
+
+    // Check if this contact is the FIRST teacher
+    if (contact.role.toLowerCase() == 'teacher' ||
+        contact.relation.toLowerCase() == 'teacher') {
+      final firstTeacherIndex = _contacts.indexWhere((c) =>
+          c.role.toLowerCase() == 'teacher' ||
+          c.relation.toLowerCase() == 'teacher');
+      if (firstTeacherIndex != -1 &&
+          _contacts[firstTeacherIndex].id == contact.id) {
+        return _teacherKey;
+      }
+    }
+
+    // Check if this contact is the FIRST supervisor
+    if (contact.role.toLowerCase() == 'supervisor' ||
+        contact.relation.toLowerCase() == 'supervisor') {
+      final firstSupervisorIndex = _contacts.indexWhere((c) =>
+          c.role.toLowerCase() == 'supervisor' ||
+          c.relation.toLowerCase() == 'supervisor');
+      if (firstSupervisorIndex != -1 &&
+          _contacts[firstSupervisorIndex].id == contact.id) {
+        return _supervisorKey;
+      }
+    }
+
+    return null;
+  }
+
+  Future<void> _checkAndShowTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool seen = prefs.getBool('chat_tutorial_seen_v2') ?? false;
+
+    // Only show if we have targets
+    if (!seen && !kDebugMode) {
+      // Remove !kDebugMode in production if needed, ensuring debug behavior matches user request
+      // Wait a bit for UI to settle
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && _contacts.isNotEmpty) {
+          _showTutorial();
+        }
+      });
+    } else if (kDebugMode && !seen) {
+      // Force show in debug if not seen, for testing
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && _contacts.isNotEmpty) {
+          _showTutorial();
+        }
+      });
+    }
+  }
+
+  void _showTutorial() {
+    List<TargetFocus> targets = _createTargets();
+    if (targets.isEmpty) return;
+
+    TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black, // Consistent transparent black
+      textSkip: "تخطي",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+      onFinish: () {
+        _markTutorialSeen();
+      },
+      onClickTarget: (target) {
+        // Optional: Perform action
+      },
+      onSkip: () {
+        _markTutorialSeen();
+        return true;
+      },
+    ).show(context: context);
+  }
+
+  void _markTutorialSeen() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('chat_tutorial_seen_v2', true);
+  }
+
+  List<TargetFocus> _createTargets() {
+    List<TargetFocus> targets = [];
+
+    // 1. Supervisor Target (Customer Service) - REORDERED to be first
+    bool hasSupervisor = _contacts.any((c) =>
+        c.role.toLowerCase() == 'supervisor' ||
+        c.relation.toLowerCase() == 'supervisor');
+
+    if (hasSupervisor) {
+      targets.add(
+        TargetFocus(
+          identify: "supervisor_chat",
+          keyTarget: _supervisorKey,
+          alignSkip: Alignment.topRight,
+          shape: ShapeLightFocus.RRect,
+          radius: 16,
+          contents: [
+            TargetContent(
+              align: ContentAlign.bottom,
+              builder: (context, controller) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "خدمة العملاء",
+                      style: TextStyle(
+                        fontFamily: 'Qatar',
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.only(top: 10.0),
+                      child: Text(
+                        "لأي استفسار أو مشكلة، يمكنك التواصل مع خدمة العملاء هنا.",
+                        style: TextStyle(
+                          fontFamily: 'Qatar',
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => controller.next(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF820c22),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20)),
+                            ),
+                            child: const Text("التالي",
+                                style: TextStyle(
+                                    fontFamily: 'Qatar',
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 2. Teacher Target - REORDERED to be second
+    bool hasTeacher = _contacts.any((c) =>
+        c.role.toLowerCase() == 'teacher' ||
+        c.relation.toLowerCase() == 'teacher');
+
+    if (hasTeacher) {
+      targets.add(
+        TargetFocus(
+          identify: "teacher_chat",
+          keyTarget: _teacherKey,
+          alignSkip: Alignment.topRight,
+          shape: ShapeLightFocus.RRect,
+          radius: 16,
+          contents: [
+            TargetContent(
+              align: ContentAlign.bottom,
+              builder: (context, controller) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "المعلم",
+                      style: TextStyle(
+                        fontFamily: 'Qatar',
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.only(top: 10.0),
+                      child: Text(
+                        "اضغط هنا للتواصل مع المعلم الخاص بك.",
+                        style: TextStyle(
+                          fontFamily: 'Qatar',
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        if (hasSupervisor) ...[
+                          // Back Button (Previous) - Flex 1
+                          Expanded(
+                            flex: 1,
+                            child: ElevatedButton(
+                              onPressed: () => controller.previous(),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFF820c22),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20)),
+                              ),
+                              child: const Text("السابق",
+                                  style: TextStyle(
+                                      fontFamily: 'Qatar',
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+                        // Finish Button (Done) - Flex 2
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            onPressed: () => controller.next(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF820c22),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20)),
+                            ),
+                            child: const Text("إنهاء",
+                                style: TextStyle(
+                                    fontFamily: 'Qatar',
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    return targets;
   }
 
   void _openChat(Contact contact, {String? displayNameOverride}) {

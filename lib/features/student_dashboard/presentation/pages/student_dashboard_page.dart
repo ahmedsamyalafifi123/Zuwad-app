@@ -37,10 +37,20 @@ import '../../../notifications/data/repositories/notification_repository.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/utils/gender_helper.dart';
 import '../../../../core/utils/timezone_helper.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/timezone_utils.dart';
 
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key});
+
+  // Global Keys for Tutorial
+  static final GlobalKey studentMenuKey = GlobalKey();
+  static final GlobalKey joinLessonKey = GlobalKey();
+  static final GlobalKey rescheduleKey = GlobalKey();
+  static final GlobalKey prevAchievementKey = GlobalKey();
+  static final GlobalKey scheduleNavKey = GlobalKey();
+  static final GlobalKey alarmSettingsKey = GlobalKey(); // New Key
 
   @override
   State<StudentDashboardPage> createState() => _StudentDashboardPageState();
@@ -101,6 +111,10 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
         _loadChatUnreadCount();
       }
     });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndShowTutorial();
+    });
   }
 
   @override
@@ -123,6 +137,394 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
         print('Error loading chat unread count: $e');
       }
     }
+  }
+
+  Future<void> _checkAndShowTutorial() async {
+    // kDebugMode allows testing easily - ALWAYS SHOWS IN DEBUG as requested
+    if (kDebugMode) {
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) _showTutorial();
+      });
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final seen = prefs.getBool('seen_dashboard_tutorial') ?? false;
+    if (!seen) {
+      if (mounted) {
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) _showTutorial();
+        });
+      }
+    }
+  }
+
+  void _showTutorial() {
+    TutorialCoachMark(
+      targets: _createTargets(),
+      colorShadow: Colors.black, // Changed from burgundy to black
+      textSkip: "تخطي",
+      textStyleSkip: const TextStyle(
+        fontFamily: 'Qatar',
+        color: Colors.white,
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+      ),
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+      onFinish: () {
+        _markTutorialSeen();
+      },
+      onClickTarget: (target) {
+        // If clicking the schedule nav item, switch tab
+        if (target.identify == "schedule_nav") {
+          setState(() => _currentIndex = 1);
+          _markTutorialSeen(); // Mark part 1 seen
+          // Part 2 will be handled by HomePage
+        }
+      },
+      onSkip: () {
+        _markTutorialSeen(skipAll: true);
+        return true;
+      },
+      onClickOverlay: (target) {
+        // Allow clicks on overlay to next
+      },
+    )..show(context: context);
+  }
+
+  Future<void> _markTutorialSeen({bool skipAll = false}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('seen_dashboard_tutorial', true);
+    if (skipAll) {
+      await prefs.setBool('seen_schedule_tutorial', true);
+    }
+  }
+
+  List<TargetFocus> _createTargets() {
+    List<TargetFocus> targets = [];
+
+    // 1. Student Menu
+    targets.add(
+      TargetFocus(
+        identify: "student_menu",
+        keyTarget: StudentDashboardPage.studentMenuKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "تغيير الطالب",
+                    style: TextStyle(
+                      fontFamily: 'Qatar',
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10.0),
+                    child: Text(
+                      "اضغط هنا لتبديل حساب الطالب والوصول للقائمة.",
+                      style: TextStyle(
+                        fontFamily: 'Qatar',
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => controller.next(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF820c22),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: const Text("التالي",
+                              style: TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.Circle,
+      ),
+    );
+
+    // 2. Alarm Settings (New Step)
+    targets.add(
+      TargetFocus(
+        identify: "alarm_settings",
+        keyTarget: StudentDashboardPage.alarmSettingsKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "إعدادات المنبه",
+                    style: TextStyle(
+                      fontFamily: 'Qatar',
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10.0),
+                    child: Text(
+                      "اضغط هنا لضبط تنبيهات الدروس.",
+                      style: TextStyle(
+                        fontFamily: 'Qatar',
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      // Back Button (Previous) - Flex 1
+                      Expanded(
+                        flex: 1,
+                        child: ElevatedButton(
+                          onPressed: () => controller.previous(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF820c22),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: const Text("السابق",
+                              style: TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Next Button - Flex 2
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: () => controller.next(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF820c22),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: const Text("التالي",
+                              style: TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 10,
+      ),
+    );
+
+    // 3. Join Lesson
+    targets.add(
+      TargetFocus(
+        identify: "join_lesson",
+        keyTarget: StudentDashboardPage.joinLessonKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "إنضم للدرس",
+                    style: TextStyle(
+                      fontFamily: 'Qatar',
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10.0),
+                    child: Text(
+                      "سيظهر هذا الزر باللون الأخضر قبل موعد الدرس بـ 15 دقيقة.",
+                      style: TextStyle(
+                        fontFamily: 'Qatar',
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      // Back Button (Previous) - Flex 1
+                      Expanded(
+                        flex: 1,
+                        child: ElevatedButton(
+                          onPressed: () => controller.previous(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF820c22),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: const Text("السابق",
+                              style: TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Next Button - Flex 2
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: () => controller.next(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF820c22),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: const Text("التالي",
+                              style: TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 10,
+      ),
+    );
+
+    // 3. Reschedule
+    targets.add(
+      TargetFocus(
+        identify: "reschedule",
+        keyTarget: StudentDashboardPage.rescheduleKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "إعادة جدولة",
+                    style: TextStyle(
+                      fontFamily: 'Qatar',
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10.0),
+                    child: Text(
+                      "يمكنك تغيير موعد الدرس حتى قبل الموعد بساعة واحدة.",
+                      style: TextStyle(
+                        fontFamily: 'Qatar',
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      // Back Button (Previous) - Flex 1
+                      Expanded(
+                        flex: 1,
+                        child: ElevatedButton(
+                          onPressed: () => controller.previous(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF820c22),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: const Text("السابق",
+                              style: TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Finish Button - Flex 2 - Closes the tutorial without navigating
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _markTutorialSeen();
+                            controller.skip();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF820c22),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: const Text("إنهاء",
+                              style: TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 10,
+      ),
+    );
+
+    // 4. Previous Achievement
+    return targets;
   }
 
   @override
@@ -211,6 +613,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
+                              // key: StudentDashboardPage.studentMenuKey, // Moved to arrow in dashboard content
                               onSelected: (value) {
                                 if (value == 'logout') {
                                   // Show confirmation dialog
@@ -377,6 +780,9 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         chatUnreadCount: _chatUnreadCount,
+        itemKeys: {
+          1: StudentDashboardPage.scheduleNavKey
+        }, // Schedule is index 1
       ),
     );
   }
@@ -507,7 +913,7 @@ class _DashboardContentState extends State<_DashboardContent> {
   StudentReport? _lastReport;
   List<Student> _familyMembers = [];
   bool _loadingFamily = false;
-  final GlobalKey _arrowKey = GlobalKey();
+  // final GlobalKey _arrowKey = GlobalKey(); // Replaced by StudentDashboardPage.studentMenuKey
 
   @override
   void initState() {
@@ -1426,6 +1832,7 @@ class _DashboardContentState extends State<_DashboardContent> {
             children: [
               // إنضم للدرس button - green gradient when can join, light yellow when can't
               Container(
+                key: StudentDashboardPage.joinLessonKey,
                 decoration: BoxDecoration(
                   gradient: canJoin
                       ? const LinearGradient(
@@ -1483,6 +1890,7 @@ class _DashboardContentState extends State<_DashboardContent> {
               SizedBox(width: isSmallScreen ? 6 : 10),
               // تأجيل الدرس (white border only) - smaller button
               OutlinedButton(
+                key: StudentDashboardPage.rescheduleKey,
                 onPressed: canPostpone ? _openPostponePage : null,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
@@ -1517,6 +1925,7 @@ class _DashboardContentState extends State<_DashboardContent> {
               if (_lastReport != null) ...[
                 SizedBox(width: isSmallScreen ? 6 : 10),
                 Container(
+                  key: StudentDashboardPage.prevAchievementKey,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [
@@ -1922,7 +2331,8 @@ class _DashboardContentState extends State<_DashboardContent> {
     final currentStudentId =
         authState is AuthAuthenticated ? authState.student?.id : null;
 
-    final RenderBox button = (_arrowKey.currentContext?.findRenderObject() ??
+    final RenderBox button = (StudentDashboardPage.studentMenuKey.currentContext
+            ?.findRenderObject() ??
         context.findRenderObject()) as RenderBox;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
@@ -2105,65 +2515,6 @@ class _DashboardContentState extends State<_DashboardContent> {
       );
     }
     return 'default_room';
-  }
-
-  DateTime _createLessonDateTime(Schedule schedule) {
-    final now = TimezoneHelper.nowInEgypt();
-
-    if (schedule.isPostponed && schedule.postponedDate != null) {
-      // Handle postponed schedules with specific dates
-      try {
-        final postponedDate = DateTime.parse(schedule.postponedDate!);
-        final scheduledTime = _parseTimeString(schedule.hour) ?? DateTime.now();
-        return DateTime(
-          postponedDate.year,
-          postponedDate.month,
-          postponedDate.day,
-          scheduledTime.hour,
-          scheduledTime.minute,
-        );
-      } catch (e) {
-        if (kDebugMode) {
-          print('Error parsing postponed date: $e');
-        }
-        // Fall back to regular schedule logic
-      }
-    }
-
-    // Handle regular recurring schedules
-    final dayMap = {
-      'الأحد': DateTime.sunday,
-      'الاثنين': DateTime.monday,
-      'الثلاثاء': DateTime.tuesday,
-      'الأربعاء': DateTime.wednesday,
-      'الخميس': DateTime.thursday,
-      'الجمعة': DateTime.friday,
-      'السبت': DateTime.saturday,
-    };
-
-    final scheduledDay = dayMap[schedule.day] ?? DateTime.sunday;
-    final scheduledTime = _parseTimeString(schedule.hour) ?? DateTime.now();
-
-    // Calculate days until the scheduled day
-    int daysUntil = (scheduledDay - now.weekday) % 7;
-    if (daysUntil == 0) {
-      // If it's today, check if the time has already passed
-      if (scheduledTime.hour < now.hour ||
-          (scheduledTime.hour == now.hour &&
-              scheduledTime.minute <= now.minute)) {
-        // If time has passed, schedule is for next week
-        daysUntil = 7;
-      }
-    }
-
-    // Create DateTime for the next scheduled lesson
-    return DateTime(
-      now.year,
-      now.month,
-      now.day + daysUntil,
-      scheduledTime.hour,
-      scheduledTime.minute,
-    );
   }
 
   String _getParticipantName() {
@@ -2352,14 +2703,17 @@ class _DashboardContentState extends State<_DashboardContent> {
                             const SizedBox(width: 12), // Separate arrow
                             GestureDetector(
                               onTap: () {
-                                if (_arrowKey.currentContext != null) {
+                                if (StudentDashboardPage
+                                        .studentMenuKey.currentContext !=
+                                    null) {
                                   _showAccountSelection(
-                                    _arrowKey.currentContext!,
+                                    StudentDashboardPage
+                                        .studentMenuKey.currentContext!,
                                   );
                                 }
                               },
                               child: Container(
-                                key: _arrowKey,
+                                key: StudentDashboardPage.studentMenuKey,
                                 margin: const EdgeInsets.only(top: 24.0),
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
@@ -2421,6 +2775,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                                   Align(
                                     alignment: Alignment.bottomCenter,
                                     child: InkWell(
+                                      key: StudentDashboardPage
+                                          .alarmSettingsKey, // Assign Key here
                                       onTap: _openAlarmSettings,
                                       borderRadius: BorderRadius.circular(8),
                                       child: Padding(
