@@ -1,0 +1,99 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Flutter/Dart
+.dart_tool
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+pubspec.lock
+build/
+*.dart.js
+*.info.json
+*.js
+doc/api/
+
+# Android
+android/.gradle
+android/captures
+android/gradlew
+android/gradlew.bat
+android/local.properties
+android/.idea
+android/app/debug
+android/app/profile
+android/app/release
+*.apk
+*.aab
+
+# iOS
+ios/Pods
+ios/.symlinks
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral
+ios/.generated
+ios/Runner.xcworkspace/xcuserdata
+ios/Runner.xcodeproj/project.xcworkspace/xcuserdata
+ios/Runner.xcodeproj/xcuserdata
+
+# Web (keep web folder for build, but ignore generated)
+web/.dart_tool
+
+# Windows
+windows/flutter/ephemeral
+windows/.dart_tool
+
+# macOS
+macos/Flutter/ephemeral
+macos/.dart_tool
+
+# Linux
+linux/flutter/ephemeral
+linux/.dart_tool
+
+# Test
+test/
+coverage/
+
+# Documentation
+*.md
+!README.md
+API_DOCUMENTATION.md
+FAWATERK_FLUTTER_INTEGRATION.md
+LIVEKIT_INTEGRATION_SUMMARY.md
+
+# Assets that might be large (uncomment if needed)
+# assets/audio/
+# assets/animations/
+
+# Misc
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+desktop.ini
+installer/
+*.hprof
+
+# Firebase (keep for web)
+# firebase.json
+# android/app/google-services.json
+
+# Keys and secrets (should NOT be in repo anyway)
+*.jks
+*.keystore
+*.p8
+*.p12
+key.properties
+upload-keystore.jks
