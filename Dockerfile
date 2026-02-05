@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for Flutter Web App Deployment on Dokploy
 # Stage 1: Build the Flutter web app
-FROM ghcr.io/cirruslabs/flutter:3.29.0 AS builder
+FROM ghcr.io/cirruslabs/flutter:3.38.5 AS builder
 
 # Set working directory
 WORKDIR /app
