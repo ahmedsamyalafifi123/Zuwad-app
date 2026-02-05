@@ -66,7 +66,7 @@ dependencies:
   sqflite: ^2.4.2
   sqflite_common_ffi: ^2.3.6
   path_provider: ^2.1.5
-  path: ^1.9.1
+  path: ^1.9.0
   connectivity_plus: ^6.1.5
 
   # LiveKit for video meetings
