@@ -1,6 +1,6 @@
 # zuwad
 
-A new Flutter project.
+Zuwad Academy App
 
 ## Getting Started
 
