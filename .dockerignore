@@ -15,7 +15,6 @@
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
-pubspec.lock
 build/
 *.dart.js
 *.info.json
@@ -66,9 +65,10 @@ linux/.dart_tool
 test/
 coverage/
 
-# Documentation
+# Documentation (keep deployment guide)
 *.md
 !README.md
+!DEPLOYMENT_GUIDE.md
 API_DOCUMENTATION.md
 FAWATERK_FLUTTER_INTEGRATION.md
 LIVEKIT_INTEGRATION_SUMMARY.md
