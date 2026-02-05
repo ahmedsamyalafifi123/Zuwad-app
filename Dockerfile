@@ -6,9 +6,9 @@ FROM ghcr.io/cirruslabs/flutter:3.27.0 AS builder
 WORKDIR /app
 
 # Copy pubspec files first for better layer caching
-COPY pubspec.yaml pubspec.lock ./
+COPY pubspec.yaml ./
 
-# Get dependencies
+# Get dependencies (without pubspec.lock to avoid version conflicts)
 RUN flutter pub get
 
 # Copy the rest of the application
