@@ -18,7 +18,11 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="description" content="Zuwad Academy App">
+  
+  <!-- Theme color for browser UI -->
+  <meta name="theme-color" content="#8b0628">
 
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,10 +33,138 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>zuwad</title>
+  <!-- Preload critical resources for faster loading -->
+  <link rel="preload" href="flutter_bootstrap.js" as="script">
+  <link rel="preload" href="icons/Icon-192.png" as="image">
+
+  <title>Zuwad Academy</title>
   <link rel="manifest" href="manifest.json">
+  
+  <style>
+    /* Loading screen styles */
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    
+    #loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #8b0628 0%, #a01030 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.5s ease-out;
+    }
+    
+    #loading-screen.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    .logo-container {
+      margin-bottom: 40px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    
+    .logo-container img {
+      width: 120px;
+      height: 120px;
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+    
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid #ffffff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    .loading-text {
+      margin-top: 30px;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      opacity: 0.9;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    
+    /* Ensure Flutter app container is ready */
+    flt-glass-pane {
+      opacity: 0;
+      transition: opacity 0.3s ease-in;
+    }
+    
+    flt-glass-pane.ready {
+      opacity: 1;
+    }
+  </style>
 </head>
 <body>
+  <!-- Custom loading screen -->
+  <div id="loading-screen">
+    <div class="logo-container">
+      <img src="icons/Icon-192.png" alt="Zuwad Academy Logo">
+    </div>
+    <div class="spinner"></div>
+    <div class="loading-text">جاري التحميل...</div>
+  </div>
+
+  <script>
+    // Remove loading screen when Flutter is ready
+    window.addEventListener('flutter-first-frame', function() {
+      const loadingScreen = document.getElementById('loading-screen');
+      const flutterPane = document.querySelector('flt-glass-pane');
+      
+      if (loadingScreen) {
+        // Add fade-out class
+        loadingScreen.classList.add('fade-out');
+        
+        // Show Flutter app
+        if (flutterPane) {
+          flutterPane.classList.add('ready');
+        }
+        
+        // Remove loading screen from DOM after animation
+        setTimeout(function() {
+          loadingScreen.remove();
+        }, 500);
+      }
+    });
+    
+    // Fallback: Remove loading screen after 15 seconds if Flutter doesn't load
+    setTimeout(function() {
+      const loadingScreen = document.getElementById('loading-screen');
+      if (loadingScreen && !loadingScreen.classList.contains('fade-out')) {
+        console.warn('Flutter initialization timeout - removing loading screen');
+        loadingScreen.classList.add('fade-out');
+        setTimeout(function() {
+          loadingScreen.remove();
+        }, 500);
+      }
+    }, 15000);
+  </script>
+  
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

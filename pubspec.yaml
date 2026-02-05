@@ -117,7 +117,7 @@ flutter_native_splash:
   image: null
   android: true
   ios: true
-  web: false
+  web: true
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
