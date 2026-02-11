@@ -52,7 +52,7 @@ class _HomePageState extends State<HomePage> {
     // Since variables are true, UI shows loaders.
     // _loadData will eventually update them.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData();
+      _loadData(forceRefresh: true);
     });
 
     // Check for tutorial part 2

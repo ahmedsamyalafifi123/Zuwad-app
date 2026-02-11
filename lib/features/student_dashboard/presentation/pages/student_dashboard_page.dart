@@ -918,7 +918,8 @@ class _DashboardContentState extends State<_DashboardContent> {
   @override
   void initState() {
     super.initState();
-    _loadNextLesson();
+    // Force refresh on init to ensure fresh data after page reload
+    _loadNextLesson(forceRefresh: true);
   }
 
   @override
