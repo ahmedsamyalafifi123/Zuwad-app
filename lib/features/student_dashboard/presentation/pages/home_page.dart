@@ -6,6 +6,7 @@ import 'package:lottie/lottie.dart';
 import '../../../../core/widgets/responsive_content_wrapper.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/gender_helper.dart';
+import '../../../../core/utils/timezone_helper.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../data/repositories/report_repository.dart';
@@ -368,7 +369,7 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    final now = DateTime.now();
+    final now = TimezoneHelper.localToEgypt(DateTime.now());
 
     // Create a set of report date+time keys for quick lookup
     // Format: "YYYY-MM-DD|HH:MM" to uniquely identify each lesson
@@ -548,8 +549,10 @@ class _HomePageState extends State<HomePage> {
           lessonDateTime = candidateDateTime;
           lessonDateStr = candidateDateStr;
 
-          // Only include if it's in the future (double check)
-          if (lessonDateTime.isAfter(now)) {
+          // Include if lesson is upcoming or still in progress
+          final lessonDuration = int.tryParse(student.lessonDuration ?? '') ?? 45;
+          final lessonWindowEnd = lessonDateTime.add(Duration(minutes: lessonDuration + 10));
+          if (lessonDateTime.isAfter(now) || now.isBefore(lessonWindowEnd)) {
             upcomingLessons.add({
               'schedule': schedule,
               'dateTime': lessonDateTime,
@@ -566,13 +569,17 @@ class _HomePageState extends State<HomePage> {
       // This part is only reached by the trial/postponed logic blocks above
       // because the regular schedule block now continues/breaks.
 
-      // Only include future lessons (for trial and postponed)
-      if (lessonDateTime != null && lessonDateTime.isAfter(now)) {
-        upcomingLessons.add({
-          'schedule': schedule,
-          'dateTime': lessonDateTime,
-          'dateStr': lessonDateStr,
-        });
+      // Include future or in-progress lessons (for trial and postponed)
+      if (lessonDateTime != null) {
+        final lessonDuration = int.tryParse(student.lessonDuration ?? '') ?? 45;
+        final lessonWindowEnd = lessonDateTime.add(Duration(minutes: lessonDuration + 10));
+        if (lessonDateTime.isAfter(now) || now.isBefore(lessonWindowEnd)) {
+          upcomingLessons.add({
+            'schedule': schedule,
+            'dateTime': lessonDateTime,
+            'dateStr': lessonDateStr,
+          });
+        }
       }
     }
 
