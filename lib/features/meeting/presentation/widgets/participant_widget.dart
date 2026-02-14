@@ -7,11 +7,13 @@ import '../../../../core/theme/app_theme.dart';
 class ParticipantWidget extends StatefulWidget {
   final Participant participant;
   final bool isLocal;
+  final bool forceAvatar;
 
   const ParticipantWidget({
     super.key,
     required this.participant,
     required this.isLocal,
+    this.forceAvatar = false,
   });
 
   @override
@@ -155,7 +157,7 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
   }
 
   Widget _buildVideoOrAvatar() {
-    if (_videoTrack != null && _isVideoEnabled) {
+    if (_videoTrack != null && _isVideoEnabled && !widget.forceAvatar) {
       return SizedBox.expand(
         child: VideoTrackRenderer(
           _videoTrack!,
@@ -164,37 +166,52 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
       );
     } else {
       // Show avatar when video is disabled
-      return Container(
-        width: double.infinity,
-        height: double.infinity,
-        color: Colors.grey[800],
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircleAvatar(
-              radius: 40,
-              backgroundColor: AppTheme.primaryColor,
-              child: Text(
-                _getInitials(widget.participant.name),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final double size = math.min(constraints.maxWidth, constraints.maxHeight);
+          final double avatarRadius = (size * 0.3).clamp(15.0, 40.0);
+          final double fontSize = (size * 0.15).clamp(10.0, 24.0);
+          final double nameFontSize = (size * 0.12).clamp(8.0, 16.0);
+          final double spacing = (size * 0.08).clamp(4.0, 12.0);
+
+          return Container(
+            width: double.infinity,
+            height: double.infinity,
+            color: Colors.grey[800],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircleAvatar(
+                  radius: avatarRadius,
+                  backgroundColor: AppTheme.primaryColor,
+                  child: Text(
+                    _getInitials(widget.participant.name),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-              ),
+                SizedBox(height: spacing),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: Text(
+                    widget.participant.name,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: nameFontSize,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              widget.participant.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+          );
+        },
       );
     }
   }
@@ -205,104 +222,121 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
   }
 
   Widget _buildParticipantInfo() {
-    return Positioned(
-      bottom: 8,
-      left: 8,
-      right: 8,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: const Color(0xB3000000), // 0.7 opacity black
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (widget.isLocal) ...[
-              const Icon(
-                Icons.person,
-                color: AppTheme.secondaryColor,
-                size: 16,
-              ),
-              const SizedBox(width: 4),
-            ],
-            Expanded(
-              child: Text(
-                widget.isLocal
-                    ? 'أنت (${widget.participant.name})'
-                    : widget.participant.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isSmall = constraints.maxWidth < 150;
+        return Positioned(
+          bottom: isSmall ? 4 : 8,
+          left: isSmall ? 4 : 8,
+          right: isSmall ? 4 : 8,
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: isSmall ? 6 : 12,
+              vertical: isSmall ? 3 : 6,
             ),
-          ],
-        ),
-      ),
+            decoration: BoxDecoration(
+              color: const Color(0xB3000000), // 0.7 opacity black
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.isLocal) ...[
+                  Icon(
+                    Icons.person,
+                    color: AppTheme.secondaryColor,
+                    size: isSmall ? 12 : 16,
+                  ),
+                  SizedBox(width: isSmall ? 2 : 4),
+                ],
+                Expanded(
+                  child: Text(
+                    widget.isLocal
+                        ? (isSmall ? 'أنت' : 'أنت (${widget.participant.name})')
+                        : widget.participant.name,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: isSmall ? 10 : 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildMediaStatusIndicators() {
-    return Positioned(
-      top: 8,
-      right: 8,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Screen sharing indicator (if active)
-          if (_isScreenSharing) ...[
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: const Color(0xCCFF9800), // 0.8 opacity orange
-                borderRadius: BorderRadius.circular(20),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isSmall = constraints.maxWidth < 150;
+        final double iconSize = isSmall ? 12 : 16;
+        final double padding = isSmall ? 4 : 6;
+        final double spacing = isSmall ? 4 : 6;
+
+        return Positioned(
+          top: isSmall ? 4 : 8,
+          right: isSmall ? 4 : 8,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Screen sharing indicator (if active)
+              if (_isScreenSharing) ...[
+                Container(
+                  padding: EdgeInsets.all(padding),
+                  decoration: BoxDecoration(
+                    color: const Color(0xCCFF9800), // 0.8 opacity orange
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    Icons.screen_share,
+                    color: Colors.white,
+                    size: iconSize,
+                  ),
+                ),
+                SizedBox(width: spacing),
+              ],
+              // Microphone status
+              Container(
+                padding: EdgeInsets.all(padding),
+                decoration: BoxDecoration(
+                  color: _isAudioEnabled
+                      ? const Color(0xCC4CAF50) // 0.8 opacity green
+                      : const Color(0xCCF44336), // 0.8 opacity red
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  _isAudioEnabled ? Icons.mic : Icons.mic_off,
+                  color: Colors.white,
+                  size: iconSize,
+                ),
               ),
-              child: const Icon(
-                Icons.screen_share,
-                color: Colors.white,
-                size: 16,
+              SizedBox(width: spacing),
+              // Camera/Video status
+              Container(
+                padding: EdgeInsets.all(padding),
+                decoration: BoxDecoration(
+                  color: _isVideoEnabled
+                      ? const Color(0xCC4CAF50) // 0.8 opacity green
+                      : const Color(0xCCF44336), // 0.8 opacity red
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  _isScreenSharing
+                      ? Icons.screen_share
+                      : (_isVideoEnabled ? Icons.videocam : Icons.videocam_off),
+                  color: Colors.white,
+                  size: iconSize,
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
-          ],
-          // Microphone status
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: _isAudioEnabled
-                  ? const Color(0xCC4CAF50) // 0.8 opacity green
-                  : const Color(0xCCF44336), // 0.8 opacity red
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-              _isAudioEnabled ? Icons.mic : Icons.mic_off,
-              color: Colors.white,
-              size: 16,
-            ),
+            ],
           ),
-          const SizedBox(width: 6),
-          // Camera/Video status
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: _isVideoEnabled
-                  ? const Color(0xCC4CAF50) // 0.8 opacity green
-                  : const Color(0xCCF44336), // 0.8 opacity red
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-              _isScreenSharing
-                  ? Icons.screen_share
-                  : (_isVideoEnabled ? Icons.videocam : Icons.videocam_off),
-              color: Colors.white,
-              size: 16,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

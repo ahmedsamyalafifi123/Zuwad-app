@@ -4,8 +4,10 @@ import '../../../../core/theme/app_theme.dart';
 class ControlBar extends StatelessWidget {
   final bool isCameraEnabled;
   final bool isMicrophoneEnabled;
+  final bool isWhiteboardVisible;
   final VoidCallback onToggleCamera;
   final VoidCallback onToggleMicrophone;
+  final VoidCallback onToggleWhiteboard;
   final VoidCallback onSwitchCamera;
   final VoidCallback onLeaveMeeting;
 
@@ -13,26 +15,31 @@ class ControlBar extends StatelessWidget {
     super.key,
     required this.isCameraEnabled,
     required this.isMicrophoneEnabled,
+    required this.isWhiteboardVisible,
     required this.onToggleCamera,
     required this.onToggleMicrophone,
+    required this.onToggleWhiteboard,
     required this.onSwitchCamera,
     required this.onLeaveMeeting,
   });
 
   @override
-  Widget build(BuildContext context) {
+    Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.transparent,
-            Color(0xCC000000), // 0.8 opacity black
-            Color(0xE6000000), // 0.9 opacity black
-          ],
-        ),
+      decoration: BoxDecoration(
+        gradient: isWhiteboardVisible 
+          ? null 
+          : const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.transparent,
+                Color(0xCC000000), // 0.8 opacity black
+                Color(0xE6000000), // 0.9 opacity black
+              ],
+            ),
+        color: isWhiteboardVisible ? Colors.black.withOpacity(0.2) : null,
       ),
       child: SafeArea(
         top: false,
@@ -55,6 +62,15 @@ class ControlBar extends StatelessWidget {
               onPressed: onToggleMicrophone,
               tooltip: isMicrophoneEnabled ? 'كتم الصوت' : 'إلغاء كتم الصوت',
               backgroundColor: isMicrophoneEnabled ? Colors.green : null,
+            ),
+
+            // Whiteboard toggle
+            _buildControlButton(
+              icon: Icons.dashboard_customize_outlined,
+              isEnabled: isWhiteboardVisible,
+              onPressed: onToggleWhiteboard,
+              tooltip: isWhiteboardVisible ? 'إخفاء السبورة' : 'إظهار السبورة',
+              backgroundColor: isWhiteboardVisible ? Colors.amber[700] : null,
             ),
 
             // Leave meeting

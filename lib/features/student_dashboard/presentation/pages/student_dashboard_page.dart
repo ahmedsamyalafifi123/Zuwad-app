@@ -2467,6 +2467,11 @@ class _DashboardContentState extends State<_DashboardContent> {
       final participantId = _getParticipantId();
       if (kDebugMode) {
         print('JoinLesson: Participant ID: $participantId');
+        print('JoinLesson: Getting participant Email');
+      }
+      final participantEmail = _getParticipantEmail();
+      if (kDebugMode) {
+        print('JoinLesson: Participant Email: $participantEmail');
         print('JoinLesson: Pushing MeetingPage');
       }
       Navigator.push(
@@ -2476,6 +2481,7 @@ class _DashboardContentState extends State<_DashboardContent> {
             roomName: roomName,
             participantName: participantName,
             participantId: participantId,
+            participantEmail: participantEmail,
             lessonName: _lessonName,
             teacherName: _teacherName,
           ),
@@ -2532,6 +2538,14 @@ class _DashboardContentState extends State<_DashboardContent> {
       return authState.student!.id.toString();
     }
     return '0';
+  }
+
+  String _getParticipantEmail() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated && authState.student != null) {
+      return authState.student!.email ?? '';
+    }
+    return '';
   }
 
   @override

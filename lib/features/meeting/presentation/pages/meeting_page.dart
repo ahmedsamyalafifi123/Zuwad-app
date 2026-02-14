@@ -11,12 +11,14 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../services/livekit_service.dart';
 import '../widgets/participant_widget.dart';
 import '../widgets/control_bar.dart';
+import '../widgets/whiteboard_webview.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 class MeetingPage extends StatefulWidget {
   final String roomName;
   final String participantName;
   final String participantId;
+  final String participantEmail;
   final String lessonName;
   final String teacherName;
 
@@ -25,6 +27,7 @@ class MeetingPage extends StatefulWidget {
     required this.roomName,
     required this.participantName,
     required this.participantId,
+    required this.participantEmail,
     required this.lessonName,
     required this.teacherName,
   });
@@ -42,6 +45,7 @@ class _MeetingPageState extends State<MeetingPage> {
   bool _isConnected = false;
   bool _isCameraEnabled = true;
   bool _isMicrophoneEnabled = true;
+  bool _isWhiteboardVisible = false;
   String? _errorMessage;
 
   List<Participant> _participants = [];
@@ -441,6 +445,16 @@ class _MeetingPageState extends State<MeetingPage> {
           _playCelebrationSound(variant);
           _lastAudioTime = now;
         }
+      } else if (payload['type'] == 'WHITEBOARD_TOGGLE') {
+        final bool isOpen = payload['isOpen'] ?? false;
+        if (kDebugMode) {
+          print('MeetingPage: Whiteboard toggle received - isOpen: $isOpen');
+        }
+        if (mounted) {
+          setState(() {
+            _isWhiteboardVisible = isOpen;
+          });
+        }
       }
     } catch (e) {
       if (kDebugMode) {
@@ -521,6 +535,12 @@ class _MeetingPageState extends State<MeetingPage> {
     });
   }
 
+  void _toggleWhiteboard() {
+    setState(() {
+      _isWhiteboardVisible = !_isWhiteboardVisible;
+    });
+  }
+
   void _leaveMeeting() {
     Navigator.of(context).pop();
   }
@@ -531,60 +551,6 @@ class _MeetingPageState extends State<MeetingPage> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Colors.black,
-        appBar: AppBar(
-          backgroundColor: AppTheme.primaryColor,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.lessonName,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              Text(
-                'مع ${widget.teacherName}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.white70,
-                ),
-              ),
-            ],
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: _leaveMeeting,
-          ),
-          actions: [
-            if (_isConnected)
-              Container(
-                margin: const EdgeInsets.only(left: 16),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.circle, color: Colors.white, size: 8),
-                    const SizedBox(width: 4),
-                    Text(
-                      'متصل (${_participants.length + 1})', // +1 for local participant
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
         body: _buildBody(),
       ),
     );
@@ -703,43 +669,71 @@ class _MeetingPageState extends State<MeetingPage> {
       ..._participants,
     ];
 
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    final topPadding = MediaQuery.of(context).padding.top;
+
     return Stack(
       children: [
-        // Main area: either screen share or grid
+        // Main area: either whiteboard, screen share or grid
         Positioned.fill(
-          child: _screenShareParticipant != null
-              ? ParticipantWidget(
-                  participant: _screenShareParticipant!,
-                  isLocal: _screenShareParticipant == _localParticipant,
+          child: _isWhiteboardVisible
+              ? Padding(
+                  padding: EdgeInsets.only(
+                    top: isLandscape ? 0 : (topPadding + 110 + 8),
+                    bottom: isLandscape ? 0 : 80, // Fill screen in landscape
+                  ),
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                    ),
+                    child: WhiteboardWebView(
+                      key: const ValueKey('whiteboard_webview'),
+                      roomName: widget.roomName,
+                      studentId: widget.participantId,
+                      studentName: widget.participantName,
+                      studentEmail: widget.participantEmail,
+                    ),
+                  ),
                 )
-              : _buildSquareGrid(allParticipants),
+              : (_screenShareParticipant != null
+                  ? ParticipantWidget(
+                      participant: _screenShareParticipant!,
+                      isLocal: _screenShareParticipant == _localParticipant,
+                    )
+                  : _buildSquareGrid(allParticipants)),
         ),
 
-        // Thumbnails strip when screen sharing
-        if (_screenShareParticipant != null)
+        // Thumbnails strip
+        if (_screenShareParticipant != null || _isWhiteboardVisible)
           Positioned(
-            top: 8,
+            top: topPadding + 8,
             left: 8,
             right: 8,
-            child: SizedBox(
-              height: 110,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: allParticipants.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final p = allParticipants[index];
-                  return AspectRatio(
-                    aspectRatio: 1,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: ParticipantWidget(
-                        participant: p,
-                        isLocal: p == _localParticipant,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: _isWhiteboardVisible && isLandscape ? 0.4 : 1.0, // Faded in landscape whiteboard
+              child: SizedBox(
+                height: isLandscape ? 80 : 110,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: allParticipants.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final p = allParticipants[index];
+                    return AspectRatio(
+                      aspectRatio: 1,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: ParticipantWidget(
+                          participant: p,
+                          isLocal: p == _localParticipant,
+                          forceAvatar: _isWhiteboardVisible,
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -752,13 +746,19 @@ class _MeetingPageState extends State<MeetingPage> {
           bottom: 0,
           left: 0,
           right: 0,
-          child: ControlBar(
-            isCameraEnabled: _isCameraEnabled,
-            isMicrophoneEnabled: _isMicrophoneEnabled,
-            onToggleCamera: _toggleCamera,
-            onToggleMicrophone: _toggleMicrophone,
-            onSwitchCamera: () {}, // Removed functionality
-            onLeaveMeeting: _leaveMeeting,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            opacity: _isWhiteboardVisible && isLandscape ? 0.3 : 1.0, // More transparent in landscape
+            child: ControlBar(
+              isCameraEnabled: _isCameraEnabled,
+              isMicrophoneEnabled: _isMicrophoneEnabled,
+              isWhiteboardVisible: _isWhiteboardVisible,
+              onToggleCamera: _toggleCamera,
+              onToggleMicrophone: _toggleMicrophone,
+              onToggleWhiteboard: _toggleWhiteboard,
+              onSwitchCamera: () {}, // Removed functionality
+              onLeaveMeeting: _leaveMeeting,
+            ),
           ),
         ),
       ],
