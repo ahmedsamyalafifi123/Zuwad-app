@@ -7,7 +7,6 @@ class ControlBar extends StatelessWidget {
   final bool isWhiteboardVisible;
   final VoidCallback onToggleCamera;
   final VoidCallback onToggleMicrophone;
-  final VoidCallback onToggleWhiteboard;
   final VoidCallback onSwitchCamera;
   final VoidCallback onLeaveMeeting;
 
@@ -18,13 +17,12 @@ class ControlBar extends StatelessWidget {
     required this.isWhiteboardVisible,
     required this.onToggleCamera,
     required this.onToggleMicrophone,
-    required this.onToggleWhiteboard,
     required this.onSwitchCamera,
     required this.onLeaveMeeting,
   });
 
   @override
-    Widget build(BuildContext context) {
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
@@ -64,15 +62,6 @@ class ControlBar extends StatelessWidget {
               backgroundColor: isMicrophoneEnabled ? Colors.green : null,
             ),
 
-            // Whiteboard toggle
-            _buildControlButton(
-              icon: Icons.dashboard_customize_outlined,
-              isEnabled: isWhiteboardVisible,
-              onPressed: onToggleWhiteboard,
-              tooltip: isWhiteboardVisible ? 'إخفاء السبورة' : 'إظهار السبورة',
-              backgroundColor: isWhiteboardVisible ? Colors.amber[700] : null,
-            ),
-
             // Leave meeting
             _buildControlButton(
               icon: Icons.call_end,
@@ -87,7 +76,6 @@ class ControlBar extends StatelessWidget {
       ),
     );
   }
-
   Widget _buildControlButton({
     required IconData icon,
     required bool isEnabled,

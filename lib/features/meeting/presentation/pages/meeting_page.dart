@@ -755,7 +755,6 @@ class _MeetingPageState extends State<MeetingPage> {
               isWhiteboardVisible: _isWhiteboardVisible,
               onToggleCamera: _toggleCamera,
               onToggleMicrophone: _toggleMicrophone,
-              onToggleWhiteboard: _toggleWhiteboard,
               onSwitchCamera: () {}, // Removed functionality
               onLeaveMeeting: _leaveMeeting,
             ),
