@@ -428,7 +428,14 @@ class _MeetingPageState extends State<MeetingPage> {
     try {
       // Decode data (UTF-8)
       final String decoded = utf8.decode(event.data);
+      if (kDebugMode) {
+        print('MeetingPage: Data received (raw): $decoded');
+      }
+
       final Map<String, dynamic> payload = jsonDecode(decoded);
+      if (kDebugMode) {
+        print('MeetingPage: Data payload type: ${payload['type']}');
+      }
 
       if (payload['type'] == 'celebration') {
         final String variant = payload['variant'] ?? 'hearts';
@@ -445,7 +452,8 @@ class _MeetingPageState extends State<MeetingPage> {
           _playCelebrationSound(variant);
           _lastAudioTime = now;
         }
-      } else if (payload['type'] == 'WHITEBOARD_TOGGLE') {
+      } else if (payload['type'] == 'WHITEBOARD_TOGGLE' ||
+          payload['type'] == 'whiteboard') {
         final bool isOpen = payload['isOpen'] ?? false;
         if (kDebugMode) {
           print('MeetingPage: Whiteboard toggle received - isOpen: $isOpen');
@@ -454,6 +462,11 @@ class _MeetingPageState extends State<MeetingPage> {
           setState(() {
             _isWhiteboardVisible = isOpen;
           });
+        }
+      } else {
+        if (kDebugMode) {
+          print(
+              'MeetingPage: Unknown or unhandled data type: ${payload['type']}');
         }
       }
     } catch (e) {
@@ -712,7 +725,9 @@ class _MeetingPageState extends State<MeetingPage> {
             right: 8,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 300),
-              opacity: _isWhiteboardVisible && isLandscape ? 0.4 : 1.0, // Faded in landscape whiteboard
+              opacity: _isWhiteboardVisible && isLandscape
+                  ? 0.4
+                  : 1.0, // Faded in landscape whiteboard
               child: SizedBox(
                 height: isLandscape ? 80 : 110,
                 child: ListView.separated(
@@ -728,7 +743,6 @@ class _MeetingPageState extends State<MeetingPage> {
                         child: ParticipantWidget(
                           participant: p,
                           isLocal: p == _localParticipant,
-                          forceAvatar: _isWhiteboardVisible,
                         ),
                       ),
                     );
@@ -748,7 +762,9 @@ class _MeetingPageState extends State<MeetingPage> {
           right: 0,
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 300),
-            opacity: _isWhiteboardVisible && isLandscape ? 0.3 : 1.0, // More transparent in landscape
+            opacity: _isWhiteboardVisible && isLandscape
+                ? 0.3
+                : 1.0, // More transparent in landscape
             child: ControlBar(
               isCameraEnabled: _isCameraEnabled,
               isMicrophoneEnabled: _isMicrophoneEnabled,
@@ -793,12 +809,9 @@ class _MeetingPageState extends State<MeetingPage> {
             ),
             itemBuilder: (context, index) {
               final p = displayList[index];
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: ParticipantWidget(
-                  participant: p,
-                  isLocal: p == _localParticipant,
-                ),
+              return ParticipantWidget(
+                participant: p,
+                isLocal: p == _localParticipant,
               );
             },
           ),

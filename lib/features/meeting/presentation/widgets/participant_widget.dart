@@ -127,6 +127,7 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
   @override
   Widget build(BuildContext context) {
     return Container(
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.grey[900],
         borderRadius: BorderRadius.circular(12),
@@ -135,23 +136,25 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
           width: 2,
         ),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: Stack(
-          children: [
-            // Video or avatar
-            _buildVideoOrAvatar(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final bool isSmall = constraints.maxWidth < 150;
+          return Stack(
+            children: [
+              // Video or avatar
+              _buildVideoOrAvatar(),
 
-            // Audio track (invisible but necessary for playback)
-            _buildAudioTrack(),
+              // Audio track (invisible but necessary for playback)
+              _buildAudioTrack(),
 
-            // Participant info overlay
-            _buildParticipantInfo(),
+              // Participant info overlay
+              _buildParticipantInfo(isSmall),
 
-            // Media status indicators
-            _buildMediaStatusIndicators(),
-          ],
-        ),
+              // Media status indicators
+              _buildMediaStatusIndicators(isSmall),
+            ],
+          );
+        },
       ),
     );
   }
@@ -168,7 +171,8 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
       // Show avatar when video is disabled
       return LayoutBuilder(
         builder: (context, constraints) {
-          final double size = math.min(constraints.maxWidth, constraints.maxHeight);
+          final double size =
+              math.min(constraints.maxWidth, constraints.maxHeight);
           final double avatarRadius = (size * 0.3).clamp(15.0, 40.0);
           final double fontSize = (size * 0.15).clamp(10.0, 24.0);
           final double nameFontSize = (size * 0.12).clamp(8.0, 16.0);
@@ -221,122 +225,112 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
     return const SizedBox.shrink();
   }
 
-  Widget _buildParticipantInfo() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isSmall = constraints.maxWidth < 150;
-        return Positioned(
-          bottom: isSmall ? 4 : 8,
-          left: isSmall ? 4 : 8,
-          right: isSmall ? 4 : 8,
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: isSmall ? 6 : 12,
-              vertical: isSmall ? 3 : 6,
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0xB3000000), // 0.7 opacity black
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (widget.isLocal) ...[
-                  Icon(
-                    Icons.person,
-                    color: AppTheme.secondaryColor,
-                    size: isSmall ? 12 : 16,
-                  ),
-                  SizedBox(width: isSmall ? 2 : 4),
-                ],
-                Expanded(
-                  child: Text(
-                    widget.isLocal
-                        ? (isSmall ? 'أنت' : 'أنت (${widget.participant.name})')
-                        : widget.participant.name,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: isSmall ? 10 : 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+  Widget _buildParticipantInfo(bool isSmall) {
+    return Positioned(
+      bottom: isSmall ? 4 : 8,
+      left: isSmall ? 4 : 8,
+      right: isSmall ? 4 : 8,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: isSmall ? 6 : 12,
+          vertical: isSmall ? 3 : 6,
+        ),
+        decoration: BoxDecoration(
+          color: const Color(0xB3000000), // 0.7 opacity black
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.isLocal) ...[
+              Icon(
+                Icons.person,
+                color: AppTheme.secondaryColor,
+                size: isSmall ? 12 : 16,
+              ),
+              SizedBox(width: isSmall ? 2 : 4),
+            ],
+            Expanded(
+              child: Text(
+                widget.isLocal
+                    ? (isSmall ? 'أنت' : 'أنت (${widget.participant.name})')
+                    : widget.participant.name,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: isSmall ? 10 : 12,
+                  fontWeight: FontWeight.w500,
                 ),
-              ],
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildMediaStatusIndicators() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isSmall = constraints.maxWidth < 150;
-        final double iconSize = isSmall ? 12 : 16;
-        final double padding = isSmall ? 4 : 6;
-        final double spacing = isSmall ? 4 : 6;
+  Widget _buildMediaStatusIndicators(bool isSmall) {
+    final double iconSize = isSmall ? 12 : 16;
+    final double padding = isSmall ? 4 : 6;
+    final double spacing = isSmall ? 4 : 6;
 
-        return Positioned(
-          top: isSmall ? 4 : 8,
-          right: isSmall ? 4 : 8,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Screen sharing indicator (if active)
-              if (_isScreenSharing) ...[
-                Container(
-                  padding: EdgeInsets.all(padding),
-                  decoration: BoxDecoration(
-                    color: const Color(0xCCFF9800), // 0.8 opacity orange
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Icon(
-                    Icons.screen_share,
-                    color: Colors.white,
-                    size: iconSize,
-                  ),
-                ),
-                SizedBox(width: spacing),
-              ],
-              // Microphone status
-              Container(
-                padding: EdgeInsets.all(padding),
-                decoration: BoxDecoration(
-                  color: _isAudioEnabled
-                      ? const Color(0xCC4CAF50) // 0.8 opacity green
-                      : const Color(0xCCF44336), // 0.8 opacity red
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Icon(
-                  _isAudioEnabled ? Icons.mic : Icons.mic_off,
-                  color: Colors.white,
-                  size: iconSize,
-                ),
+    return Positioned(
+      top: isSmall ? 4 : 8,
+      right: isSmall ? 4 : 8,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Screen sharing indicator (if active)
+          if (_isScreenSharing) ...[
+            Container(
+              padding: EdgeInsets.all(padding),
+              decoration: BoxDecoration(
+                color: const Color(0xCCFF9800), // 0.8 opacity orange
+                borderRadius: BorderRadius.circular(20),
               ),
-              SizedBox(width: spacing),
-              // Camera/Video status
-              Container(
-                padding: EdgeInsets.all(padding),
-                decoration: BoxDecoration(
-                  color: _isVideoEnabled
-                      ? const Color(0xCC4CAF50) // 0.8 opacity green
-                      : const Color(0xCCF44336), // 0.8 opacity red
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Icon(
-                  _isScreenSharing
-                      ? Icons.screen_share
-                      : (_isVideoEnabled ? Icons.videocam : Icons.videocam_off),
-                  color: Colors.white,
-                  size: iconSize,
-                ),
+              child: Icon(
+                Icons.screen_share,
+                color: Colors.white,
+                size: iconSize,
               ),
-            ],
+            ),
+            SizedBox(width: spacing),
+          ],
+          // Microphone status
+          Container(
+            padding: EdgeInsets.all(padding),
+            decoration: BoxDecoration(
+              color: _isAudioEnabled
+                  ? const Color(0xCC4CAF50) // 0.8 opacity green
+                  : const Color(0xCCF44336), // 0.8 opacity red
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(
+              _isAudioEnabled ? Icons.mic : Icons.mic_off,
+              color: Colors.white,
+              size: iconSize,
+            ),
           ),
-        );
-      },
+          SizedBox(width: spacing),
+          // Camera/Video status
+          Container(
+            padding: EdgeInsets.all(padding),
+            decoration: BoxDecoration(
+              color: _isVideoEnabled
+                  ? const Color(0xCC4CAF50) // 0.8 opacity green
+                  : const Color(0xCCF44336), // 0.8 opacity red
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(
+              _isScreenSharing
+                  ? Icons.screen_share
+                  : (_isVideoEnabled ? Icons.videocam : Icons.videocam_off),
+              color: Colors.white,
+              size: iconSize,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
