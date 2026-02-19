@@ -782,7 +782,15 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
 
-    // Teacher: Gender Asset
+    // Check for network image first (unless supervisor which has special lottie)
+    if (widget.recipientImage != null && widget.recipientImage!.isNotEmpty) {
+      return CircleAvatar(
+        radius: 20,
+        backgroundImage: NetworkImage(widget.recipientImage!),
+      );
+    }
+
+    // Teacher: Gender Asset (Fallback if no image)
     if (role == 'teacher') {
       return CircleAvatar(
         radius: 20,

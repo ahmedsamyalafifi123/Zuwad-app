@@ -144,10 +144,13 @@ class SettingsCourseCard extends StatelessWidget {
                             border: Border.all(
                                 color: const Color(0xFFD4AF37), width: 1),
                             image: DecorationImage(
-                              image: AssetImage(
-                                GenderHelper.getTeacherImage(
-                                    student.teacherGender),
-                              ),
+                              image: (student.teacherImage != null &&
+                                      student.teacherImage!.isNotEmpty)
+                                  ? NetworkImage(student.teacherImage!)
+                                  : AssetImage(
+                                      GenderHelper.getTeacherImage(
+                                          student.teacherGender),
+                                    ) as ImageProvider,
                               fit: BoxFit.cover,
                             ),
                           ),

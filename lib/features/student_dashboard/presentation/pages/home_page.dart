@@ -550,8 +550,10 @@ class _HomePageState extends State<HomePage> {
           lessonDateStr = candidateDateStr;
 
           // Include if lesson is upcoming or still in progress
-          final lessonDuration = int.tryParse(student.lessonDuration ?? '') ?? 45;
-          final lessonWindowEnd = lessonDateTime.add(Duration(minutes: lessonDuration + 10));
+          final lessonDuration =
+              int.tryParse(student.lessonDuration ?? '') ?? 45;
+          final lessonWindowEnd =
+              lessonDateTime.add(Duration(minutes: lessonDuration + 10));
           if (lessonDateTime.isAfter(now) || now.isBefore(lessonWindowEnd)) {
             upcomingLessons.add({
               'schedule': schedule,
@@ -572,7 +574,8 @@ class _HomePageState extends State<HomePage> {
       // Include future or in-progress lessons (for trial and postponed)
       if (lessonDateTime != null) {
         final lessonDuration = int.tryParse(student.lessonDuration ?? '') ?? 45;
-        final lessonWindowEnd = lessonDateTime.add(Duration(minutes: lessonDuration + 10));
+        final lessonWindowEnd =
+            lessonDateTime.add(Duration(minutes: lessonDuration + 10));
         if (lessonDateTime.isAfter(now) || now.isBefore(lessonWindowEnd)) {
           upcomingLessons.add({
             'schedule': schedule,
@@ -987,11 +990,14 @@ class _HomePageState extends State<HomePage> {
     String lessonName = 'درس';
 
     // We can access the auth state here since we are inside a widget
+    // Use context.watch to rebuild when auth state changes (e.g. profile loaded)
+    String? teacherImage;
     try {
-      final authState = context.read<AuthBloc>().state;
+      final authState = context.watch<AuthBloc>().state;
       if (authState is AuthAuthenticated && authState.student != null) {
         teacherName = authState.student!.teacherName ?? 'المعلم';
         teacherGender = authState.student!.teacherGender ?? 'ذكر';
+        teacherImage = authState.student!.teacherImage;
         lessonName = authState.student!.displayLessonName;
       }
     } catch (e) {
@@ -1200,9 +1206,13 @@ class _HomePageState extends State<HomePage> {
                                 child: CircleAvatar(
                                   radius: 16,
                                   backgroundColor: Colors.grey[200],
-                                  backgroundImage: AssetImage(
-                                    GenderHelper.getTeacherImage(teacherGender),
-                                  ),
+                                  backgroundImage: (teacherImage != null &&
+                                          teacherImage.isNotEmpty)
+                                      ? NetworkImage(teacherImage)
+                                      : AssetImage(
+                                          GenderHelper.getTeacherImage(
+                                              teacherGender),
+                                        ) as ImageProvider,
                                 ),
                               ),
                             ],
@@ -1365,13 +1375,15 @@ class _HomePageState extends State<HomePage> {
     // Get student details from Bloc
     String teacherName = 'المعلم';
     String teacherGender = 'ذكر';
+    String? teacherImage;
     String lessonName = 'درس';
 
     try {
-      final authState = context.read<AuthBloc>().state;
+      final authState = context.watch<AuthBloc>().state;
       if (authState is AuthAuthenticated && authState.student != null) {
         teacherName = authState.student!.teacherName ?? 'المعلم';
         teacherGender = authState.student!.teacherGender ?? 'ذكر';
+        teacherImage = authState.student!.teacherImage;
         lessonName = authState.student!.displayLessonName;
       }
     } catch (e) {
@@ -1447,6 +1459,7 @@ class _HomePageState extends State<HomePage> {
             builder: (context) => ReportDetailsPage(
               report: report,
               teacherGender: teacherGender,
+              teacherImage: teacherImage,
             ),
           ),
         );

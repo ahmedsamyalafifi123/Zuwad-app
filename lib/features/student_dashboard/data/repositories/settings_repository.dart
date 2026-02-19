@@ -22,7 +22,8 @@ class SettingsRepository {
   WalletInfo? get cachedWalletInfo => _cache.cachedWalletInfo;
 
   /// Get cached family members if available
-  List<Map<String, dynamic>>? get cachedFamilyMembers => _cache.cachedFamilyMembers;
+  List<Map<String, dynamic>>? get cachedFamilyMembers =>
+      _cache.cachedFamilyMembers;
 
   /// Clear all cached data
   void clearCache() => _cache.clearCache();
@@ -37,7 +38,38 @@ class SettingsRepository {
     final data = await _api.getStudentProfile(userId);
     final student = Student.fromApiV2(data);
 
-    // Update cache
+    // Fetch teacher details if available (same logic as AuthRepository)
+    if (student.teacherId != null && student.teacherId! > 0) {
+      try {
+        final teacherData = await _api.getTeacherData(student.teacherId!);
+        if (teacherData.isNotEmpty) {
+          final teacherGender = teacherData['gender']?.toString();
+          // Try multiple keys for image
+          final teacherImage = teacherData['profile_image']?.toString() ??
+              teacherData['profile_image_url']?.toString() ??
+              teacherData['avatar']?.toString() ??
+              teacherData['avatar_url']?.toString() ??
+              teacherData['user_avatar']?.toString();
+
+          // Create updated student with teacher details
+          final updatedStudent = student.copyWith(
+            teacherGender: teacherGender,
+            teacherImage: teacherImage,
+          );
+
+          // Update cache with detailed student info
+          _cache.setStudent(updatedStudent);
+          return updatedStudent;
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print(
+              'SettingsRepository.getProfile: Failed to get teacher details: $e');
+        }
+      }
+    }
+
+    // Update cache if no teacher details found or fetch failed
     _cache.setStudent(student);
 
     return student;

@@ -589,7 +589,10 @@ GET /teachers/{id}
     "phone": "01234567890",
     "gender": "ذكر",
     "supervisor_id": 3,
-    "teacher_status": "نشط عدد كامل"
+    "teacher_status": "نشط عدد كامل",
+    "qualification": "ليسانس لغة عربية",
+    "experience_years": 5,
+    "courses": "دورة تحفيظ القرآن الكريم"
   }
 }
 ```
@@ -606,7 +609,10 @@ Content-Type: application/json
   "email": "teacher@example.com",
   "supervisor_id": 3,
   "gender": "ذكر",
-  "teacher_status": "نشط عدد كامل"
+  "teacher_status": "نشط عدد كامل",
+  "qualification": "ليسانس لغة عربية",
+  "experience_years": 5,
+  "courses": "دورة تحفيظ القرآن الكريم"
 }
 ```
 
@@ -614,15 +620,38 @@ Content-Type: application/json
 
 ```http
 PUT /teachers/{id}
+POST /teachers/{id} (for file uploads)
 Content-Type: application/json
 
 {
   "display_name": "Updated Name",
   "phone": "01234567890",
   "gender": "ذكر",
-  "teacher_status": "نشط نصف عدد"
+  "teacher_status": "نشط نصف عدد",
+  "qualification": "ماجستير لغة عربية",
+  "experience_years": 6,
+  "courses": "دورة جديدة"
 }
 ```
+
+#### Available Fields
+
+| Field                    | Type    | Description                              |
+| ------------------------ | ------- | ---------------------------------------- |
+| `display_name`           | string  | Teacher's display name                   |
+| `phone`                  | string  | Teacher's phone number                   |
+| `email`                  | string  | Email address                            |
+| `dob`                    | string  | Date of birth (YYYY-MM-DD format)        |
+| `gender`                 | string  | Gender (ذكر/أنثى)                        |
+| `supervisor_id`          | integer | Supervisor ID                            |
+| `teacher_status`         | string  | Teacher status                           |
+| `teacher_classification` | array   | Array of classifications                 |
+| `required_students`      | integer | Target student count                     |
+| `qualification`          | string  | Qualification (المؤهل)                   |
+| `experience_years`       | integer | Years of experience                      |
+| `courses`                | string  | Courses and certificates                 |
+| `profile_image`          | file    | Profile image file (multipart/form-data) |
+| `profile_image_url`      | string  | URL to profile image (read-only)         |
 
 ### Get Teacher's Students
 
@@ -712,6 +741,8 @@ POST /teachers/{id}/upload-image
 Content-Type: multipart/form-data
 
 image: [file]
+OR
+profile_image: [file]
 ```
 
 **Response:**

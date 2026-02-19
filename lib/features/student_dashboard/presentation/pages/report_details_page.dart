@@ -7,11 +7,13 @@ import '../widgets/islamic_bottom_nav_bar.dart';
 class ReportDetailsPage extends StatelessWidget {
   final StudentReport report;
   final String teacherGender;
+  final String? teacherImage;
 
   const ReportDetailsPage({
     super.key,
     required this.report,
     this.teacherGender = 'ذكر',
+    this.teacherImage,
   });
 
   // Calculate rating based on evaluation string or grade
@@ -133,9 +135,12 @@ class ReportDetailsPage extends StatelessWidget {
                           ),
                         ],
                         image: DecorationImage(
-                          image: AssetImage(
-                            GenderHelper.getTeacherImage(teacherGender),
-                          ),
+                          image: (teacherImage != null &&
+                                  teacherImage!.isNotEmpty)
+                              ? NetworkImage(teacherImage!)
+                              : AssetImage(
+                                  GenderHelper.getTeacherImage(teacherGender),
+                                ) as ImageProvider,
                           fit: BoxFit.cover,
                         ),
                       ),

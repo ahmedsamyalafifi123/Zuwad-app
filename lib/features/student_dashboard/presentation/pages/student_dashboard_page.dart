@@ -904,6 +904,7 @@ class _DashboardContentState extends State<_DashboardContent> {
       _nextLessonDateTime; // Store the actual calculated date for countdown
   String _teacherName = '';
   String _teacherGender = 'ذكر';
+  String? _teacherImage;
   String _lessonName = '';
   bool _isLoading = true;
   Duration? _timeUntilNextLesson;
@@ -947,6 +948,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         _lessonName = student.displayLessonName;
         _teacherName = student.teacherName ?? 'المعلم';
         _teacherGender = student.teacherGender ?? 'ذكر';
+        _teacherImage = student.teacherImage;
 
         // Get reports to check which schedules already have reports
         final reports = await _reportRepository.getStudentReports(
@@ -1507,6 +1509,18 @@ class _DashboardContentState extends State<_DashboardContent> {
   }
 
   Widget _buildNextLessonSection() {
+    // Try to get latest from Bloc to ensure reactivity
+    String? teacherImage = _teacherImage;
+    String teacherName = _teacherName;
+    String teacherGender = _teacherGender;
+
+    final authState = context.watch<AuthBloc>().state;
+    if (authState is AuthAuthenticated && authState.student != null) {
+      teacherImage = authState.student!.teacherImage;
+      teacherName = authState.student!.teacherName ?? teacherName;
+      teacherGender = authState.student!.teacherGender ?? teacherGender;
+    }
+
     if (_isLoading) {
       return Center(
         child: CircularProgressIndicator(
@@ -1659,9 +1673,12 @@ class _DashboardContentState extends State<_DashboardContent> {
                             230,
                             230,
                           ),
-                          backgroundImage: AssetImage(
-                            GenderHelper.getTeacherImage(_teacherGender),
-                          ),
+                          backgroundImage: (teacherImage != null &&
+                                  teacherImage.isNotEmpty)
+                              ? NetworkImage(teacherImage)
+                              : AssetImage(
+                                  GenderHelper.getTeacherImage(teacherGender),
+                                ) as ImageProvider,
                         ),
                         const SizedBox(width: 6),
                         Column(
@@ -1669,7 +1686,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              GenderHelper.getTeacherTitle(_teacherGender),
+                              GenderHelper.getTeacherTitle(teacherGender),
                               style: TextStyle(
                                 fontFamily: 'Qatar',
                                 fontSize: teacherLabelSize,
@@ -1677,7 +1694,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                               ),
                             ),
                             Text(
-                              _teacherName.split(' ').first,
+                              teacherName.split(' ').first,
                               style: TextStyle(
                                 fontFamily: 'Qatar',
                                 fontSize: teacherNameSize,
@@ -1945,7 +1962,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                         MaterialPageRoute(
                           builder: (context) => ReportDetailsPage(
                             report: _lastReport!,
-                            teacherGender: _teacherGender,
+                            teacherGender: teacherGender,
+                            teacherImage: teacherImage,
                           ),
                         ),
                       );

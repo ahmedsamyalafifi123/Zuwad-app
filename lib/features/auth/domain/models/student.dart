@@ -8,6 +8,7 @@ class Student {
   final String? teacherGender;
   final int? supervisorId;
   final String? supervisorName;
+  final String? teacherImage;
   final int? lessonsNumber;
   final int? remainingLessons;
   final String? lessonDuration;
@@ -31,6 +32,7 @@ class Student {
     this.teacherGender,
     this.supervisorId,
     this.supervisorName,
+    this.teacherImage,
     this.lessonsNumber,
     this.remainingLessons,
     this.lessonDuration,
@@ -58,6 +60,8 @@ class Student {
       teacherGender: userMeta['teacher_gender']?.toString(),
       supervisorId: int.tryParse(userMeta['supervisor_id']?.toString() ?? '0'),
       supervisorName: userMeta['supervisor_name']?.toString() ?? '',
+      teacherImage: userMeta['teacher_profile_image']
+          ?.toString(), // Use teacher_profile_image from API
       lessonsNumber:
           int.tryParse(userMeta['lessons_number']?.toString() ?? '0'),
       remainingLessons:
@@ -93,6 +97,8 @@ class Student {
       teacherGender: json['teacher_gender']?.toString(),
       supervisorId: int.tryParse(json['supervisor_id']?.toString() ?? '0'),
       supervisorName: json['supervisor_name']?.toString(),
+      teacherImage: json['teacher_profile_image']
+          ?.toString(), // Use teacher_profile_image from API
       lessonsNumber: int.tryParse(json['lessons_number']?.toString() ?? '0'),
       remainingLessons:
           int.tryParse(json['remaining_lessons']?.toString() ?? '0'),
@@ -119,6 +125,7 @@ class Student {
     String? teacherGender,
     int? supervisorId,
     String? supervisorName,
+    String? teacherImage,
     int? lessonsNumber,
     int? remainingLessons,
     String? lessonDuration,
@@ -142,6 +149,7 @@ class Student {
       teacherGender: teacherGender ?? this.teacherGender,
       supervisorId: supervisorId ?? this.supervisorId,
       supervisorName: supervisorName ?? this.supervisorName,
+      teacherImage: teacherImage ?? this.teacherImage,
       lessonsNumber: lessonsNumber ?? this.lessonsNumber,
       remainingLessons: remainingLessons ?? this.remainingLessons,
       lessonDuration: lessonDuration ?? this.lessonDuration,
@@ -194,6 +202,7 @@ class Student {
       'teacher_gender': teacherGender,
       'supervisor_id': supervisorId,
       'supervisor_name': supervisorName,
+      'teacher_profile_image': teacherImage,
       'lessons_number': lessonsNumber,
       'remaining_lessons': remainingLessons,
       'lesson_duration': lessonDuration,

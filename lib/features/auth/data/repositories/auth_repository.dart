@@ -104,14 +104,27 @@ class AuthRepository {
         }
         try {
           final teacherData = await _api.getTeacherData(student.teacherId!);
-          if (teacherData.containsKey('gender')) {
-            final teacherGender = teacherData['gender']?.toString();
+          if (teacherData.isNotEmpty) {
             if (kDebugMode) {
               print(
-                  'AuthRepository.getStudentProfile: Found teacher gender RAW: "$teacherGender"');
+                  'AuthRepository.getStudentProfile: Teacher data keys: ${teacherData.keys.toList()}');
             }
-            // Return updated student with teacher gender
-            return student.copyWith(teacherGender: teacherGender);
+            final teacherGender = teacherData['gender']?.toString();
+            // Try multiple keys for image
+            final teacherImage = teacherData['profile_image']?.toString() ??
+                teacherData['profile_image_url']?.toString() ??
+                teacherData['avatar']?.toString() ??
+                teacherData['avatar_url']?.toString() ??
+                teacherData['user_avatar']?.toString();
+            if (kDebugMode) {
+              print(
+                  'AuthRepository.getStudentProfile: Found teacher gender: "$teacherGender", image: "$teacherImage"');
+            }
+            // Return updated student with teacher gender and image
+            return student.copyWith(
+              teacherGender: teacherGender,
+              teacherImage: teacherImage,
+            );
           }
         } catch (e) {
           // Don't fail the whole profile load if just teacher details fail
