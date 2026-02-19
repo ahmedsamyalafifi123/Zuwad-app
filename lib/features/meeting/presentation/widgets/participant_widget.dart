@@ -100,9 +100,8 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
 
   void _onParticipantChanged() {
     if (mounted) {
-      setState(() {
-        _setupParticipant();
-      });
+      _setupParticipant();
+      setState(() {});
     }
   }
 
@@ -176,57 +175,9 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
           fit: _isScreenSharing ? VideoViewFit.contain : VideoViewFit.cover,
         ),
       );
-    } else {
-      // Show avatar when video is disabled
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final double size =
-              math.min(constraints.maxWidth, constraints.maxHeight);
-          final double avatarRadius = (size * 0.3).clamp(15.0, 40.0);
-          final double fontSize = (size * 0.15).clamp(10.0, 24.0);
-          final double nameFontSize = (size * 0.12).clamp(8.0, 16.0);
-          final double spacing = (size * 0.08).clamp(4.0, 12.0);
-
-          return Container(
-            width: double.infinity,
-            height: double.infinity,
-            color: Colors.grey[800],
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircleAvatar(
-                  radius: avatarRadius,
-                  backgroundColor: AppTheme.primaryColor,
-                  child: Text(
-                    _getInitials(widget.participant.name),
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: fontSize,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                SizedBox(height: spacing),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                  child: Text(
-                    widget.participant.name,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: nameFontSize,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
     }
+    // Show avatar when video is disabled — reuse outer LayoutBuilder constraints
+    return _AvatarFallback(participant: widget.participant);
   }
 
   Widget _buildAudioTrack() {
@@ -343,15 +294,67 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
     );
   }
 
+}
+
+class _AvatarFallback extends StatelessWidget {
+  final Participant participant;
+  const _AvatarFallback({required this.participant});
+
   String _getInitials(String name) {
     if (name.isEmpty) return 'م';
-
     final words = name.trim().split(' ');
-    if (words.length == 1) {
-      return words[0].substring(0, 1).toUpperCase();
-    } else {
-      return (words[0].substring(0, 1) + words[1].substring(0, 1))
-          .toUpperCase();
-    }
+    if (words.length == 1) return words[0].substring(0, 1).toUpperCase();
+    return (words[0].substring(0, 1) + words[1].substring(0, 1)).toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double size = math.min(constraints.maxWidth, constraints.maxHeight);
+        final double avatarRadius = (size * 0.3).clamp(15.0, 40.0);
+        final double fontSize = (size * 0.15).clamp(10.0, 24.0);
+        final double nameFontSize = (size * 0.12).clamp(8.0, 16.0);
+        final double spacing = (size * 0.08).clamp(4.0, 12.0);
+
+        return Container(
+          width: double.infinity,
+          height: double.infinity,
+          color: Colors.grey[800],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: avatarRadius,
+                backgroundColor: AppTheme.primaryColor,
+                child: Text(
+                  _getInitials(participant.name),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              SizedBox(height: spacing),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: Text(
+                  participant.name,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: nameFontSize,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

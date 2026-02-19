@@ -306,44 +306,28 @@ class _MeetingPageState extends State<MeetingPage> {
           print(
               'MeetingPage: Track subscribed - ${event.track.kind} from ${event.participant.identity}');
         }
-        if (mounted) {
-          setState(() {
-            _onRoomUpdate();
-          });
-        }
+        _onRoomUpdate();
       })
       ..on<TrackUnsubscribedEvent>((event) {
         if (kDebugMode) {
           print(
               'MeetingPage: Track unsubscribed - ${event.track.kind} from ${event.participant.identity}');
         }
-        if (mounted) {
-          setState(() {
-            _onRoomUpdate();
-          });
-        }
+        _onRoomUpdate();
       })
       ..on<ParticipantConnectedEvent>((event) {
         if (kDebugMode) {
           print(
               'MeetingPage: Participant connected - ${event.participant.identity}');
         }
-        if (mounted) {
-          setState(() {
-            _onRoomUpdate();
-          });
-        }
+        _onRoomUpdate();
       })
       ..on<ParticipantDisconnectedEvent>((event) {
         if (kDebugMode) {
           print(
               'MeetingPage: Participant disconnected - ${event.participant.identity}');
         }
-        if (mounted) {
-          setState(() {
-            _onRoomUpdate();
-          });
-        }
+        _onRoomUpdate();
       })
       ..on<DataReceivedEvent>((event) {
         if (kDebugMode) {
@@ -1001,19 +985,20 @@ class _CelebrationOverlayState extends State<_CelebrationOverlay>
   void initState() {
     super.initState();
     _controller = AnimationController(
-        vsync: this, duration: const Duration(seconds: 1000));
-    _controller.addListener(() {
-      if (_particles.isNotEmpty) {
-        setState(() {
-          _updateParticles();
-        });
-      } else if (_controller.isAnimating) {
-        _controller.stop();
-      }
-    });
+        vsync: this, duration: const Duration(milliseconds: 16));
+    _controller.addListener(_onAnimationTick);
     // Trigger first batch
     _addParticles(widget.event.variant);
     _controller.repeat();
+  }
+
+  void _onAnimationTick() {
+    if (_particles.isNotEmpty) {
+      _updateParticles();
+      if (mounted) setState(() {});
+    } else if (_controller.isAnimating) {
+      _controller.stop();
+    }
   }
 
   @override
@@ -1184,5 +1169,6 @@ class ParticlePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant ParticlePainter oldDelegate) => true;
+  bool shouldRepaint(covariant ParticlePainter oldDelegate) =>
+      particles.isNotEmpty;
 }
