@@ -99,12 +99,10 @@ class _MeetingPageState extends State<MeetingPage> {
 
   @override
   void dispose() {
-    // Reset orientation to system default (or whatever app uses)
+    // Return to portrait mode after meeting ends
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
     ]);
 
     // Disable wake lock when leaving meeting page
