@@ -67,6 +67,12 @@ class _MeetingPageState extends State<MeetingPage> {
     }
     super.initState();
 
+    // Force landscape mode
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+
     // Enable wake lock to keep screen on during meeting
     _enableWakeLock();
 
@@ -93,6 +99,14 @@ class _MeetingPageState extends State<MeetingPage> {
 
   @override
   void dispose() {
+    // Reset orientation to system default (or whatever app uses)
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+
     // Disable wake lock when leaving meeting page
     _disableWakeLock();
     // Disable PiP mode when leaving meeting page
@@ -682,98 +696,153 @@ class _MeetingPageState extends State<MeetingPage> {
       ..._participants,
     ];
 
-    final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-    final topPadding = MediaQuery.of(context).padding.top;
+    // Check if we are in a "Shared Content" mode
+    final bool isContentActive =
+        _isWhiteboardVisible || _screenShareParticipant != null;
 
+    if (isContentActive) {
+      return _buildSideBySideLayout(allParticipants);
+    }
+
+    // Default Grid Layout
     return Stack(
       children: [
-        // Main area: either whiteboard, screen share or grid
         Positioned.fill(
-          child: _isWhiteboardVisible
-              ? Padding(
-                  padding: EdgeInsets.only(
-                    top: isLandscape ? 0 : (topPadding + 110 + 8),
-                    bottom: isLandscape ? 0 : 80, // Fill screen in landscape
-                  ),
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                    ),
-                    child: WhiteboardWebView(
-                      key: const ValueKey('whiteboard_webview'),
-                      roomName: widget.roomName,
-                      studentId: widget.participantId,
-                      studentName: widget.participantName,
-                      studentEmail: widget.participantEmail,
-                    ),
-                  ),
-                )
-              : (_screenShareParticipant != null
-                  ? ParticipantWidget(
-                      participant: _screenShareParticipant!,
-                      isLocal: _screenShareParticipant == _localParticipant,
-                    )
-                  : _buildSquareGrid(allParticipants)),
+          child: _buildLayout(allParticipants),
         ),
-
-        // Thumbnails strip
-        if (_screenShareParticipant != null || _isWhiteboardVisible)
-          Positioned(
-            top: topPadding + 8,
-            left: 8,
-            right: 8,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
-              opacity: _isWhiteboardVisible && isLandscape
-                  ? 0.4
-                  : 1.0, // Faded in landscape whiteboard
-              child: SizedBox(
-                height: isLandscape ? 80 : 110,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: allParticipants.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final p = allParticipants[index];
-                    return AspectRatio(
-                      aspectRatio: 1,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: ParticipantWidget(
-                          participant: p,
-                          isLocal: p == _localParticipant,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
-
-        // Full-page celebration overlay
         if (_reactionEvent != null) _buildFullPageCelebration(),
-
-        // Control bar at bottom
         Positioned(
           bottom: 0,
           left: 0,
           right: 0,
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 300),
-            opacity: _isWhiteboardVisible && isLandscape
-                ? 0.3
-                : 1.0, // More transparent in landscape
-            child: ControlBar(
-              isCameraEnabled: _isCameraEnabled,
-              isMicrophoneEnabled: _isMicrophoneEnabled,
-              isWhiteboardVisible: _isWhiteboardVisible,
-              onToggleCamera: _toggleCamera,
-              onToggleMicrophone: _toggleMicrophone,
-              onSwitchCamera: () {}, // Removed functionality
-              onLeaveMeeting: _leaveMeeting,
+          child: ControlBar(
+            isCameraEnabled: _isCameraEnabled,
+            isMicrophoneEnabled: _isMicrophoneEnabled,
+            isWhiteboardVisible: _isWhiteboardVisible,
+            onToggleCamera: _toggleCamera,
+            onToggleMicrophone: _toggleMicrophone,
+            onSwitchCamera: () {},
+            onLeaveMeeting: _leaveMeeting,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSideBySideLayout(List<Participant> participants) {
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+
+    // 1. Identification & Sorting (Teacher First)
+    List<Participant> orderedParticipants = List.from(participants);
+    final teacherIndex = orderedParticipants.indexWhere((p) =>
+        p.name.toLowerCase().contains(widget.teacherName.toLowerCase()) ||
+        p.identity == widget.teacherName);
+
+    if (teacherIndex > 0) {
+      final teacher = orderedParticipants.removeAt(teacherIndex);
+      orderedParticipants.insert(0, teacher);
+    }
+
+    // 2. Build the Content Widget (Whiteboard / Screen Share)
+    Widget contentWidget;
+    if (_isWhiteboardVisible) {
+      contentWidget = Container(
+        color: Colors.white,
+        child: WhiteboardWebView(
+          key: const ValueKey('whiteboard_webview'),
+          roomName: widget.roomName,
+          studentId: widget.participantId,
+          studentName: widget.participantName,
+          studentEmail: widget.participantEmail,
+        ),
+      );
+    } else {
+      contentWidget = ParticipantWidget(
+        participant: _screenShareParticipant!,
+        isLocal: _screenShareParticipant == _localParticipant,
+      );
+    }
+
+    // 3. Build Sidebar (Participants List)
+    Widget sidebarWidget = Container(
+      color: Colors.black,
+      padding: const EdgeInsets.all(4),
+      child: ListView.separated(
+        padding: const EdgeInsets.only(bottom: 100), // Space for controls
+        itemCount: orderedParticipants.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8, width: 8),
+        scrollDirection: isLandscape ? Axis.vertical : Axis.horizontal,
+        itemBuilder: (context, index) {
+          final p = orderedParticipants[index];
+          // Make them "big" - fixed height/width based on orientation
+          return SizedBox(
+            height: isLandscape ? 220 : 160,
+            width: isLandscape ? double.infinity : 200,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: ParticipantWidget(
+                participant: p,
+                isLocal: p == _localParticipant,
+                showScreenShare: false, // Always show camera
+              ),
             ),
+          );
+        },
+      ),
+    );
+
+    // 4. Combine into Layout
+    Widget body;
+    if (isLandscape) {
+      // Landscape: Content Left (Expanded), Sidebar Right (Fixed Width)
+      // We wrap in LTR Directionality to ensuring Sidebar is physically on the RIGHT
+      body = Directionality(
+        textDirection: TextDirection.ltr,
+        child: Row(
+          children: [
+            Expanded(child: contentWidget),
+            Container(
+              width: 300, // Increased width for bigger frames
+              decoration: const BoxDecoration(
+                border:
+                    Border(right: BorderSide(color: Colors.white12, width: 1)),
+              ),
+              child: sidebarWidget,
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Portrait: Content Top (Expanded), Sidebar Bottom (Fixed Height)
+      body = Column(
+        children: [
+          Expanded(child: contentWidget),
+          SizedBox(
+            height: 180, // Fixed height strip
+            child: sidebarWidget,
+          ),
+        ],
+      );
+    }
+
+    return Stack(
+      children: [
+        Positioned.fill(child: body),
+        if (_reactionEvent != null) _buildFullPageCelebration(),
+        // Controls overlay
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: ControlBar(
+            isCameraEnabled: _isCameraEnabled,
+            isMicrophoneEnabled: _isMicrophoneEnabled,
+            isWhiteboardVisible: _isWhiteboardVisible,
+            onToggleCamera: _toggleCamera,
+            onToggleMicrophone: _toggleMicrophone,
+            onSwitchCamera: () {},
+            onLeaveMeeting: _leaveMeeting,
           ),
         ),
       ],
@@ -782,39 +851,115 @@ class _MeetingPageState extends State<MeetingPage> {
 
   // Removed old _buildVideoArea in favor of unified grid/screen-share layout
 
-  Widget _buildSquareGrid(List<Participant> participants) {
-    // Limit participants to avoid performance issues
-    const maxDisplayedParticipants = 16;
-    final displayList = participants.take(maxDisplayedParticipants).toList();
+  Widget _buildLayout(List<Participant> participants) {
+    if (participants.isEmpty) {
+      return const Center(
+        child: Text(
+          'في انتظار انضمام الآخرين...',
+          style: TextStyle(color: Colors.white),
+        ),
+      );
+    }
+
+    // 1. Single Participant (Full Screen)
+    if (participants.length == 1) {
+      return _buildSingleView(participants.first);
+    }
+
+    // 2. Two Participants (Split View)
+    if (participants.length == 2) {
+      return _buildSplitView(participants);
+    }
+
+    // 3. Three or more Participants (Dynamic Grid)
+    return _buildDynamicGrid(participants);
+  }
+
+  Widget _buildSingleView(Participant participant) {
+    return SizedBox.expand(
+      child: ParticipantWidget(
+        participant: participant,
+        isLocal: participant == _localParticipant,
+      ),
+    );
+  }
+
+  Widget _buildSplitView(List<Participant> participants) {
+    final orientation = MediaQuery.of(context).orientation;
+    final isPortrait = orientation == Orientation.portrait;
+
+    // Prioritize Teacher: Try to find teacher and put them first (Top/Left)
+    List<Participant> orderedParticipants = List.from(participants);
+    final teacherIndex = orderedParticipants.indexWhere((p) =>
+        p.name.toLowerCase().contains(widget.teacherName.toLowerCase()) ||
+        p.identity == widget.teacherName); // Fallback check
+
+    if (teacherIndex > 0) {
+      final teacher = orderedParticipants.removeAt(teacherIndex);
+      orderedParticipants.insert(0, teacher);
+    }
+
+    return Flex(
+      direction: isPortrait ? Axis.vertical : Axis.horizontal,
+      children: [
+        Expanded(
+          child: ParticipantWidget(
+            participant: orderedParticipants[0],
+            isLocal: orderedParticipants[0] == _localParticipant,
+          ),
+        ),
+        // Divider line
+        Container(
+          width: isPortrait ? double.infinity : 2,
+          height: isPortrait ? 2 : double.infinity,
+          color: Colors.black,
+        ),
+        Expanded(
+          child: ParticipantWidget(
+            participant: orderedParticipants[1],
+            isLocal: orderedParticipants[1] == _localParticipant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDynamicGrid(List<Participant> participants) {
+    // Determine grid columns based on count
+    int crossAxisCount;
+    if (participants.length <= 4) {
+      crossAxisCount = 2;
+    } else if (participants.length <= 9) {
+      crossAxisCount = 3;
+    } else {
+      crossAxisCount = 4;
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final count = displayList.length;
-        if (count == 0) {
-          return const SizedBox.shrink();
-        }
+        // Calculate aspect ratio to fit the screen best
+        // We want to fill the available height as much as possible
+        final rows = (participants.length / crossAxisCount).ceil();
+        final itemHeight = constraints.maxHeight / rows;
+        final itemWidth = constraints.maxWidth / crossAxisCount;
+        final aspectRatio = itemWidth / itemHeight;
 
-        // Use a square grid: columns = ceil(sqrt(n))
-        final columns = math.max(1, math.min(4, math.sqrt(count).ceil()));
-
-        return Padding(
-          padding: const EdgeInsets.all(8),
-          child: GridView.builder(
-            itemCount: count,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 1.0, // perfect squares
-            ),
-            itemBuilder: (context, index) {
-              final p = displayList[index];
-              return ParticipantWidget(
-                participant: p,
-                isLocal: p == _localParticipant,
-              );
-            },
+        return GridView.builder(
+          physics: const BouncingScrollPhysics(),
+          itemCount: participants.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            childAspectRatio: aspectRatio,
+            crossAxisSpacing: 2,
+            mainAxisSpacing: 2,
           ),
+          itemBuilder: (context, index) {
+            final p = participants[index];
+            return ParticipantWidget(
+              participant: p,
+              isLocal: p == _localParticipant,
+            );
+          },
         );
       },
     );

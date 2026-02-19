@@ -23,20 +23,82 @@ class ControlBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+
+    if (isLandscape) {
+      return _buildLandscapeBar(context);
+    } else {
+      return _buildPortraitBar(context);
+    }
+  }
+
+  Widget _buildLandscapeBar(BuildContext context) {
+    return Center(
+      heightFactor: 1.0,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xB3000000), // 0.7 opacity black
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(color: Colors.white12, width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildControlButton(
+              icon: isCameraEnabled ? Icons.videocam : Icons.videocam_off,
+              isEnabled: isCameraEnabled,
+              onPressed: onToggleCamera,
+              tooltip: isCameraEnabled ? 'إيقاف الكاميرا' : 'تشغيل الكاميرا',
+              backgroundColor: isCameraEnabled ? Colors.green : null,
+              size: 44, // Smaller size for landscape
+              iconSize: 22,
+            ),
+            const SizedBox(width: 12),
+            _buildControlButton(
+              icon: isMicrophoneEnabled ? Icons.mic : Icons.mic_off,
+              isEnabled: isMicrophoneEnabled,
+              onPressed: onToggleMicrophone,
+              tooltip: isMicrophoneEnabled ? 'كتم الصوت' : 'إلغاء كتم الصوت',
+              backgroundColor: isMicrophoneEnabled ? Colors.green : null,
+              size: 44,
+              iconSize: 22,
+            ),
+            const SizedBox(width: 12),
+            _buildControlButton(
+              icon: Icons.call_end,
+              isEnabled: true,
+              onPressed: () => _showLeaveConfirmation(context), // Pass context
+              tooltip: 'مغادرة الدرس',
+              backgroundColor: Colors.red,
+              iconColor: Colors.white,
+              size: 44,
+              iconSize: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPortraitBar(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        gradient: isWhiteboardVisible 
-          ? null 
-          : const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.transparent,
-                Color(0xCC000000), // 0.8 opacity black
-                Color(0xE6000000), // 0.9 opacity black
-              ],
-            ),
+        gradient: isWhiteboardVisible
+            ? null
+            : const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Color(0xCC000000), // 0.8 opacity black
+                  Color(0xE6000000), // 0.9 opacity black
+                ],
+              ),
         color: isWhiteboardVisible ? Colors.black.withOpacity(0.2) : null,
       ),
       child: SafeArea(
@@ -44,7 +106,6 @@ class ControlBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            // Camera toggle
             _buildControlButton(
               icon: isCameraEnabled ? Icons.videocam : Icons.videocam_off,
               isEnabled: isCameraEnabled,
@@ -52,8 +113,6 @@ class ControlBar extends StatelessWidget {
               tooltip: isCameraEnabled ? 'إيقاف الكاميرا' : 'تشغيل الكاميرا',
               backgroundColor: isCameraEnabled ? Colors.green : null,
             ),
-
-            // Microphone toggle
             _buildControlButton(
               icon: isMicrophoneEnabled ? Icons.mic : Icons.mic_off,
               isEnabled: isMicrophoneEnabled,
@@ -61,12 +120,10 @@ class ControlBar extends StatelessWidget {
               tooltip: isMicrophoneEnabled ? 'كتم الصوت' : 'إلغاء كتم الصوت',
               backgroundColor: isMicrophoneEnabled ? Colors.green : null,
             ),
-
-            // Leave meeting
             _buildControlButton(
               icon: Icons.call_end,
               isEnabled: true,
-              onPressed: () => _showLeaveConfirmation(context),
+              onPressed: () => _showLeaveConfirmation(context), // Pass context
               tooltip: 'مغادرة الدرس',
               backgroundColor: Colors.red,
               iconColor: Colors.white,
@@ -76,6 +133,7 @@ class ControlBar extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildControlButton({
     required IconData icon,
     required bool isEnabled,
@@ -83,6 +141,8 @@ class ControlBar extends StatelessWidget {
     required String tooltip,
     Color? backgroundColor,
     Color? iconColor,
+    double size = 56, // Default size for portrait
+    double iconSize = 28,
   }) {
     final bgColor = backgroundColor ??
         (isEnabled ? AppTheme.primaryColor : Colors.grey[600]!);
@@ -108,15 +168,15 @@ class ControlBar extends StatelessWidget {
             onTap: onPressed,
             customBorder: const CircleBorder(),
             child: Container(
-              width: 56,
-              height: 56,
+              width: size,
+              height: size,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
                 color: iColor,
-                size: 28,
+                size: iconSize,
               ),
             ),
           ),

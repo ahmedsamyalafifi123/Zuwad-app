@@ -9,11 +9,14 @@ class ParticipantWidget extends StatefulWidget {
   final bool isLocal;
   final bool forceAvatar;
 
+  final bool showScreenShare;
+
   const ParticipantWidget({
     super.key,
     required this.participant,
     required this.isLocal,
     this.forceAvatar = false,
+    this.showScreenShare = true,
   });
 
   @override
@@ -41,9 +44,12 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
 
   void _setupParticipant() {
     // Get video track - prioritize screen share over camera
-    final screenSharePublication = widget.participant.videoTrackPublications
-        .where((pub) => pub.source.toString().toLowerCase().contains('screen'))
-        .firstOrNull;
+    final screenSharePublication = widget.showScreenShare
+        ? widget.participant.videoTrackPublications
+            .where(
+                (pub) => pub.source.toString().toLowerCase().contains('screen'))
+            .firstOrNull
+        : null;
 
     final cameraPublication = widget.participant.videoTrackPublications
         .where((pub) => pub.source == TrackSource.camera)
@@ -102,9 +108,12 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
 
   void _updateMediaStatus() {
     // Check for screen share first, then camera
-    final screenSharePublication = widget.participant.videoTrackPublications
-        .where((pub) => pub.source.toString().toLowerCase().contains('screen'))
-        .firstOrNull;
+    final screenSharePublication = widget.showScreenShare
+        ? widget.participant.videoTrackPublications
+            .where(
+                (pub) => pub.source.toString().toLowerCase().contains('screen'))
+            .firstOrNull
+        : null;
 
     final cameraPublication = widget.participant.videoTrackPublications
         .where((pub) => pub.source == TrackSource.camera)
