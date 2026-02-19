@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze:*)",
+      "Bash(git add:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(python3:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
