@@ -61,6 +61,25 @@ post_install do |installer|
         'PERMISSION_BLUETOOTH=1',
         'PERMISSION_NOTIFICATIONS=1',
       ]
+
+      # Patch GeneratedPluginRegistrant.m to disable crashing plugins on iOS
+      # This runs after pod install so Flutter regeneration is already done
     end
+  end
+
+  # Patch GeneratedPluginRegistrant.m to comment out problematic plugins
+  registrant_path = File.join(File.dirname(__FILE__), 'Runner', 'GeneratedPluginRegistrant.m')
+  if File.exist?(registrant_path)
+    content = File.read(registrant_path)
+    [
+      'SwiftAlarmPlugin',
+      'FlutterWebRTCPlugin',
+      'LiveKitPlugin',
+      'PermissionHandlerPlugin',
+    ].each do |plugin|
+      content = content.gsub(/^(\s*\[#{plugin}\s+registerWithRegistrar.+\];)/, '  // DISABLED: \1')
+    end
+    File.write(registrant_path, content)
+    puts "✅ Patched GeneratedPluginRegistrant.m - disabled: SwiftAlarmPlugin, FlutterWebRTCPlugin, LiveKitPlugin, PermissionHandlerPlugin"
   end
 end
