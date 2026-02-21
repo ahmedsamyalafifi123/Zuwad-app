@@ -78,8 +78,8 @@ void main() async {
     // Firebase failed - crashlyticsReady stays false, do NOT use Crashlytics below
   }
 
-  // Set up FCM background message handler (only on supported platforms)
-  if (_isFcmSupported) {
+  // Set up FCM background message handler (Android only for now)
+  if (!kIsWeb && Platform.isAndroid) {
     try {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     } catch (e) {
@@ -89,57 +89,59 @@ void main() async {
     }
   }
 
-  // Initialize notification service with error handling
-  try {
-    await NotificationService().initialize();
-  } catch (e, stack) {
-    if (kDebugMode) {
-      print('NotificationService initialization error: $e');
+  // On iOS: skip all non-Firebase service initialization to isolate launch crashes
+  if (!Platform.isIOS) {
+    // Initialize notification service
+    try {
+      await NotificationService().initialize();
+    } catch (e, stack) {
+      if (kDebugMode) print('NotificationService initialization error: $e');
+      if (crashlyticsReady) {
+        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'notification_service_init');
+      }
     }
-    if (crashlyticsReady) {
-      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'notification_service_init');
+
+    // Initialize alarm service
+    try {
+      await AlarmService.initialize();
+    } catch (e, stack) {
+      if (kDebugMode) print('AlarmService initialization error: $e');
+      if (crashlyticsReady) {
+        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_service_init');
+      }
+    }
+
+    // Set up alarm callback for background/terminated state
+    try {
+      Alarm.ringStream.stream.listen((alarmSettings) {
+        onAlarmRinging(alarmSettings);
+      });
+    } catch (e, stack) {
+      if (kDebugMode) print('Alarm ring stream setup error: $e');
+      if (crashlyticsReady) {
+        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_stream_setup');
+      }
+    }
+
+    // Initialize timezone helper
+    try {
+      await TimezoneHelper.initialize();
+    } catch (e, stack) {
+      if (kDebugMode) print('TimezoneHelper initialization error: $e');
+      if (crashlyticsReady) {
+        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'timezone_helper_init');
+      }
+    }
+  } else {
+    // iOS: only initialize timezone (safe, pure Dart, no native calls)
+    try {
+      await TimezoneHelper.initialize();
+    } catch (e, stack) {
+      if (kDebugMode) print('TimezoneHelper initialization error: $e');
     }
   }
 
-  // Initialize alarm service with error handling
-  try {
-    await AlarmService.initialize();
-  } catch (e, stack) {
-    if (kDebugMode) {
-      print('AlarmService initialization error: $e');
-    }
-    if (crashlyticsReady) {
-      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_service_init');
-    }
-  }
-
-  // Set up alarm callback for background/terminated state
-  try {
-    Alarm.ringStream.stream.listen((alarmSettings) {
-      onAlarmRinging(alarmSettings);
-    });
-  } catch (e, stack) {
-    if (kDebugMode) {
-      print('Alarm ring stream setup error: $e');
-    }
-    if (crashlyticsReady) {
-      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_stream_setup');
-    }
-  }
-
-  // Initialize timezone helper for schedule time conversions
-  try {
-    await TimezoneHelper.initialize();
-  } catch (e, stack) {
-    if (kDebugMode) {
-      print('TimezoneHelper initialization error: $e');
-    }
-    if (crashlyticsReady) {
-      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'timezone_helper_init');
-    }
-  }
-
-  // Allow both portrait and landscape orientations
+  // Orientation and UI style (safe on all platforms)
   try {
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -148,15 +150,12 @@ void main() async {
       DeviceOrientation.landscapeRight,
     ]);
   } catch (e, stack) {
-    if (kDebugMode) {
-      print('SystemChrome orientation error: $e');
-    }
+    if (kDebugMode) print('SystemChrome orientation error: $e');
     if (crashlyticsReady) {
       FirebaseCrashlytics.instance.recordError(e, stack, reason: 'system_chrome_orientation');
     }
   }
 
-  // Set system UI overlay style for edge-to-edge display
   try {
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -167,15 +166,9 @@ void main() async {
         systemNavigationBarDividerColor: Colors.transparent,
       ),
     );
-
-    // Enable edge-to-edge display
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.edgeToEdge,
-    );
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   } catch (e, stack) {
-    if (kDebugMode) {
-      print('SystemChrome UI mode error: $e');
-    }
+    if (kDebugMode) print('SystemChrome UI mode error: $e');
     if (crashlyticsReady) {
       FirebaseCrashlytics.instance.recordError(e, stack, reason: 'system_chrome_ui_mode');
     }
