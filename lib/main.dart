@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:alarm/alarm.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -49,9 +50,26 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-  } catch (e) {
+
+    // Initialize Crashlytics after Firebase is initialized
+    if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
+      // Pass all uncaught "fatal" errors from the framework to Crashlytics
+      FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+
+      // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+
+      if (kDebugMode) {
+        print('Crashlytics initialized successfully');
+      }
+    }
+  } catch (e, stack) {
     if (kDebugMode) {
       print('Firebase initialization error: $e');
+      print('Stack: $stack');
     }
     // Continue without Firebase - app will still work
   }
@@ -70,19 +88,23 @@ void main() async {
   // Initialize notification service with error handling
   try {
     await NotificationService().initialize();
-  } catch (e) {
+  } catch (e, stack) {
     if (kDebugMode) {
       print('NotificationService initialization error: $e');
     }
+    // Record to Crashlytics
+    FirebaseCrashlytics.instance.recordError(e, stack, key: 'notification_service_init');
   }
 
   // Initialize alarm service with error handling
   try {
     await AlarmService.initialize();
-  } catch (e) {
+  } catch (e, stack) {
     if (kDebugMode) {
       print('AlarmService initialization error: $e');
     }
+    // Record to Crashlytics
+    FirebaseCrashlytics.instance.recordError(e, stack, key: 'alarm_service_init');
   }
 
   // Set up alarm callback for background/terminated state
@@ -90,65 +112,60 @@ void main() async {
     Alarm.ringStream.stream.listen((alarmSettings) {
       onAlarmRinging(alarmSettings);
     });
-  } catch (e) {
+  } catch (e, stack) {
     if (kDebugMode) {
       print('Alarm ring stream setup error: $e');
     }
+    FirebaseCrashlytics.instance.recordError(e, stack, key: 'alarm_stream_setup');
   }
 
   // Initialize timezone helper for schedule time conversions
   try {
     await TimezoneHelper.initialize();
-  } catch (e) {
+  } catch (e, stack) {
     if (kDebugMode) {
       print('TimezoneHelper initialization error: $e');
     }
+    FirebaseCrashlytics.instance.recordError(e, stack, key: 'timezone_helper_init');
   }
-  FlutterError.onError = (FlutterErrorDetails details) {
-    if (kDebugMode) {
-      // In debug mode, print the error
-      FlutterError.dumpErrorToConsole(details);
-    } else {
-      // In release mode, log to a service (e.g., Crashlytics)
-      // For now, just record that an error occurred
-      Zone.current.handleUncaughtError(
-          details.exception, details.stack ?? StackTrace.empty);
-    }
-  };
-
-  // Handle async errors
-  PlatformDispatcher.instance.onError = (error, stack) {
-    if (kDebugMode) {
-      print('Async error: $error');
-      print('Stack trace: $stack');
-    }
-    // Return true to prevent the error from propagating
-    return true;
-  };
 
   // Allow both portrait and landscape orientations
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
+  try {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  } catch (e, stack) {
+    if (kDebugMode) {
+      print('SystemChrome orientation error: $e');
+    }
+    FirebaseCrashlytics.instance.recordError(e, stack, key: 'system_chrome_orientation');
+  }
 
   // Set system UI overlay style for edge-to-edge display
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarIconBrightness: Brightness.dark,
-      systemNavigationBarDividerColor: Colors.transparent,
-    ),
-  );
+  try {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+      ),
+    );
 
-  // Enable edge-to-edge display
-  SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.edgeToEdge,
-  );
+    // Enable edge-to-edge display
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+    );
+  } catch (e, stack) {
+    if (kDebugMode) {
+      print('SystemChrome UI mode error: $e');
+    }
+    FirebaseCrashlytics.instance.recordError(e, stack, key: 'system_chrome_ui_mode');
+  }
 
   // Run the app
   runApp(const MyApp());

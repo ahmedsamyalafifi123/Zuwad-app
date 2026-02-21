@@ -10,6 +10,16 @@ class AppTheme {
   static const Color greyColor = Color(0xFF9E9E9E);
   static const Color errorColor = Color(0xFFD32F2F);
 
+  // Get text theme with error handling
+  static TextTheme _getTextTheme() {
+    try {
+      return GoogleFonts.tajawalTextTheme();
+    } catch (e) {
+      // Fallback to default text theme if Google Fonts fails
+      return ThemeData.light().textTheme;
+    }
+  }
+
   // Light theme
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
@@ -28,7 +38,7 @@ class AppTheme {
       elevation: 0,
       centerTitle: true,
     ),
-    textTheme: GoogleFonts.tajawalTextTheme(),
+    textTheme: _getTextTheme(),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: primaryColor,
