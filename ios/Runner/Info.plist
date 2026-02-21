@@ -60,14 +60,20 @@
 		<key>UIStatusBarHidden</key>
 		<false/>
 
-		<!-- Firebase & Notifications iOS 16+ requirements -->
+		<!-- Firebase & Notifications -->
 		<key>FirebaseAppDelegateProxyEnabled</key>
-		<false/>
+		<true/>
 
-		<!-- LiveKit permissions -->
+		<!-- LiveKit / WebRTC permissions -->
 		<key>NSCameraUsageDescription</key>
 		<string>تحتاج هذه التطبيق إلى الوصول للكاميرا للمشاركة في الدروس المرئية</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>تحتاج هذه التطبيق إلى الوصول للميكروفون للمشاركة في الدروس الصوتية</string>
+		<key>NSLocalNetworkUsageDescription</key>
+		<string>يستخدم التطبيق الشبكة المحلية للاتصال بخوادم الدروس المباشرة</string>
+		<key>NSBonjourServices</key>
+		<array>
+			<string>_livekit._tcp</string>
+		</array>
 	</dict>
 </plist>

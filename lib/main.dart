@@ -45,6 +45,9 @@ void main() async {
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Track whether Firebase/Crashlytics initialized successfully
+  bool crashlyticsReady = false;
+
   // Initialize Firebase with error handling
   try {
     await Firebase.initializeApp(
@@ -62,6 +65,7 @@ void main() async {
         return true;
       };
 
+      crashlyticsReady = true;
       if (kDebugMode) {
         print('Crashlytics initialized successfully');
       }
@@ -71,7 +75,7 @@ void main() async {
       print('Firebase initialization error: $e');
       print('Stack: $stack');
     }
-    // Continue without Firebase - app will still work
+    // Firebase failed - crashlyticsReady stays false, do NOT use Crashlytics below
   }
 
   // Set up FCM background message handler (only on supported platforms)
@@ -92,8 +96,9 @@ void main() async {
     if (kDebugMode) {
       print('NotificationService initialization error: $e');
     }
-    // Record to Crashlytics
-    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'notification_service_init');
+    if (crashlyticsReady) {
+      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'notification_service_init');
+    }
   }
 
   // Initialize alarm service with error handling
@@ -103,8 +108,9 @@ void main() async {
     if (kDebugMode) {
       print('AlarmService initialization error: $e');
     }
-    // Record to Crashlytics
-    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_service_init');
+    if (crashlyticsReady) {
+      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_service_init');
+    }
   }
 
   // Set up alarm callback for background/terminated state
@@ -116,7 +122,9 @@ void main() async {
     if (kDebugMode) {
       print('Alarm ring stream setup error: $e');
     }
-    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_stream_setup');
+    if (crashlyticsReady) {
+      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_stream_setup');
+    }
   }
 
   // Initialize timezone helper for schedule time conversions
@@ -126,7 +134,9 @@ void main() async {
     if (kDebugMode) {
       print('TimezoneHelper initialization error: $e');
     }
-    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'timezone_helper_init');
+    if (crashlyticsReady) {
+      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'timezone_helper_init');
+    }
   }
 
   // Allow both portrait and landscape orientations
@@ -141,7 +151,9 @@ void main() async {
     if (kDebugMode) {
       print('SystemChrome orientation error: $e');
     }
-    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'system_chrome_orientation');
+    if (crashlyticsReady) {
+      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'system_chrome_orientation');
+    }
   }
 
   // Set system UI overlay style for edge-to-edge display
@@ -164,7 +176,9 @@ void main() async {
     if (kDebugMode) {
       print('SystemChrome UI mode error: $e');
     }
-    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'system_chrome_ui_mode');
+    if (crashlyticsReady) {
+      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'system_chrome_ui_mode');
+    }
   }
 
   // Run the app
