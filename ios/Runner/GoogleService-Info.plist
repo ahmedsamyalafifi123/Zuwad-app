@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyDJ8IG7m7o5nR5IH_owcrqxnpVM7NCCI5I</string>
+	<key>GCM_SENDER_ID</key>
+	<string>85257832115</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.zuwad</string>
+	<key>PROJECT_ID</key>
+	<string>maan-nataalam</string>
+	<key>STORAGE_BUCKET</key>
+	<string>maan-nataalam.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false/>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false/>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true/>
+	<key>IS_GCM_ENABLED</key>
+	<true/>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true/>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:85257832115:ios:5f0a34f35cfe2b112e92c6</string>
+</dict>
+</plist>

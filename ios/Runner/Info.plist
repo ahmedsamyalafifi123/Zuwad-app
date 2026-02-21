@@ -45,12 +45,19 @@
 		<array>
 			<string>audio</string>
 			<string>voip</string>
+			<string>remote-notification</string>
+			<string>fetch</string>
+			<string>processing</string>
 		</array>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>UIStatusBarHidden</key>
+		<false/>
+
+		<!-- Firebase & Notifications iOS 16+ requirements -->
+		<key>FirebaseAppDelegateProxyEnabled</key>
 		<false/>
 
 		<!-- LiveKit permissions -->

@@ -44,29 +44,66 @@ void main() async {
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // Initialize Firebase with error handling
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    if (kDebugMode) {
+      print('Firebase initialization error: $e');
+    }
+    // Continue without Firebase - app will still work
+  }
 
   // Set up FCM background message handler (only on supported platforms)
   if (_isFcmSupported) {
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    try {
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    } catch (e) {
+      if (kDebugMode) {
+        print('FCM background handler setup error: $e');
+      }
+    }
   }
 
-  // Initialize notification service
-  await NotificationService().initialize();
+  // Initialize notification service with error handling
+  try {
+    await NotificationService().initialize();
+  } catch (e) {
+    if (kDebugMode) {
+      print('NotificationService initialization error: $e');
+    }
+  }
 
-  // Initialize alarm service
-  await AlarmService.initialize();
+  // Initialize alarm service with error handling
+  try {
+    await AlarmService.initialize();
+  } catch (e) {
+    if (kDebugMode) {
+      print('AlarmService initialization error: $e');
+    }
+  }
 
   // Set up alarm callback for background/terminated state
-  Alarm.ringStream.stream.listen((alarmSettings) {
-    onAlarmRinging(alarmSettings);
-  });
+  try {
+    Alarm.ringStream.stream.listen((alarmSettings) {
+      onAlarmRinging(alarmSettings);
+    });
+  } catch (e) {
+    if (kDebugMode) {
+      print('Alarm ring stream setup error: $e');
+    }
+  }
 
   // Initialize timezone helper for schedule time conversions
-  await TimezoneHelper.initialize();
+  try {
+    await TimezoneHelper.initialize();
+  } catch (e) {
+    if (kDebugMode) {
+      print('TimezoneHelper initialization error: $e');
+    }
+  }
   FlutterError.onError = (FlutterErrorDetails details) {
     if (kDebugMode) {
       // In debug mode, print the error
