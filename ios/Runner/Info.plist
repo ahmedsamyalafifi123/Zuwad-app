@@ -66,11 +66,19 @@
 		<key>FirebaseAppDelegateProxyEnabled</key>
 		<true/>
 
-		<!-- LiveKit / WebRTC permissions -->
+		<!-- Camera & Microphone - required for live lessons -->
 		<key>NSCameraUsageDescription</key>
 		<string>تحتاج هذه التطبيق إلى الوصول للكاميرا للمشاركة في الدروس المرئية</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>تحتاج هذه التطبيق إلى الوصول للميكروفون للمشاركة في الدروس الصوتية</string>
+
+		<!-- Bluetooth - required for audio routing during live lessons -->
+		<key>NSBluetoothAlwaysUsageDescription</key>
+		<string>يستخدم التطبيق البلوتوث لتوجيه الصوت إلى سماعات الأذن اللاسلكية أثناء الدروس المباشرة</string>
+		<key>NSBluetoothPeripheralUsageDescription</key>
+		<string>يستخدم التطبيق البلوتوث لتوجيه الصوت إلى سماعات الأذن اللاسلكية أثناء الدروس المباشرة</string>
+
+		<!-- Local network - required for LiveKit WebRTC -->
 		<key>NSLocalNetworkUsageDescription</key>
 		<string>يستخدم التطبيق الشبكة المحلية للاتصال بخوادم الدروس المباشرة</string>
 		<key>NSBonjourServices</key>

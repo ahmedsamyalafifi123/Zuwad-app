@@ -69,17 +69,32 @@ post_install do |installer|
 
   # Patch GeneratedPluginRegistrant.m to comment out problematic plugins
   registrant_path = File.join(File.dirname(__FILE__), 'Runner', 'GeneratedPluginRegistrant.m')
+  puts "Looking for GeneratedPluginRegistrant.m at: #{registrant_path}"
   if File.exist?(registrant_path)
     content = File.read(registrant_path)
-    [
+    plugins_to_disable = [
       'SwiftAlarmPlugin',
       'FlutterWebRTCPlugin',
       'LiveKitPlugin',
       'PermissionHandlerPlugin',
-    ].each do |plugin|
-      content = content.gsub(/^(\s*\[#{plugin}\s+registerWithRegistrar.+\];)/, '  // DISABLED: \1')
+    ]
+    plugins_to_disable.each do |plugin|
+      before = content.dup
+      content = content.gsub(/^( *)\[#{Regexp.escape(plugin)} registerWithRegistrar[^\n]+\n/) do |match|
+        "#{$1}// DISABLED_IOS: #{match.strip}\n"
+      end
+      if content == before
+        puts "⚠️  Pattern not found for: #{plugin}"
+      else
+        puts "✅ Disabled: #{plugin}"
+      end
     end
     File.write(registrant_path, content)
-    puts "✅ Patched GeneratedPluginRegistrant.m - disabled: SwiftAlarmPlugin, FlutterWebRTCPlugin, LiveKitPlugin, PermissionHandlerPlugin"
+    puts "✅ Done patching GeneratedPluginRegistrant.m"
+  else
+    puts "❌ GeneratedPluginRegistrant.m NOT FOUND at expected path"
+    # Search for it
+    found = Dir.glob(File.join(File.dirname(__FILE__), '**', 'GeneratedPluginRegistrant.m'))
+    puts "Found at: #{found.join(', ')}" unless found.empty?
   end
 end
