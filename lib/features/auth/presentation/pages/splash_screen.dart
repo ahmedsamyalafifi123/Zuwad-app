@@ -61,7 +61,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           try {
             context.read<AuthBloc>().add(CheckAuthStatusEvent());
           } catch (e, stack) {
-            FirebaseCrashlytics.instance.recordError(e, stack, key: 'splash_auth_check');
+            FirebaseCrashlytics.instance.recordError(e, stack, reason: 'splash_auth_check');
           }
         }
       });
@@ -71,7 +71,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           _initError = e.toString();
         });
       }
-      FirebaseCrashlytics.instance.recordError(e, stack, key: 'splash_init');
+      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'splash_init');
     }
   }
 
@@ -102,7 +102,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         ),
       );
     } catch (e, stack) {
-      FirebaseCrashlytics.instance.recordError(e, stack, key: 'splash_navigation');
+      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'splash_navigation');
     }
   }
 

@@ -93,7 +93,7 @@ void main() async {
       print('NotificationService initialization error: $e');
     }
     // Record to Crashlytics
-    FirebaseCrashlytics.instance.recordError(e, stack, key: 'notification_service_init');
+    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'notification_service_init');
   }
 
   // Initialize alarm service with error handling
@@ -104,7 +104,7 @@ void main() async {
       print('AlarmService initialization error: $e');
     }
     // Record to Crashlytics
-    FirebaseCrashlytics.instance.recordError(e, stack, key: 'alarm_service_init');
+    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_service_init');
   }
 
   // Set up alarm callback for background/terminated state
@@ -116,7 +116,7 @@ void main() async {
     if (kDebugMode) {
       print('Alarm ring stream setup error: $e');
     }
-    FirebaseCrashlytics.instance.recordError(e, stack, key: 'alarm_stream_setup');
+    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_stream_setup');
   }
 
   // Initialize timezone helper for schedule time conversions
@@ -126,7 +126,7 @@ void main() async {
     if (kDebugMode) {
       print('TimezoneHelper initialization error: $e');
     }
-    FirebaseCrashlytics.instance.recordError(e, stack, key: 'timezone_helper_init');
+    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'timezone_helper_init');
   }
 
   // Allow both portrait and landscape orientations
@@ -141,7 +141,7 @@ void main() async {
     if (kDebugMode) {
       print('SystemChrome orientation error: $e');
     }
-    FirebaseCrashlytics.instance.recordError(e, stack, key: 'system_chrome_orientation');
+    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'system_chrome_orientation');
   }
 
   // Set system UI overlay style for edge-to-edge display
@@ -164,7 +164,7 @@ void main() async {
     if (kDebugMode) {
       print('SystemChrome UI mode error: $e');
     }
-    FirebaseCrashlytics.instance.recordError(e, stack, key: 'system_chrome_ui_mode');
+    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'system_chrome_ui_mode');
   }
 
   // Run the app
