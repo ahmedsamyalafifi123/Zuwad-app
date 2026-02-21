@@ -53,6 +53,7 @@
 			<string>com.zuwad.refresh</string>
 			<string>com.zuwad.processing</string>
 			<string>com.gdelataillade.fetch</string>
+			<string>com.gdelataillade.alarm</string>
 		</array>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
