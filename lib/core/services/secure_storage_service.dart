@@ -1,9 +1,16 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Secure storage service for sensitive data like auth tokens.
 /// Uses singleton pattern for consistent access across the app.
 ///
-/// Updated for API v2 with refresh token support.
+/// On macOS the app sandbox blocks keychain access unless the app has a
+/// provisioning profile that grants keychain-access-groups — which is not
+/// available in local development builds. SharedPreferences (NSUserDefaults)
+/// is used instead on macOS. All other platforms use flutter_secure_storage.
 class SecureStorageService {
   // Singleton instance
   static final SecureStorageService _instance =
@@ -11,18 +18,54 @@ class SecureStorageService {
   factory SecureStorageService() => _instance;
   SecureStorageService._internal();
 
+  static bool get _isMacOS => !kIsWeb && Platform.isMacOS;
+
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
     ),
-    // Use default IOSOptions — no explicit groupId or accessibility override.
-    // first_unlock_this_device was causing errSecMissingEntitlement (-34018)
-    // on iOS 17+ with certain provisioning profile configurations.
     iOptions: IOSOptions(),
-    // Windows and Linux use encrypted file storage internally
     wOptions: WindowsOptions(),
     lOptions: LinuxOptions(),
   );
+
+  // ── Platform-aware primitives ──────────────────────────────────────────────
+
+  Future<void> _write({required String key, required String value}) async {
+    if (_isMacOS) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(key, value);
+    } else {
+      await _storage.write(key: key, value: value);
+    }
+  }
+
+  Future<String?> _read({required String key}) async {
+    if (_isMacOS) {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(key);
+    } else {
+      return await _storage.read(key: key);
+    }
+  }
+
+  Future<void> _delete({required String key}) async {
+    if (_isMacOS) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(key);
+    } else {
+      await _storage.delete(key: key);
+    }
+  }
+
+  Future<void> _deleteAll() async {
+    if (_isMacOS) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+    } else {
+      await _storage.deleteAll();
+    }
+  }
 
   // Keys
   static const String _tokenKey = 'auth_token';
@@ -40,17 +83,17 @@ class SecureStorageService {
 
   /// Save access token
   Future<void> saveToken(String token) async {
-    await _storage.write(key: _tokenKey, value: token);
+    await _write(key: _tokenKey, value: token);
   }
 
   /// Get access token
   Future<String?> getToken() async {
-    return await _storage.read(key: _tokenKey);
+    return await _read(key: _tokenKey);
   }
 
   /// Delete access token
   Future<void> deleteToken() async {
-    await _storage.delete(key: _tokenKey);
+    await _delete(key: _tokenKey);
   }
 
   // ============================================
@@ -59,17 +102,17 @@ class SecureStorageService {
 
   /// Save refresh token
   Future<void> saveRefreshToken(String refreshToken) async {
-    await _storage.write(key: _refreshTokenKey, value: refreshToken);
+    await _write(key: _refreshTokenKey, value: refreshToken);
   }
 
   /// Get refresh token
   Future<String?> getRefreshToken() async {
-    return await _storage.read(key: _refreshTokenKey);
+    return await _read(key: _refreshTokenKey);
   }
 
   /// Delete refresh token
   Future<void> deleteRefreshToken() async {
-    await _storage.delete(key: _refreshTokenKey);
+    await _delete(key: _refreshTokenKey);
   }
 
   // ============================================
@@ -81,13 +124,12 @@ class SecureStorageService {
     final expiryTimestamp = DateTime.now()
         .add(Duration(seconds: expiresInSeconds))
         .millisecondsSinceEpoch;
-    await _storage.write(
-        key: _tokenExpiryKey, value: expiryTimestamp.toString());
+    await _write(key: _tokenExpiryKey, value: expiryTimestamp.toString());
   }
 
   /// Get token expiry timestamp
   Future<DateTime?> getTokenExpiry() async {
-    final expiryStr = await _storage.read(key: _tokenExpiryKey);
+    final expiryStr = await _read(key: _tokenExpiryKey);
     if (expiryStr == null) return null;
     final timestamp = int.tryParse(expiryStr);
     if (timestamp == null) return null;
@@ -115,12 +157,12 @@ class SecureStorageService {
 
   /// Save user ID
   Future<void> saveUserId(String userId) async {
-    await _storage.write(key: _userIdKey, value: userId);
+    await _write(key: _userIdKey, value: userId);
   }
 
   /// Get user ID
   Future<String?> getUserId() async {
-    return await _storage.read(key: _userIdKey);
+    return await _read(key: _userIdKey);
   }
 
   /// Get user ID as int (for backward compatibility)
@@ -132,7 +174,7 @@ class SecureStorageService {
 
   /// Delete user ID
   Future<void> deleteUserId() async {
-    await _storage.delete(key: _userIdKey);
+    await _delete(key: _userIdKey);
   }
 
   // ============================================
@@ -141,12 +183,12 @@ class SecureStorageService {
 
   /// Save user role (student, teacher, supervisor)
   Future<void> saveUserRole(String role) async {
-    await _storage.write(key: _userRoleKey, value: role);
+    await _write(key: _userRoleKey, value: role);
   }
 
   /// Get user role
   Future<String?> getUserRole() async {
-    return await _storage.read(key: _userRoleKey);
+    return await _read(key: _userRoleKey);
   }
 
   // ============================================
@@ -155,12 +197,12 @@ class SecureStorageService {
 
   /// Save user name
   Future<void> saveUserName(String name) async {
-    await _storage.write(key: _userNameKey, value: name);
+    await _write(key: _userNameKey, value: name);
   }
 
   /// Get user name
   Future<String?> getUserName() async {
-    return await _storage.read(key: _userNameKey);
+    return await _read(key: _userNameKey);
   }
 
   // ============================================
@@ -169,12 +211,12 @@ class SecureStorageService {
 
   /// Save user M_ID (membership ID like ST-001-123)
   Future<void> saveUserMId(String mId) async {
-    await _storage.write(key: _userMIdKey, value: mId);
+    await _write(key: _userMIdKey, value: mId);
   }
 
   /// Get user M_ID
   Future<String?> getUserMId() async {
-    return await _storage.read(key: _userMIdKey);
+    return await _read(key: _userMIdKey);
   }
 
   // ============================================
@@ -192,8 +234,6 @@ class SecureStorageService {
     String? userRole,
     String? userMId,
   }) async {
-    // Use sequential writes instead of Future.wait to avoid
-    // potential file locking issues on Windows
     await saveToken(token);
     await saveRefreshToken(refreshToken);
     await saveTokenExpiry(expiresIn);
@@ -209,7 +249,7 @@ class SecureStorageService {
 
   /// Clear all stored data (for logout)
   Future<void> clearAll() async {
-    await _storage.deleteAll();
+    await _deleteAll();
   }
 
   /// Clear only auth tokens (keep user info)
@@ -217,7 +257,7 @@ class SecureStorageService {
     await Future.wait([
       deleteToken(),
       deleteRefreshToken(),
-      _storage.delete(key: _tokenExpiryKey),
+      _delete(key: _tokenExpiryKey),
     ]);
   }
 
@@ -227,9 +267,8 @@ class SecureStorageService {
 
   /// Save list of known supervisor IDs
   Future<void> saveKnownSupervisors(List<String> ids) async {
-    // Filter duplicates and empty strings
     final uniqueIds = ids.where((id) => id.isNotEmpty).toSet().toList();
-    await _storage.write(
+    await _write(
       key: _knownSupervisorsKey,
       value: uniqueIds.join(','),
     );
@@ -237,7 +276,7 @@ class SecureStorageService {
 
   /// Get list of known supervisor IDs
   Future<List<String>> getKnownSupervisors() async {
-    final value = await _storage.read(key: _knownSupervisorsKey);
+    final value = await _read(key: _knownSupervisorsKey);
     if (value == null || value.isEmpty) return [];
     return value.split(',');
   }
