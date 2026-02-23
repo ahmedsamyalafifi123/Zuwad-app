@@ -9,7 +9,6 @@ import 'secure_storage_service.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import '../../firebase_options.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -23,7 +22,7 @@ import '../api/wordpress_api.dart';
 /// Must be a top-level function (not a class method)
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Firebase.initializeApp();
   // Save to local database (skip chat messages - they have their own system)
   final notificationType = message.data['type']?.toString() ?? '';
   if (notificationType == 'chat_message') {

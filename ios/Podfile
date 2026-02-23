@@ -46,55 +46,11 @@ post_install do |installer|
       # Fix for iOS 16+ compatibility
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
 
-      # Bitcode is deprecated in Xcode 14+
+      # Enable bitcode for Crashlytics
       config.build_settings['ENABLE_BITCODE'] = 'NO'
 
       # Fix for some plugin compatibility issues
       config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'
-
-      # permission_handler v12 requires explicit macros for each permission used.
-      # Without this the plugin crashes at runtime on iOS.
-      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
-        '$(inherited)',
-        'PERMISSION_CAMERA=1',
-        'PERMISSION_MICROPHONE=1',
-        'PERMISSION_BLUETOOTH=1',
-        'PERMISSION_NOTIFICATIONS=1',
-      ]
-
-      # Patch GeneratedPluginRegistrant.m to disable crashing plugins on iOS
-      # This runs after pod install so Flutter regeneration is already done
     end
-  end
-
-  # Patch GeneratedPluginRegistrant.m to comment out problematic plugins
-  registrant_path = File.join(File.dirname(__FILE__), 'Runner', 'GeneratedPluginRegistrant.m')
-  puts "Looking for GeneratedPluginRegistrant.m at: #{registrant_path}"
-  if File.exist?(registrant_path)
-    content = File.read(registrant_path)
-    plugins_to_disable = [
-      'SwiftAlarmPlugin',
-      'FlutterWebRTCPlugin',
-      'LiveKitPlugin',
-      'PermissionHandlerPlugin',
-    ]
-    plugins_to_disable.each do |plugin|
-      before = content.dup
-      content = content.gsub(/^( *)\[#{Regexp.escape(plugin)} registerWithRegistrar[^\n]+\n/) do |match|
-        "#{$1}// DISABLED_IOS: #{match.strip}\n"
-      end
-      if content == before
-        puts "⚠️  Pattern not found for: #{plugin}"
-      else
-        puts "✅ Disabled: #{plugin}"
-      end
-    end
-    File.write(registrant_path, content)
-    puts "✅ Done patching GeneratedPluginRegistrant.m"
-  else
-    puts "❌ GeneratedPluginRegistrant.m NOT FOUND at expected path"
-    # Search for it
-    found = Dir.glob(File.join(File.dirname(__FILE__), '**', 'GeneratedPluginRegistrant.m'))
-    puts "Found at: #{found.join(', ')}" unless found.empty?
   end
 end

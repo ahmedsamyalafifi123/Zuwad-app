@@ -36,91 +36,139 @@ void onAlarmRinging(AlarmSettings alarmSettings) {
     print('Alarm title: ${alarmSettings.notificationSettings?.title}');
     print('Alarm body: ${alarmSettings.notificationSettings?.body}');
   }
+
+  // The alarm plugin will automatically show the notification
+  // You can add custom logic here if needed (e.g., play custom sound, vibrate)
 }
 
 void main() async {
+  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  // iOS DEBUG: show a plain screen immediately to confirm Flutter runs at all
-  if (Platform.isIOS) {
-    runApp(const _IOSDebugApp());
-    return;
-  }
-
-  // ── Android / other platforms ─────────────────────────────────────────────
-  bool crashlyticsReady = false;
-
+  // Initialize Firebase with error handling
   try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-    PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true;
-    };
-    crashlyticsReady = true;
-  } catch (e) {
-    if (kDebugMode) print('Firebase initialization error: $e');
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+
+    // Initialize Crashlytics after Firebase is initialized
+    if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
+      // Pass all uncaught "fatal" errors from the framework to Crashlytics
+      FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+
+      // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+
+      if (kDebugMode) {
+        print('Crashlytics initialized successfully');
+      }
+    }
+  } catch (e, stack) {
+    if (kDebugMode) {
+      print('Firebase initialization error: $e');
+      print('Stack: $stack');
+    }
+    // Continue without Firebase - app will still work
   }
 
-  if (!kIsWeb && Platform.isAndroid) {
+  // Set up FCM background message handler (only on supported platforms)
+  if (_isFcmSupported) {
     try {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     } catch (e) {
-      if (kDebugMode) print('FCM background handler setup error: $e');
+      if (kDebugMode) {
+        print('FCM background handler setup error: $e');
+      }
     }
   }
 
-  try { await NotificationService().initialize(); } catch (e, s) {
-    if (crashlyticsReady) FirebaseCrashlytics.instance.recordError(e, s, reason: 'notification_service_init');
-  }
-  try { await AlarmService.initialize(); } catch (e, s) {
-    if (crashlyticsReady) FirebaseCrashlytics.instance.recordError(e, s, reason: 'alarm_service_init');
-  }
-  try { Alarm.ringStream.stream.listen(onAlarmRinging); } catch (e, s) {
-    if (crashlyticsReady) FirebaseCrashlytics.instance.recordError(e, s, reason: 'alarm_stream_setup');
-  }
-  try { await TimezoneHelper.initialize(); } catch (e, s) {
-    if (crashlyticsReady) FirebaseCrashlytics.instance.recordError(e, s, reason: 'timezone_helper_init');
+  // Initialize notification service with error handling
+  try {
+    await NotificationService().initialize();
+  } catch (e, stack) {
+    if (kDebugMode) {
+      print('NotificationService initialization error: $e');
+    }
+    // Record to Crashlytics
+    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'notification_service_init');
   }
 
+  // Initialize alarm service with error handling
+  try {
+    await AlarmService.initialize();
+  } catch (e, stack) {
+    if (kDebugMode) {
+      print('AlarmService initialization error: $e');
+    }
+    // Record to Crashlytics
+    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_service_init');
+  }
+
+  // Set up alarm callback for background/terminated state
+  try {
+    Alarm.ringStream.stream.listen((alarmSettings) {
+      onAlarmRinging(alarmSettings);
+    });
+  } catch (e, stack) {
+    if (kDebugMode) {
+      print('Alarm ring stream setup error: $e');
+    }
+    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_stream_setup');
+  }
+
+  // Initialize timezone helper for schedule time conversions
+  try {
+    await TimezoneHelper.initialize();
+  } catch (e, stack) {
+    if (kDebugMode) {
+      print('TimezoneHelper initialization error: $e');
+    }
+    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'timezone_helper_init');
+  }
+
+  // Allow both portrait and landscape orientations
   try {
     await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp, DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight,
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
     ]);
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarIconBrightness: Brightness.dark,
-    ));
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  } catch (_) {}
+  } catch (e, stack) {
+    if (kDebugMode) {
+      print('SystemChrome orientation error: $e');
+    }
+    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'system_chrome_orientation');
+  }
 
-  runApp(const MyApp());
-}
-
-/// ── iOS debug stub ────────────────────────────────────────────────────────
-/// Shows a plain screen with NO Firebase / plugins / services.
-/// If THIS crashes → the problem is in a native plugin registration.
-/// If this shows → Flutter runs fine, problem was in our Dart init code.
-class _IOSDebugApp extends StatelessWidget {
-  const _IOSDebugApp();
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        backgroundColor: Color(0xFF8b0628),
-        body: Center(
-          child: Text(
-            'Flutter is running on iOS ✅',
-            style: TextStyle(color: Colors.white, fontSize: 24),
-          ),
-        ),
+  // Set system UI overlay style for edge-to-edge display
+  try {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
       ),
     );
+
+    // Enable edge-to-edge display
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+    );
+  } catch (e, stack) {
+    if (kDebugMode) {
+      print('SystemChrome UI mode error: $e');
+    }
+    FirebaseCrashlytics.instance.recordError(e, stack, reason: 'system_chrome_ui_mode');
   }
+
+  // Run the app
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -143,21 +191,40 @@ class MyApp extends StatelessWidget {
         ],
         supportedLocales: const [Locale('ar', 'SA')],
         home: const SplashScreen(),
+        // Add error widget customization for release mode
         builder: (context, widget) {
+          // Customize error widget in release mode
           ErrorWidget.builder = (FlutterErrorDetails details) {
-            if (kDebugMode) return ErrorWidget(details.exception);
+            if (kDebugMode) {
+              return ErrorWidget(details.exception);
+            }
+            // In release mode, show a user-friendly error screen
             return Scaffold(
               body: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.error_outline, size: 64, color: AppTheme.errorColor),
+                    Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: AppTheme.errorColor,
+                    ),
                     const SizedBox(height: 16),
-                    const Text('حدث خطأ غير متوقع',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'حدث خطأ غير متوقع',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 8),
-                    const Text('يرجى إعادة تشغيل التطبيق',
-                        style: TextStyle(fontSize: 14, color: Colors.grey)),
+                    const Text(
+                      'يرجى إعادة تشغيل التطبيق',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
                   ],
                 ),
               ),

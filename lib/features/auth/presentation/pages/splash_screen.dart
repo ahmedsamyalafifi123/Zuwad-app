@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:firebase_core/firebase_core.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
@@ -63,7 +61,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           try {
             context.read<AuthBloc>().add(CheckAuthStatusEvent());
           } catch (e, stack) {
-            _recordError(e, stack, 'splash_auth_check');
+            FirebaseCrashlytics.instance.recordError(e, stack, reason: 'splash_auth_check');
           }
         }
       });
@@ -73,16 +71,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           _initError = e.toString();
         });
       }
-      _recordError(e, stack, 'splash_init');
+      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'splash_init');
     }
-  }
-
-  void _recordError(Object e, StackTrace stack, String reason) {
-    try {
-      if (!kIsWeb && Firebase.apps.isNotEmpty) {
-        FirebaseCrashlytics.instance.recordError(e, stack, reason: reason);
-      }
-    } catch (_) {}
   }
 
   @override
@@ -112,7 +102,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         ),
       );
     } catch (e, stack) {
-      _recordError(e, stack, 'splash_navigation');
+      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'splash_navigation');
     }
   }
 

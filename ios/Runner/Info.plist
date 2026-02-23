@@ -52,8 +52,6 @@
 		<array>
 			<string>com.zuwad.refresh</string>
 			<string>com.zuwad.processing</string>
-			<string>com.gdelataillade.fetch</string>
-			<string>com.gdelataillade.alarm</string>
 		</array>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
@@ -62,28 +60,14 @@
 		<key>UIStatusBarHidden</key>
 		<false/>
 
-		<!-- Firebase & Notifications -->
+		<!-- Firebase & Notifications iOS 16+ requirements -->
 		<key>FirebaseAppDelegateProxyEnabled</key>
-		<true/>
+		<false/>
 
-		<!-- Camera & Microphone - required for live lessons -->
+		<!-- LiveKit permissions -->
 		<key>NSCameraUsageDescription</key>
 		<string>تحتاج هذه التطبيق إلى الوصول للكاميرا للمشاركة في الدروس المرئية</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>تحتاج هذه التطبيق إلى الوصول للميكروفون للمشاركة في الدروس الصوتية</string>
-
-		<!-- Bluetooth - required for audio routing during live lessons -->
-		<key>NSBluetoothAlwaysUsageDescription</key>
-		<string>يستخدم التطبيق البلوتوث لتوجيه الصوت إلى سماعات الأذن اللاسلكية أثناء الدروس المباشرة</string>
-		<key>NSBluetoothPeripheralUsageDescription</key>
-		<string>يستخدم التطبيق البلوتوث لتوجيه الصوت إلى سماعات الأذن اللاسلكية أثناء الدروس المباشرة</string>
-
-		<!-- Local network - required for LiveKit WebRTC -->
-		<key>NSLocalNetworkUsageDescription</key>
-		<string>يستخدم التطبيق الشبكة المحلية للاتصال بخوادم الدروس المباشرة</string>
-		<key>NSBonjourServices</key>
-		<array>
-			<string>_livekit._tcp</string>
-		</array>
 	</dict>
 </plist>
