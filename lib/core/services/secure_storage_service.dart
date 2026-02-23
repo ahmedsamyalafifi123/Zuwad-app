@@ -15,9 +15,10 @@ class SecureStorageService {
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
     ),
-    iOptions: IOSOptions(
-      accessibility: KeychainAccessibility.first_unlock_this_device,
-    ),
+    // Use default IOSOptions — no explicit groupId or accessibility override.
+    // first_unlock_this_device was causing errSecMissingEntitlement (-34018)
+    // on iOS 17+ with certain provisioning profile configurations.
+    iOptions: IOSOptions(),
     // Windows and Linux use encrypted file storage internally
     wOptions: WindowsOptions(),
     lOptions: LinuxOptions(),
