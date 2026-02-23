@@ -43,9 +43,6 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
 
-      # Fix for iOS 16+ compatibility
-      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-
       # Bitcode is deprecated in Xcode 14+
       config.build_settings['ENABLE_BITCODE'] = 'NO'
 
