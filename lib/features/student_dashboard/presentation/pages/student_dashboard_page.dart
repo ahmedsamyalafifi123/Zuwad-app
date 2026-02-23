@@ -77,7 +77,13 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
     // Initialize pages - 4 pages for the 4 nav items
     _pages = [
       // 0: الرئيسة (Dashboard/Main page)
-      _DashboardContent(),
+      _DashboardContent(
+        studentMenuKey: studentMenuKey,
+        joinLessonKey: joinLessonKey,
+        rescheduleKey: rescheduleKey,
+        prevAchievementKey: prevAchievementKey,
+        alarmSettingsKey: alarmSettingsKey,
+      ),
       // 1: جدول الحصص (Schedule)
       const HomePage(),
       // 2: المراسلة (Messages)
@@ -894,6 +900,20 @@ class _NotificationButtonState extends State<_NotificationButton> {
 }
 
 class _DashboardContent extends StatefulWidget {
+  final GlobalKey studentMenuKey;
+  final GlobalKey joinLessonKey;
+  final GlobalKey rescheduleKey;
+  final GlobalKey prevAchievementKey;
+  final GlobalKey alarmSettingsKey;
+
+  const _DashboardContent({
+    required this.studentMenuKey,
+    required this.joinLessonKey,
+    required this.rescheduleKey,
+    required this.prevAchievementKey,
+    required this.alarmSettingsKey,
+  });
+
   @override
   State<_DashboardContent> createState() => _DashboardContentState();
 }
@@ -1853,7 +1873,7 @@ class _DashboardContentState extends State<_DashboardContent> {
             children: [
               // إنضم للدرس button - green gradient when can join, light yellow when can't
               Container(
-                key: joinLessonKey,
+                key: widget.joinLessonKey,
                 decoration: BoxDecoration(
                   gradient: canJoin
                       ? const LinearGradient(
@@ -1911,7 +1931,7 @@ class _DashboardContentState extends State<_DashboardContent> {
               SizedBox(width: isSmallScreen ? 6 : 10),
               // تأجيل الدرس (white border only) - smaller button
               OutlinedButton(
-                key: rescheduleKey,
+                key: widget.rescheduleKey,
                 onPressed: canPostpone ? _openPostponePage : null,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
@@ -1946,7 +1966,7 @@ class _DashboardContentState extends State<_DashboardContent> {
               if (_lastReport != null) ...[
                 SizedBox(width: isSmallScreen ? 6 : 10),
                 Container(
-                  key: prevAchievementKey,
+                  key: widget.prevAchievementKey,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [
@@ -2353,7 +2373,7 @@ class _DashboardContentState extends State<_DashboardContent> {
     final currentStudentId =
         authState is AuthAuthenticated ? authState.student?.id : null;
 
-    final RenderBox button = (studentMenuKey.currentContext
+    final RenderBox button = (widget.studentMenuKey.currentContext
             ?.findRenderObject() ??
         context.findRenderObject()) as RenderBox;
     final RenderBox overlay =
@@ -2739,14 +2759,14 @@ class _DashboardContentState extends State<_DashboardContent> {
                             const SizedBox(width: 12), // Separate arrow
                             GestureDetector(
                               onTap: () {
-                                if (studentMenuKey.currentContext != null) {
+                                if (widget.studentMenuKey.currentContext != null) {
                                   _showAccountSelection(
-                                    studentMenuKey.currentContext!,
+                                    widget.studentMenuKey.currentContext!,
                                   );
                                 }
                               },
                               child: Container(
-                                key: studentMenuKey,
+                                key: widget.studentMenuKey,
                                 margin: const EdgeInsets.only(top: 24.0),
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
@@ -2808,7 +2828,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                                   Align(
                                     alignment: Alignment.bottomCenter,
                                     child: InkWell(
-                                      key: alarmSettingsKey,
+                                      key: widget.alarmSettingsKey,
                                       onTap: _openAlarmSettings,
                                       borderRadius: BorderRadius.circular(8),
                                       child: Padding(
