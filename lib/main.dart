@@ -41,113 +41,44 @@ void onAlarmRinging(AlarmSettings alarmSettings) {
 }
 
 void main() async {
-  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
   // Track whether Firebase initialized successfully
   bool firebaseInitialized = false;
 
-  // Initialize Firebase with error handling
+  // 1. Firebase must initialize before runApp so Crashlytics error
+  //    handlers are in place for any subsequent startup errors.
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     firebaseInitialized = true;
 
-    // Initialize Crashlytics after Firebase is initialized
     if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
-      // Pass all uncaught "fatal" errors from the framework to Crashlytics
       FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-
-      // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
       PlatformDispatcher.instance.onError = (error, stack) {
         FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
         return true;
       };
-
-      if (kDebugMode) {
-        print('Crashlytics initialized successfully');
-      }
+      if (kDebugMode) print('Crashlytics initialized successfully');
     }
   } catch (e, stack) {
     if (kDebugMode) {
       print('Firebase initialization error: $e');
       print('Stack: $stack');
     }
-    // Continue without Firebase - app will still work
   }
 
-  // Set up FCM background message handler (only on supported platforms)
+  // 2. FCM background handler must be registered before runApp.
   if (_isFcmSupported) {
     try {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     } catch (e) {
-      if (kDebugMode) {
-        print('FCM background handler setup error: $e');
-      }
+      if (kDebugMode) print('FCM background handler setup error: $e');
     }
   }
 
-  // Initialize notification service with error handling
-  try {
-    await NotificationService().initialize();
-  } catch (e, stack) {
-    if (kDebugMode) {
-      print('NotificationService initialization error: $e');
-    }
-    if (firebaseInitialized) {
-      try {
-        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'notification_service_init');
-      } catch (_) {}
-    }
-  }
-
-  // Initialize alarm service with error handling
-  try {
-    await AlarmService.initialize();
-  } catch (e, stack) {
-    if (kDebugMode) {
-      print('AlarmService initialization error: $e');
-    }
-    if (firebaseInitialized) {
-      try {
-        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_service_init');
-      } catch (_) {}
-    }
-  }
-
-  // Set up alarm callback for background/terminated state
-  try {
-    // ignore: deprecated_member_use
-    Alarm.ringStream.stream.listen((alarmSettings) {
-      onAlarmRinging(alarmSettings);
-    });
-  } catch (e, stack) {
-    if (kDebugMode) {
-      print('Alarm ring stream setup error: $e');
-    }
-    if (firebaseInitialized) {
-      try {
-        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_stream_setup');
-      } catch (_) {}
-    }
-  }
-
-  // Initialize timezone helper for schedule time conversions
-  try {
-    await TimezoneHelper.initialize();
-  } catch (e, stack) {
-    if (kDebugMode) {
-      print('TimezoneHelper initialization error: $e');
-    }
-    if (firebaseInitialized) {
-      try {
-        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'timezone_helper_init');
-      } catch (_) {}
-    }
-  }
-
-  // Allow both portrait and landscape orientations
+  // 3. System UI — quick, no dialogs, safe to do before runApp.
   try {
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -155,19 +86,6 @@ void main() async {
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
-  } catch (e, stack) {
-    if (kDebugMode) {
-      print('SystemChrome orientation error: $e');
-    }
-    if (firebaseInitialized) {
-      try {
-        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'system_chrome_orientation');
-      } catch (_) {}
-    }
-  }
-
-  // Set system UI overlay style for edge-to-edge display
-  try {
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -177,24 +95,74 @@ void main() async {
         systemNavigationBarDividerColor: Colors.transparent,
       ),
     );
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  } catch (_) {}
 
-    // Enable edge-to-edge display
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.edgeToEdge,
-    );
+  // 4. Run the app immediately so the UI is visible before any
+  //    permission dialogs appear (prevents black screen on macOS/iOS).
+  runApp(const MyApp());
+
+  // 5. Initialize the remaining services after the first frame is drawn.
+  //    NotificationService requests permission — doing this after runApp
+  //    means the dialog appears over the splash screen, not a black screen.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _initServicesInBackground(firebaseInitialized);
+  });
+}
+
+/// Initializes services that may show permission dialogs or take time.
+/// Called after the first frame so the UI is already visible.
+Future<void> _initServicesInBackground(bool firebaseInitialized) async {
+  // NotificationService — may trigger permission dialog on first launch
+  try {
+    await NotificationService().initialize();
   } catch (e, stack) {
-    if (kDebugMode) {
-      print('SystemChrome UI mode error: $e');
-    }
+    if (kDebugMode) print('NotificationService initialization error: $e');
     if (firebaseInitialized) {
       try {
-        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'system_chrome_ui_mode');
+        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'notification_service_init');
       } catch (_) {}
     }
   }
 
-  // Run the app
-  runApp(const MyApp());
+  // AlarmService
+  try {
+    await AlarmService.initialize();
+  } catch (e, stack) {
+    if (kDebugMode) print('AlarmService initialization error: $e');
+    if (firebaseInitialized) {
+      try {
+        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_service_init');
+      } catch (_) {}
+    }
+  }
+
+  // Alarm ring stream
+  try {
+    // ignore: deprecated_member_use
+    Alarm.ringStream.stream.listen((alarmSettings) {
+      onAlarmRinging(alarmSettings);
+    });
+  } catch (e, stack) {
+    if (kDebugMode) print('Alarm ring stream setup error: $e');
+    if (firebaseInitialized) {
+      try {
+        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'alarm_stream_setup');
+      } catch (_) {}
+    }
+  }
+
+  // TimezoneHelper
+  try {
+    await TimezoneHelper.initialize();
+  } catch (e, stack) {
+    if (kDebugMode) print('TimezoneHelper initialization error: $e');
+    if (firebaseInitialized) {
+      try {
+        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'timezone_helper_init');
+      } catch (_) {}
+    }
+  }
 }
 
 class MyApp extends StatelessWidget {
