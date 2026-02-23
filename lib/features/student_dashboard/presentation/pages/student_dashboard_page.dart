@@ -44,20 +44,21 @@ import '../utils/timezone_utils.dart';
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key});
 
-  // Global Keys for Tutorial
-  static final GlobalKey studentMenuKey = GlobalKey();
-  static final GlobalKey joinLessonKey = GlobalKey();
-  static final GlobalKey rescheduleKey = GlobalKey();
-  static final GlobalKey prevAchievementKey = GlobalKey();
-  static final GlobalKey scheduleNavKey = GlobalKey();
-  static final GlobalKey alarmSettingsKey = GlobalKey(); // New Key
-
   @override
   State<StudentDashboardPage> createState() => _StudentDashboardPageState();
 }
 
 class _StudentDashboardPageState extends State<StudentDashboardPage> {
   int _currentIndex = 0; // Start with الرئيسة (home/dashboard)
+
+  // Instance-level GlobalKeys — must NOT be static to avoid "Multiple widgets
+  // used the same GlobalKey" when the widget is rebuilt or re-inserted.
+  final GlobalKey studentMenuKey = GlobalKey();
+  final GlobalKey joinLessonKey = GlobalKey();
+  final GlobalKey rescheduleKey = GlobalKey();
+  final GlobalKey prevAchievementKey = GlobalKey();
+  final GlobalKey scheduleNavKey = GlobalKey();
+  final GlobalKey alarmSettingsKey = GlobalKey();
 
   late final List<Widget> _pages;
 
@@ -140,14 +141,6 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
   }
 
   Future<void> _checkAndShowTutorial() async {
-    // kDebugMode allows testing easily - ALWAYS SHOWS IN DEBUG as requested
-    if (kDebugMode) {
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) _showTutorial();
-      });
-      return;
-    }
-
     final prefs = await SharedPreferences.getInstance();
     final seen = prefs.getBool('seen_dashboard_tutorial') ?? false;
     if (!seen) {
@@ -160,9 +153,23 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
   }
 
   void _showTutorial() {
+    // Guard: ensure all target keys have mounted widgets before showing.
+    // If any key has no context the tutorial will crash with
+    // "It was not possible to obtain target position".
+    final keysReady = [
+      studentMenuKey,
+      joinLessonKey,
+      rescheduleKey,
+      prevAchievementKey,
+      scheduleNavKey,
+      alarmSettingsKey,
+    ].every((k) => k.currentContext != null);
+
+    if (!keysReady || !mounted) return;
+
     TutorialCoachMark(
       targets: _createTargets(),
-      colorShadow: Colors.black, // Changed from burgundy to black
+      colorShadow: Colors.black,
       textSkip: "تخطي",
       textStyleSkip: const TextStyle(
         fontFamily: 'Qatar',
@@ -176,20 +183,16 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
         _markTutorialSeen();
       },
       onClickTarget: (target) {
-        // If clicking the schedule nav item, switch tab
         if (target.identify == "schedule_nav") {
           setState(() => _currentIndex = 1);
-          _markTutorialSeen(); // Mark part 1 seen
-          // Part 2 will be handled by HomePage
+          _markTutorialSeen();
         }
       },
       onSkip: () {
         _markTutorialSeen(skipAll: true);
         return true;
       },
-      onClickOverlay: (target) {
-        // Allow clicks on overlay to next
-      },
+      onClickOverlay: (target) {},
     )..show(context: context);
   }
 
@@ -208,7 +211,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
     targets.add(
       TargetFocus(
         identify: "student_menu",
-        keyTarget: StudentDashboardPage.studentMenuKey,
+        keyTarget: studentMenuKey,
         alignSkip: Alignment.topRight,
         contents: [
           TargetContent(
@@ -272,7 +275,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
     targets.add(
       TargetFocus(
         identify: "alarm_settings",
-        keyTarget: StudentDashboardPage.alarmSettingsKey,
+        keyTarget: alarmSettingsKey,
         alignSkip: Alignment.topRight,
         contents: [
           TargetContent(
@@ -356,7 +359,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
     targets.add(
       TargetFocus(
         identify: "join_lesson",
-        keyTarget: StudentDashboardPage.joinLessonKey,
+        keyTarget: joinLessonKey,
         alignSkip: Alignment.topRight,
         contents: [
           TargetContent(
@@ -440,7 +443,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
     targets.add(
       TargetFocus(
         identify: "reschedule",
-        keyTarget: StudentDashboardPage.rescheduleKey,
+        keyTarget: rescheduleKey,
         alignSkip: Alignment.topRight,
         contents: [
           TargetContent(
@@ -613,7 +616,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              // key: StudentDashboardPage.studentMenuKey, // Moved to arrow in dashboard content
+                              // key: studentMenuKey, // Moved to arrow in dashboard content
                               onSelected: (value) {
                                 if (value == 'logout') {
                                   // Show confirmation dialog
@@ -781,7 +784,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
         onTap: (index) => setState(() => _currentIndex = index),
         chatUnreadCount: _chatUnreadCount,
         itemKeys: {
-          1: StudentDashboardPage.scheduleNavKey
+          1: scheduleNavKey
         }, // Schedule is index 1
       ),
     );
@@ -914,7 +917,7 @@ class _DashboardContentState extends State<_DashboardContent> {
   StudentReport? _lastReport;
   List<Student> _familyMembers = [];
   bool _loadingFamily = false;
-  // final GlobalKey _arrowKey = GlobalKey(); // Replaced by StudentDashboardPage.studentMenuKey
+  // final GlobalKey _arrowKey = GlobalKey(); // Replaced by studentMenuKey
 
   @override
   void initState() {
@@ -1850,7 +1853,7 @@ class _DashboardContentState extends State<_DashboardContent> {
             children: [
               // إنضم للدرس button - green gradient when can join, light yellow when can't
               Container(
-                key: StudentDashboardPage.joinLessonKey,
+                key: joinLessonKey,
                 decoration: BoxDecoration(
                   gradient: canJoin
                       ? const LinearGradient(
@@ -1908,7 +1911,7 @@ class _DashboardContentState extends State<_DashboardContent> {
               SizedBox(width: isSmallScreen ? 6 : 10),
               // تأجيل الدرس (white border only) - smaller button
               OutlinedButton(
-                key: StudentDashboardPage.rescheduleKey,
+                key: rescheduleKey,
                 onPressed: canPostpone ? _openPostponePage : null,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
@@ -1943,7 +1946,7 @@ class _DashboardContentState extends State<_DashboardContent> {
               if (_lastReport != null) ...[
                 SizedBox(width: isSmallScreen ? 6 : 10),
                 Container(
-                  key: StudentDashboardPage.prevAchievementKey,
+                  key: prevAchievementKey,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [
@@ -2350,7 +2353,7 @@ class _DashboardContentState extends State<_DashboardContent> {
     final currentStudentId =
         authState is AuthAuthenticated ? authState.student?.id : null;
 
-    final RenderBox button = (StudentDashboardPage.studentMenuKey.currentContext
+    final RenderBox button = (studentMenuKey.currentContext
             ?.findRenderObject() ??
         context.findRenderObject()) as RenderBox;
     final RenderBox overlay =
@@ -2614,6 +2617,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                     children: [
                       // Welcome header
                       Container(
+                        width: double.infinity,
                         margin: const EdgeInsets.only(bottom: 20.0, left: 24.0),
                         padding: const EdgeInsets.only(
                           right: 16.0,
@@ -2653,7 +2657,6 @@ class _DashboardContentState extends State<_DashboardContent> {
                           ],
                         ),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Container(
                               decoration: BoxDecoration(
@@ -2736,17 +2739,14 @@ class _DashboardContentState extends State<_DashboardContent> {
                             const SizedBox(width: 12), // Separate arrow
                             GestureDetector(
                               onTap: () {
-                                if (StudentDashboardPage
-                                        .studentMenuKey.currentContext !=
-                                    null) {
+                                if (studentMenuKey.currentContext != null) {
                                   _showAccountSelection(
-                                    StudentDashboardPage
-                                        .studentMenuKey.currentContext!,
+                                    studentMenuKey.currentContext!,
                                   );
                                 }
                               },
                               child: Container(
-                                key: StudentDashboardPage.studentMenuKey,
+                                key: studentMenuKey,
                                 margin: const EdgeInsets.only(top: 24.0),
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
@@ -2808,8 +2808,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                                   Align(
                                     alignment: Alignment.bottomCenter,
                                     child: InkWell(
-                                      key: StudentDashboardPage
-                                          .alarmSettingsKey, // Assign Key here
+                                      key: alarmSettingsKey,
                                       onTap: _openAlarmSettings,
                                       borderRadius: BorderRadius.circular(8),
                                       child: Padding(
