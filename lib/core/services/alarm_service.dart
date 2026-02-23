@@ -266,12 +266,10 @@ class AlarmService {
       final notificationBody =
           'الحصة مع $teacherName - $lessonName\nستبدأ بعد ${hoursBeforeLesson > 0 ? "$hoursBeforeLesson ساعة و" : ""}$minutesBeforeLesson دقيقة';
 
-      // iOS does not support .ogg — use platform-specific audio path.
-      // TODO: Replace 'assets/audio/alarm.mp3' with your actual iOS alarm sound.
-      //       Convert alarm.ogg → alarm.mp3 using: brew install ffmpeg &&
-      //       ffmpeg -i assets/audio/alarm.ogg assets/audio/alarm.mp3
+      // iOS does not support .ogg (AVAudioPlayer limitation).
+      // alarm.m4a is the iOS-compatible version converted from alarm.ogg.
       final audioPath = Platform.isIOS
-          ? 'assets/audio/alarm.mp3'
+          ? 'assets/audio/alarm.m4a'
           : 'assets/audio/alarm.ogg';
 
       // Schedule with alarm package

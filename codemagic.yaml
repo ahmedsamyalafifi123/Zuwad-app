@@ -1,0 +1,72 @@
+workflows:
+  ios-testflight:
+    name: iOS TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: App Store Connect API Key  # Set this in Codemagic → Teams → Integrations
+
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.zuwad
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: com.zuwad
+        XCODE_WORKSPACE: ios/Runner.xcworkspace
+        XCODE_SCHEME: Runner
+
+    scripts:
+      - name: Set up Flutter
+        script: flutter precache --ios
+
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Install CocoaPods
+        script: |
+          cd ios && pod install
+
+      - name: Flutter build IPA
+        script: |
+          flutter build ipa \
+            --release \
+            --export-options-plist=/Users/builder/export_options.plist
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - External Testers
+        notify_external_testers: false
+
+  ios-simulator-debug:
+    name: iOS Debug (Simulator)
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+
+    scripts:
+      - name: Get Flutter packages
+        script: flutter precache --ios && flutter pub get
+
+      - name: Install CocoaPods
+        script: cd ios && pod install
+
+      - name: Build for simulator
+        script: flutter build ios --debug --simulator --no-codesign
+
+    artifacts:
+      - build/ios/iphonesimulator/Runner.app
