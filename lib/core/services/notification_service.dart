@@ -156,6 +156,7 @@ class NotificationService {
         InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsDarwin,
+      macOS: initializationSettingsDarwin,
     );
 
     await _localNotifications.initialize(
