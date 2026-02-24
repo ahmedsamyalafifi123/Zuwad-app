@@ -1,6 +1,5 @@
 import Flutter
 import UIKit
-import FirebaseCore
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -8,9 +7,8 @@ import FirebaseCore
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-
-    // Initialize Firebase as early as possible for Crashlytics
-    FirebaseApp.configure()
+    // Firebase is initialized in Dart (main.dart) via Firebase.initializeApp()
+    // Do NOT call FirebaseApp.configure() here to avoid double initialization crash
 
     GeneratedPluginRegistrant.register(with: self)
 
