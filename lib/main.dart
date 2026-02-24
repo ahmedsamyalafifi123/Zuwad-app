@@ -46,12 +46,16 @@ void main() async {
   // Track whether Firebase initialized successfully
   bool firebaseInitialized = false;
 
-  // 1. Firebase must initialize before runApp so Crashlytics error
-  //    handlers are in place for any subsequent startup errors.
+  // 1. Firebase initialization
+  // On iOS, Firebase is already initialized natively in AppDelegate.swift
+  // On Android and other platforms, we need to initialize here
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    // Check if Firebase is already initialized (hives on iOS when configured natively)
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
     firebaseInitialized = true;
 
     if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
