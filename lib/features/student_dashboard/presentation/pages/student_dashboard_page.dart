@@ -40,6 +40,7 @@ import '../../../../core/utils/timezone_helper.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/timezone_utils.dart';
+import '../../../../core/utils/version_check_helper.dart';
 
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key});
@@ -121,6 +122,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndShowTutorial();
+      VersionCheckHelper.checkVersion(context);
     });
   }
 
@@ -789,9 +791,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         chatUnreadCount: _chatUnreadCount,
-        itemKeys: {
-          1: scheduleNavKey
-        }, // Schedule is index 1
+        itemKeys: {1: scheduleNavKey}, // Schedule is index 1
       ),
     );
   }
@@ -2373,9 +2373,9 @@ class _DashboardContentState extends State<_DashboardContent> {
     final currentStudentId =
         authState is AuthAuthenticated ? authState.student?.id : null;
 
-    final RenderBox button = (widget.studentMenuKey.currentContext
-            ?.findRenderObject() ??
-        context.findRenderObject()) as RenderBox;
+    final RenderBox button =
+        (widget.studentMenuKey.currentContext?.findRenderObject() ??
+            context.findRenderObject()) as RenderBox;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
 
@@ -2759,7 +2759,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                             const SizedBox(width: 12), // Separate arrow
                             GestureDetector(
                               onTap: () {
-                                if (widget.studentMenuKey.currentContext != null) {
+                                if (widget.studentMenuKey.currentContext !=
+                                    null) {
                                   _showAccountSelection(
                                     widget.studentMenuKey.currentContext!,
                                   );
