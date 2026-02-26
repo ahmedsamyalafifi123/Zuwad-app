@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:zuwad/core/utils/gender_helper.dart';
@@ -96,40 +98,43 @@ class SettingsCourseCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     // Right Side: Price (In RTL, first child is Right)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'سعر الباقة',
-                          style: TextStyle(
-                            fontFamily: 'Qatar',
-                            fontSize: 14,
-                            color: Color.fromARGB(255, 0, 0, 0),
+                    if (kIsWeb || !Platform.isIOS)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'سعر الباقة',
+                            style: TextStyle(
+                              fontFamily: 'Qatar',
+                              fontSize: 14,
+                              color: Color.fromARGB(255, 0, 0, 0),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.account_balance_wallet_outlined,
-                              color: AppTheme.primaryColor,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${student.amount ?? 0} ${student.currency ?? "SAR"}',
-                              style: const TextStyle(
-                                fontFamily: 'Qatar',
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.account_balance_wallet_outlined,
                                 color: AppTheme.primaryColor,
+                                size: 20,
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${student.amount ?? 0} ${student.currency ?? "SAR"}',
+                                style: const TextStyle(
+                                  fontFamily: 'Qatar',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    else
+                      const Spacer(),
 
                     // Left Side: Teacher (In RTL, last child is Left)
                     Row(
@@ -203,31 +208,35 @@ class SettingsCourseCard extends StatelessWidget {
                 onTap: onChangeTeacher,
               ),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildActionButton(
-                context: context,
-                label: 'الغاء التجديد',
-                onTap: onCancelRenewal,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildActionButton(
-                context: context,
-                label: 'تعديل الباقة',
-                onTap: onEditPackage,
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFFFFD700), // Lighter Gold
-                    Color(0xFFD4AF37), // Gold
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+            if (kIsWeb || !Platform.isIOS) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildActionButton(
+                  context: context,
+                  label: 'الغاء التجديد',
+                  onTap: onCancelRenewal,
                 ),
-                textColor: Colors.black,
               ),
-            ),
+            ],
+            if (kIsWeb || !Platform.isIOS) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildActionButton(
+                  context: context,
+                  label: 'تعديل الباقة',
+                  onTap: onEditPackage,
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFFFFD700), // Lighter Gold
+                      Color(0xFFD4AF37), // Gold
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                  textColor: Colors.black,
+                ),
+              ),
+            ],
           ],
         ),
       ],

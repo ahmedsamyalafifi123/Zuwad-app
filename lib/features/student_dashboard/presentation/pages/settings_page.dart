@@ -462,18 +462,22 @@ class _SettingsPageState extends State<SettingsPage> {
                                 "السلام عليكم، أود تبديل المعلم (أو المعلمة)."),
                           ),
 
-                        if (_student != null) _buildDivider(),
-                        if (_familyMembers.isNotEmpty)
+                        if (_student != null && !(!kIsWeb && Platform.isIOS))
+                          _buildDivider(),
+                        if (_familyMembers.isNotEmpty &&
+                            !(!kIsWeb && Platform.isIOS))
                           SettingsSubscriptionsCard(
                             familyMembers: _familyMembers
                                 .where((s) => s['payment_status'] != 'متوقف')
                                 .toList(),
                           ),
 
-                        if (_familyMembers.isNotEmpty) _buildDivider(),
+                        if (_familyMembers.isNotEmpty &&
+                            !(!kIsWeb && Platform.isIOS))
+                          _buildDivider(),
 
                         // 5. Financial Info (NEW)
-                        if (_walletInfo != null)
+                        if (_walletInfo != null && !(!kIsWeb && Platform.isIOS))
                           SettingsFinancialCard(
                             walletInfo: _walletInfo!,
                             totalAmount: _familyMembers
@@ -493,13 +497,14 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(height: 16),
 
                         // 6. Bottom Actions (NEW)
-                        SettingsBottomActions(
-                          onTransactions: _showTransactionsModal,
-                          onPostponePayment: () => _contactSupport(
-                              "السلام عليكم، أود طلب تأجيل الدفع."),
-                          onPayFees: _handlePayFees,
-                          payFeesLabel: _getPayFeesLabel(),
-                        ),
+                        if (kIsWeb || !Platform.isIOS)
+                          SettingsBottomActions(
+                            onTransactions: _showTransactionsModal,
+                            onPostponePayment: () => _contactSupport(
+                                "السلام عليكم، أود طلب تأجيل الدفع."),
+                            onPayFees: _handlePayFees,
+                            payFeesLabel: _getPayFeesLabel(),
+                          ),
 
                         const SizedBox(height: 100), // Bottom padding
                       ],
@@ -2481,7 +2486,8 @@ class _SettingsPageState extends State<SettingsPage> {
                           const SizedBox(width: 8),
                           InkWell(
                             onTap: () {
-                              Clipboard.setData(ClipboardData(text: '78392964'));
+                              Clipboard.setData(
+                                  ClipboardData(text: '78392964'));
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('تم نسخ الرقم'),
