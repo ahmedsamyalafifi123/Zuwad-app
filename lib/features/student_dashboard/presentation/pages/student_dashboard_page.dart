@@ -92,6 +92,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
         builder: (context, state) {
           if (state is AuthAuthenticated && state.student != null) {
             return ChatListPage(
+              key: ValueKey('chat_list_${state.student!.id}'),
               studentId: state.student!.id.toString(),
               studentName: state.student!.name,
               teacherId: state.student!.teacherId?.toString() ?? '',

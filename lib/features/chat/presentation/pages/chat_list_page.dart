@@ -7,6 +7,8 @@ import '../../../../core/services/chat_event_service.dart';
 import '../../data/models/contact.dart';
 import '../../data/models/conversation.dart';
 import '../../data/repositories/chat_repository.dart';
+import '../../../auth/data/repositories/auth_repository.dart';
+import '../../../auth/domain/models/student.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import 'package:zuwad/features/auth/presentation/bloc/auth_state.dart';
 import 'package:zuwad/core/utils/gender_helper.dart';
@@ -48,10 +50,12 @@ class ChatListPage extends StatefulWidget {
 
 class _ChatListPageState extends State<ChatListPage> {
   final ChatRepository _chatRepository = ChatRepository();
+  final AuthRepository _authRepository = AuthRepository();
   final ChatEventService _chatEventService = ChatEventService();
 
   List<Contact> _contacts = [];
   List<Conversation> _conversations = [];
+  Map<int, String> _teacherSubjectsById = {};
   bool _isLoading = true;
   bool _hasError = false;
   String _errorMessage = '';
@@ -61,8 +65,132 @@ class _ChatListPageState extends State<ChatListPage> {
   // Tutorial Keys
   final GlobalKey _teacherKey = GlobalKey();
   final GlobalKey _supervisorKey = GlobalKey();
-  bool _hasTeacher = false;
-  bool _hasSupervisor = false;
+
+  bool _isTeacherContact(Contact c) {
+    final role = c.role.toLowerCase();
+    final relation = c.relation.toLowerCase();
+    return role == 'teacher' || relation == 'teacher';
+  }
+
+  bool _isSupervisorContact(Contact c) {
+    final role = c.role.toLowerCase();
+    final relation = c.relation.toLowerCase();
+    return role == 'supervisor' ||
+        role == 'mini-visor' ||
+        relation == 'supervisor' ||
+        relation == 'mini-visor';
+  }
+
+  Future<List<Student>> _resolveFamilyMembersWithTeacherData(
+    List<Student> familyMembers,
+  ) async {
+    if (familyMembers.isEmpty) return familyMembers;
+
+    final resolved = await Future.wait(
+      familyMembers.map((member) async {
+        final profile = await _authRepository.getStudentProfileById(member.id);
+        return profile ?? member;
+      }),
+    );
+
+    return resolved;
+  }
+
+  Map<int, String> _buildTeacherSubjectsMap(List<Student> familyMembers) {
+    final Map<int, Set<String>> subjectsByTeacher = {};
+
+    for (final student in familyMembers) {
+      final teacherId = student.teacherId ?? 0;
+      if (teacherId <= 0) continue;
+
+      final lessonName = student.lessonsName;
+      if (lessonName == null || lessonName.trim().isEmpty) continue;
+
+      final displaySubject = Student.getDisplayLessonName(lessonName.trim());
+      if (displaySubject.isEmpty) continue;
+
+      subjectsByTeacher.putIfAbsent(teacherId, () => <String>{});
+      subjectsByTeacher[teacherId]!.add(displaySubject);
+    }
+
+    return subjectsByTeacher.map(
+      (teacherId, subjects) => MapEntry(teacherId, subjects.join('، ')),
+    );
+  }
+
+  List<Contact> _normalizeContactsForSelectedStudent(
+    List<Contact> contacts,
+    List<Student> familyMembers,
+  ) {
+    final familyTeacherById = <int, Student>{};
+    for (final member in familyMembers) {
+      final id = member.teacherId ?? 0;
+      if (id > 0) {
+        familyTeacherById.putIfAbsent(id, () => member);
+      }
+    }
+
+    final fallbackTeacherId = int.tryParse(widget.teacherId);
+    if (familyTeacherById.isEmpty &&
+        fallbackTeacherId != null &&
+        fallbackTeacherId > 0) {
+      familyTeacherById[fallbackTeacherId] = Student(
+        id: int.tryParse(widget.studentId) ?? 0,
+        name: widget.studentName,
+        phone: '',
+        teacherId: fallbackTeacherId,
+        teacherName: widget.teacherName,
+      );
+    }
+
+    final supervisorId = int.tryParse(widget.supervisorId);
+    final normalized = List<Contact>.from(contacts);
+
+    final familyTeacherIds = familyTeacherById.keys.toSet();
+    if (familyTeacherIds.isNotEmpty) {
+      normalized.removeWhere(
+        (c) => _isTeacherContact(c) && !familyTeacherIds.contains(c.id),
+      );
+
+      for (final teacherId in familyTeacherIds) {
+        final hasTeacher = normalized.any((c) => c.id == teacherId);
+        if (hasTeacher) continue;
+
+        final source = familyTeacherById[teacherId];
+        normalized.add(
+          Contact(
+            id: teacherId,
+            name: (source?.teacherName != null && source!.teacherName!.isNotEmpty)
+                ? source.teacherName!
+                : (widget.teacherName.isNotEmpty ? widget.teacherName : 'المعلم'),
+            role: 'teacher',
+            relation: 'teacher',
+            profileImage: source?.teacherImage,
+          ),
+        );
+      }
+    }
+
+    if (supervisorId != null && supervisorId > 0) {
+      normalized
+          .removeWhere((c) => _isSupervisorContact(c) && c.id != supervisorId);
+      final hasSelectedSupervisor = normalized.any((c) => c.id == supervisorId);
+      if (!hasSelectedSupervisor) {
+        normalized.add(
+          Contact(
+            id: supervisorId,
+            name: widget.supervisorName.isNotEmpty
+                ? widget.supervisorName
+                : 'خدمة العملاء',
+            role: 'supervisor',
+            relation: 'supervisor',
+          ),
+        );
+      }
+    }
+
+    return normalized;
+  }
 
   @override
   void initState() {
@@ -89,6 +217,23 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   @override
+  void didUpdateWidget(covariant ChatListPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final studentChanged = oldWidget.studentId != widget.studentId;
+    final teacherChanged = oldWidget.teacherId != widget.teacherId;
+    final supervisorChanged = oldWidget.supervisorId != widget.supervisorId;
+
+    if (studentChanged || teacherChanged || supervisorChanged) {
+      if (kDebugMode) {
+        print(
+            'ChatListPage context changed (student/teacher/supervisor). Reloading contacts and conversations.');
+      }
+      _loadData();
+    }
+  }
+
+  @override
   void dispose() {
     _refreshTimer?.cancel();
     _chatEventSubscription?.cancel();
@@ -102,30 +247,38 @@ class _ChatListPageState extends State<ChatListPage> {
     });
 
     try {
-      // Load contacts and conversations in parallel
+      // Load contacts + conversations in parallel, then resolve family teachers
+      final contactsFuture = _chatRepository.getContacts();
+      final conversationsFuture = _chatRepository.getConversations();
+      final familyMembers = await _authRepository.getFamilyMembers();
+      final resolvedFamilyMembers =
+          await _resolveFamilyMembersWithTeacherData(familyMembers);
       final results = await Future.wait([
-        _chatRepository.getContacts(),
-        _chatRepository.getConversations(),
+        contactsFuture,
+        conversationsFuture,
       ]);
 
       if (mounted) {
+        final teacherSubjectsById =
+            _buildTeacherSubjectsMap(resolvedFamilyMembers);
+        final normalizedContacts = _normalizeContactsForSelectedStudent(
+          results[0] as List<Contact>,
+          resolvedFamilyMembers,
+        );
         setState(() {
-          _contacts = results[0] as List<Contact>;
+          _contacts = normalizedContacts;
+          _teacherSubjectsById = teacherSubjectsById;
 
           // Sort contacts: Supervisor (Customer Service) first, then Teacher, then others
           _contacts.sort((a, b) {
-            final aIsSupervisor = a.role.toLowerCase() == 'supervisor' ||
-                a.relation.toLowerCase() == 'supervisor';
-            final bIsSupervisor = b.role.toLowerCase() == 'supervisor' ||
-                b.relation.toLowerCase() == 'supervisor';
+            final aIsSupervisor = _isSupervisorContact(a);
+            final bIsSupervisor = _isSupervisorContact(b);
 
             if (aIsSupervisor && !bIsSupervisor) return -1;
             if (!aIsSupervisor && bIsSupervisor) return 1;
 
-            final aIsTeacher = a.role.toLowerCase() == 'teacher' ||
-                a.relation.toLowerCase() == 'teacher';
-            final bIsTeacher = b.role.toLowerCase() == 'teacher' ||
-                b.relation.toLowerCase() == 'teacher';
+            final aIsTeacher = _isTeacherContact(a);
+            final bIsTeacher = _isTeacherContact(b);
 
             if (aIsTeacher && !bIsTeacher) return -1;
             if (!aIsTeacher && bIsTeacher) return 1;
@@ -227,7 +380,8 @@ class _ChatListPageState extends State<ChatListPage> {
       );
     }
 
-    if (role.toLowerCase() == 'supervisor') {
+    if (role.toLowerCase() == 'supervisor' ||
+        role.toLowerCase() == 'mini-visor') {
       return Transform.scale(
         scale: 1.5,
         child: Lottie.asset(
@@ -262,6 +416,7 @@ class _ChatListPageState extends State<ChatListPage> {
       case 'teacher':
         return (gender == 'أنثى') ? 'المعلمة' : 'المعلم';
       case 'supervisor':
+      case 'mini-visor':
         return 'المشرف';
       case 'student':
         return 'الطالب';
@@ -272,6 +427,7 @@ class _ChatListPageState extends State<ChatListPage> {
       case 'teacher':
         return (gender == 'أنثى') ? 'المعلمة' : 'المعلم';
       case 'supervisor':
+      case 'mini-visor':
         return 'المشرف';
       case 'student':
         return 'الطالب';
@@ -414,8 +570,7 @@ class _ChatListPageState extends State<ChatListPage> {
       if (authState is AuthAuthenticated && authState.student != null) {
         // Only use student's teacherGender if this contact is THE teacher
         // We assume 'teacher' relation implies it's the student's teacher
-        if (contact.relation.toLowerCase() == 'teacher' ||
-            contact.role.toLowerCase() == 'teacher') {
+        if (_isTeacherContact(contact)) {
           gender = authState.student!.teacherGender ?? 'ذكر';
         }
       }
@@ -423,12 +578,18 @@ class _ChatListPageState extends State<ChatListPage> {
 
     final roleName =
         _getRoleName(contact.role, contact.relation, gender: gender);
+    final teacherSubject = _isTeacherContact(contact)
+        ? _teacherSubjectsById[contact.id]
+        : null;
+    final roleNameWithSubject = (teacherSubject != null &&
+            teacherSubject.trim().isNotEmpty)
+        ? '$roleName | $teacherSubject'
+        : roleName;
 
     // Override display name for supervisor
     String displayName = contact.name;
     bool isSupervisor = false;
-    if (contact.role.toLowerCase() == 'supervisor' ||
-        contact.relation.toLowerCase() == 'supervisor') {
+    if (_isSupervisorContact(contact)) {
       displayName = 'خدمة العملاء';
       isSupervisor = true;
     }
@@ -566,7 +727,7 @@ class _ChatListPageState extends State<ChatListPage> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              roleName,
+                              roleNameWithSubject,
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: AppTheme.primaryColor,
@@ -614,11 +775,9 @@ class _ChatListPageState extends State<ChatListPage> {
     // Better approach: Find the index of the first teacher/supervisor in the list once, inside build or checking here.
 
     // Check if this contact is the FIRST teacher
-    if (contact.role.toLowerCase() == 'teacher' ||
-        contact.relation.toLowerCase() == 'teacher') {
+    if (_isTeacherContact(contact)) {
       final firstTeacherIndex = _contacts.indexWhere((c) =>
-          c.role.toLowerCase() == 'teacher' ||
-          c.relation.toLowerCase() == 'teacher');
+          _isTeacherContact(c));
       if (firstTeacherIndex != -1 &&
           _contacts[firstTeacherIndex].id == contact.id) {
         return _teacherKey;
@@ -626,11 +785,9 @@ class _ChatListPageState extends State<ChatListPage> {
     }
 
     // Check if this contact is the FIRST supervisor
-    if (contact.role.toLowerCase() == 'supervisor' ||
-        contact.relation.toLowerCase() == 'supervisor') {
+    if (_isSupervisorContact(contact)) {
       final firstSupervisorIndex = _contacts.indexWhere((c) =>
-          c.role.toLowerCase() == 'supervisor' ||
-          c.relation.toLowerCase() == 'supervisor');
+          _isSupervisorContact(c));
       if (firstSupervisorIndex != -1 &&
           _contacts[firstSupervisorIndex].id == contact.id) {
         return _supervisorKey;
@@ -695,9 +852,7 @@ class _ChatListPageState extends State<ChatListPage> {
     List<TargetFocus> targets = [];
 
     // 1. Supervisor Target (Customer Service) - REORDERED to be first
-    bool hasSupervisor = _contacts.any((c) =>
-        c.role.toLowerCase() == 'supervisor' ||
-        c.relation.toLowerCase() == 'supervisor');
+    bool hasSupervisor = _contacts.any((c) => _isSupervisorContact(c));
 
     if (hasSupervisor) {
       targets.add(
@@ -765,9 +920,7 @@ class _ChatListPageState extends State<ChatListPage> {
     }
 
     // 2. Teacher Target - REORDERED to be second
-    bool hasTeacher = _contacts.any((c) =>
-        c.role.toLowerCase() == 'teacher' ||
-        c.relation.toLowerCase() == 'teacher');
+    bool hasTeacher = _contacts.any((c) => _isTeacherContact(c));
 
     if (hasTeacher) {
       targets.add(
@@ -865,8 +1018,7 @@ class _ChatListPageState extends State<ChatListPage> {
     try {
       final authState = context.read<AuthBloc>().state;
       if (authState is AuthAuthenticated && authState.student != null) {
-        if (contact.relation.toLowerCase() == 'teacher' ||
-            contact.role.toLowerCase() == 'teacher') {
+        if (_isTeacherContact(contact)) {
           gender = authState.student!.teacherGender ?? 'ذكر';
         }
       }
@@ -893,3 +1045,4 @@ class _ChatListPageState extends State<ChatListPage> {
     });
   }
 }
+

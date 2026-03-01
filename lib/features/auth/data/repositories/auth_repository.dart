@@ -159,6 +159,50 @@ class AuthRepository {
     }
   }
 
+  /// Get a specific student profile by ID with teacher enrichment.
+  /// This is useful when family list payloads are incomplete.
+  Future<Student?> getStudentProfileById(int userId) async {
+    try {
+      if (kDebugMode) {
+        print('AuthRepository.getStudentProfileById: userId = $userId');
+      }
+
+      final profileData = await _api.getStudentProfile(userId);
+      final student = Student.fromApiV2(profileData);
+
+      if (student.teacherId != null && student.teacherId! > 0) {
+        try {
+          final teacherData = await _api.getTeacherData(student.teacherId!);
+          if (teacherData.isNotEmpty) {
+            final teacherGender = teacherData['gender']?.toString();
+            final teacherImage = teacherData['profile_image']?.toString() ??
+                teacherData['profile_image_url']?.toString() ??
+                teacherData['avatar']?.toString() ??
+                teacherData['avatar_url']?.toString() ??
+                teacherData['user_avatar']?.toString();
+
+            return student.copyWith(
+              teacherGender: teacherGender,
+              teacherImage: teacherImage,
+            );
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print(
+                'AuthRepository.getStudentProfileById: teacher enrichment failed: $e');
+          }
+        }
+      }
+
+      return student;
+    } catch (e) {
+      if (kDebugMode) {
+        print('AuthRepository.getStudentProfileById: Error - $e');
+      }
+      return null;
+    }
+  }
+
   /// Change the user's password.
   Future<bool> changePassword(
       String currentPassword, String newPassword) async {
