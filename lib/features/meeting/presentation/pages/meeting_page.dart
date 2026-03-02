@@ -42,7 +42,7 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
   static const MethodChannel _permissionChannel = MethodChannel('com.zuwad/permissions');
 
   late final LiveKitService _liveKitService;
-  late final EventsListener<RoomEvent> _roomListener;
+  EventsListener<RoomEvent>? _roomListener;
   bool _isConnecting = true;
   bool _isConnected = false;
   bool _isCameraEnabled = true;
@@ -118,8 +118,8 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
     _disableWakeLock();
     // Disable PiP mode when leaving meeting page
     _disablePiP();
-    // Dispose event listener
-    _roomListener.dispose();
+    // Dispose event listener if initialized
+    _roomListener?.dispose();
     // _celebrationTimer removed in optimization
     _audioPlayer.dispose();
     _liveKitService.disconnect();
@@ -625,10 +625,11 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
     room.addListener(_onRoomUpdate);
 
     // Create events listener for track subscription events (critical for audio playback)
-    _roomListener = room.createListener();
+    final listener = room.createListener();
+    _roomListener = listener;
 
     // Listen for track subscription events
-    _roomListener
+    listener
       ..on<TrackSubscribedEvent>((event) {
         if (kDebugMode) {
           print(
