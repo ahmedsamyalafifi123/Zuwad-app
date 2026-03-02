@@ -7,6 +7,7 @@ import android.app.PendingIntent;
 import android.app.PictureInPictureParams;
 import android.util.Rational;
 import android.content.Intent;
+import android.net.Uri;
 import androidx.annotation.NonNull;
 import androidx.core.view.WindowCompat;
 import io.flutter.embedding.android.FlutterActivity;
@@ -17,6 +18,7 @@ public class MainActivity extends FlutterActivity {
     private static final String CHANNEL_PIP = "com.zuwad/pip";
     private static final String CHANNEL_FOREGROUND = "com.zuwad/foreground_alarm";
     private static final String CHANNEL_NATIVE_ALARM = "com.zuwad/native_alarm";
+    private static final String CHANNEL_SETTINGS = "com.zuwad/settings";
     private boolean isPipEnabled = false;
 
     @Override
@@ -111,6 +113,23 @@ public class MainActivity extends FlutterActivity {
                 } else if (call.method.equals("cancelAllAlarms")) {
                     cancelAllNativeAlarms();
                     result.success(null);
+                } else {
+                    result.notImplemented();
+                }
+            });
+
+        // Settings Method Channel - Open specific permission settings
+        new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL_SETTINGS)
+            .setMethodCallHandler((call, result) -> {
+                if (call.method.equals("openPermissionSettings")) {
+                    openAppPermissionSettings();
+                    result.success(true);
+                } else if (call.method.equals("openCameraPermissionSettings")) {
+                    openCameraPermissionSettings();
+                    result.success(true);
+                } else if (call.method.equals("openMicrophonePermissionSettings")) {
+                    openMicrophonePermissionSettings();
+                    result.success(true);
                 } else {
                     result.notImplemented();
                 }
@@ -260,6 +279,53 @@ public class MainActivity extends FlutterActivity {
             PictureInPictureParams.Builder builder = new PictureInPictureParams.Builder()
                 .setAspectRatio(new Rational(16, 9));
             enterPictureInPictureMode(builder.build());
+        }
+    }
+
+    private void openAppPermissionSettings() {
+        try {
+            Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            Uri uri = Uri.fromParts("package", getPackageName(), null);
+            intent.setData(uri);
+            startActivity(intent);
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Error opening app settings", e);
+        }
+    }
+
+    private void openCameraPermissionSettings() {
+        try {
+            // Android 13+ (API 33+): Open specific permission page
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Intent intent = new Intent("android.settings.MANAGE_APP_PERMISSION");
+                intent.putExtra("android.provider.extra.APP_PACKAGE", getPackageName());
+                intent.putExtra("android.provider.extra.PERMISSION_GROUP_NAME", "android.permission-group.CAMERA");
+                startActivity(intent);
+            } else {
+                // Fallback for older Android: open app permissions page
+                openAppPermissionSettings();
+            }
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Error opening camera permission settings", e);
+            openAppPermissionSettings();
+        }
+    }
+
+    private void openMicrophonePermissionSettings() {
+        try {
+            // Android 13+ (API 33+): Open specific permission page
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Intent intent = new Intent("android.settings.MANAGE_APP_PERMISSION");
+                intent.putExtra("android.provider.extra.APP_PACKAGE", getPackageName());
+                intent.putExtra("android.provider.extra.PERMISSION_GROUP_NAME", "android.permission-group.MICROPHONE");
+                startActivity(intent);
+            } else {
+                // Fallback for older Android: open app permissions page
+                openAppPermissionSettings();
+            }
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Error opening microphone permission settings", e);
+            openAppPermissionSettings();
         }
     }
 }

@@ -36,8 +36,10 @@ class MeetingPage extends StatefulWidget {
   State<MeetingPage> createState() => _MeetingPageState();
 }
 
-class _MeetingPageState extends State<MeetingPage> {
+class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
   static const MethodChannel _pipChannel = MethodChannel('com.zuwad/pip');
+  static const MethodChannel _settingsChannel = MethodChannel('com.zuwad/settings');
+  static const MethodChannel _permissionChannel = MethodChannel('com.zuwad/permissions');
 
   late final LiveKitService _liveKitService;
   late final EventsListener<RoomEvent> _roomListener;
@@ -47,6 +49,11 @@ class _MeetingPageState extends State<MeetingPage> {
   bool _isMicrophoneEnabled = true;
   bool _isWhiteboardVisible = false;
   String? _errorMessage;
+
+  // Permission status tracking
+  bool _cameraGranted = false;
+  bool _microphoneGranted = false;
+  bool _checkingPermissions = false;
 
   List<Participant> _participants = [];
   Participant? _localParticipant;
@@ -67,11 +74,10 @@ class _MeetingPageState extends State<MeetingPage> {
     }
     super.initState();
 
-    // Force landscape mode
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    // Register observer for app lifecycle (to detect return from settings)
+    WidgetsBinding.instance.addObserver(this);
+
+    // NOTE: Don't force landscape yet - wait for permissions
 
     // Enable wake lock to keep screen on during meeting
     _enableWakeLock();
@@ -105,6 +111,9 @@ class _MeetingPageState extends State<MeetingPage> {
       DeviceOrientation.portraitDown,
     ]);
 
+    // Unregister observer
+    WidgetsBinding.instance.removeObserver(this);
+
     // Disable wake lock when leaving meeting page
     _disableWakeLock();
     // Disable PiP mode when leaving meeting page
@@ -115,6 +124,57 @@ class _MeetingPageState extends State<MeetingPage> {
     _audioPlayer.dispose();
     _liveKitService.disconnect();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _checkingPermissions) {
+      // User returned from settings, check permissions again
+      _checkingPermissions = false;
+      _checkPermissionsAndJoin();
+    }
+  }
+
+  Future<void> _checkPermissionsAndJoin() async {
+    if (kDebugMode) {
+      print('MeetingPage: _checkPermissionsAndJoin started');
+    }
+
+    // Check current permission status
+    final cameraStatus = await Permission.camera.status;
+    final micStatus = await Permission.microphone.status;
+
+    if (kDebugMode) {
+      print('MeetingPage: Camera status: $cameraStatus, Mic status: $micStatus');
+    }
+
+    setState(() {
+      _cameraGranted = cameraStatus.isGranted;
+      _microphoneGranted = micStatus.isGranted;
+    });
+
+    if (_cameraGranted && _microphoneGranted) {
+      // All permissions granted - connect to room
+      if (kDebugMode) {
+        print('MeetingPage: All permissions granted - connecting');
+      }
+      // Re-enable PiP after returning from settings
+      await _enablePiP();
+      // Force landscape mode after permissions are granted
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      await _connectToRoom();
+    } else {
+      // Still missing permissions - show error screen
+      // Re-enable PiP for the permission dialog
+      await _enablePiP();
+      setState(() {
+        _isConnecting = false;
+        _errorMessage = 'يجب منح الصلاحيات للانضمام للدرس';
+      });
+    }
   }
 
   Future<void> _enableWakeLock() async {
@@ -193,6 +253,60 @@ class _MeetingPageState extends State<MeetingPage> {
     }
   }
 
+  Future<void> _openCameraPermissionSettings() async {
+    if (kIsWeb) return;
+    // Disable PiP before opening settings to prevent UI issues
+    await _disablePiP();
+    try {
+      await _settingsChannel.invokeMethod('openCameraPermissionSettings');
+      if (kDebugMode) {
+        print('MeetingPage: Opened camera permission settings');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('MeetingPage: Failed to open camera permission settings: $e');
+      }
+      // Fallback to general app settings
+      openAppSettings();
+    }
+  }
+
+  Future<void> _openMicrophonePermissionSettings() async {
+    if (kIsWeb) return;
+    // Disable PiP before opening settings to prevent UI issues
+    await _disablePiP();
+    try {
+      await _settingsChannel.invokeMethod('openMicrophonePermissionSettings');
+      if (kDebugMode) {
+        print('MeetingPage: Opened microphone permission settings');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('MeetingPage: Failed to open microphone permission settings: $e');
+      }
+      // Fallback to general app settings
+      openAppSettings();
+    }
+  }
+
+  Future<void> _openAppPermissionSettings() async {
+    if (kIsWeb) return;
+    // Disable PiP before opening settings to prevent UI issues
+    await _disablePiP();
+    try {
+      await _settingsChannel.invokeMethod('openPermissionSettings');
+      if (kDebugMode) {
+        print('MeetingPage: Opened app permission settings');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('MeetingPage: Failed to open permission settings: $e');
+      }
+      // Fallback to general app settings
+      openAppSettings();
+    }
+  }
+
   Future<void> _requestPermissions() async {
     if (kDebugMode) {
       print('MeetingPage: _requestPermissions started');
@@ -214,13 +328,23 @@ class _MeetingPageState extends State<MeetingPage> {
       print('MeetingPage: Permissions statuses: $statuses');
     }
 
-    bool essentialGranted = statuses[Permission.camera]!.isGranted &&
-        statuses[Permission.microphone]!.isGranted;
+    // Update state with permission status
+    setState(() {
+      _cameraGranted = statuses[Permission.camera]!.isGranted;
+      _microphoneGranted = statuses[Permission.microphone]!.isGranted;
+    });
+
+    bool essentialGranted = _cameraGranted && _microphoneGranted;
 
     if (essentialGranted) {
       if (kDebugMode) {
         print('MeetingPage: Essential permissions granted');
       }
+      // Force landscape mode after permissions are granted
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
       await _connectToRoom();
       if (kDebugMode) {
         print('MeetingPage: _connectToRoom completed');
@@ -229,11 +353,217 @@ class _MeetingPageState extends State<MeetingPage> {
       if (kDebugMode) {
         print('MeetingPage: Essential permissions not granted');
       }
+      // Check if permanently denied
+      final cameraStatus = statuses[Permission.camera];
+      final micStatus = statuses[Permission.microphone];
+      final isPermanentlyDenied =
+          (cameraStatus == PermissionStatus.permanentlyDenied) ||
+          (micStatus == PermissionStatus.permanentlyDenied);
+
       setState(() {
         _isConnecting = false;
-        _errorMessage = 'يجب منح الصلاحيات للكاميرا والميكروفون للانضمام للدرس';
+        if (isPermanentlyDenied) {
+          _errorMessage = 'تم حظر الصلاحيات. يرجى السماح بها من إعدادات التطبيق.';
+        } else {
+          _errorMessage = 'يجب منح الصلاحيات للكاميرا والميكروفون للانضمام للدرس';
+        }
       });
     }
+  }
+
+  void _showPermissionSettingsDialog() {
+    // Update state before showing dialog
+    setState(() {
+      _checkingPermissions = true;
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text(
+                'تفعيل الصلاحيات',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'للالتحاق بالدرس، يجب السماح بـ:',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(height: 12),
+                      // Camera permission row
+                      _buildPermissionRow(
+                        icon: Icons.videocam,
+                        label: 'الكاميرا',
+                        isGranted: _cameraGranted,
+                        onTap: () async {
+                          final status = await Permission.camera.status;
+                          if (status.isPermanentlyDenied) {
+                            // Open camera permission settings directly
+                            _openCameraPermissionSettings();
+                          } else {
+                            Navigator.of(dialogContext).pop();
+                            await Permission.camera.request();
+                            _checkPermissionsAndJoin();
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      // Microphone permission row
+                      _buildPermissionRow(
+                        icon: Icons.mic,
+                        label: 'الميكروفون',
+                        isGranted: _microphoneGranted,
+                        onTap: () async {
+                          final status = await Permission.microphone.status;
+                          if (status.isPermanentlyDenied) {
+                            // Open microphone permission settings directly
+                            _openMicrophonePermissionSettings();
+                          } else {
+                            Navigator.of(dialogContext).pop();
+                            await Permission.microphone.request();
+                            _checkPermissionsAndJoin();
+                          }
+                        },
+                      ),
+                      if (_cameraGranted && _microphoneGranted)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.green),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.check_circle, color: Colors.green, size: 20),
+                                SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'جميع الصلاحيات مفعلة',
+                                    style: TextStyle(
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                if (_cameraGranted && _microphoneGranted)
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                    ),
+                    child: const Text(
+                      'انضمام للدرس',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
+                  )
+                else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(dialogContext).pop();
+                        },
+                        child: const Text(
+                          'إلغاء',
+                          style: TextStyle(color: Colors.grey, fontSize: 15),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          _openAppPermissionSettings();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFf6c302),
+                          foregroundColor: AppTheme.primaryColor,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        ),
+                        child: const Text(
+                          'فتح الإعدادات',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildPermissionRow({
+    required IconData icon,
+    required String label,
+    required bool isGranted,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: isGranted ? null : onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isGranted
+              ? Colors.green.withValues(alpha: 0.1)
+              : Colors.red.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isGranted ? Colors.green : Colors.red.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: isGranted ? Colors.green : Colors.red, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isGranted ? Colors.green : Colors.black,
+                  fontWeight: isGranted ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+            if (isGranted)
+              const Icon(Icons.check_circle, color: Colors.green, size: 20)
+            else
+              const Icon(Icons.arrow_forward_ios, color: Colors.red, size: 14),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _connectToRoom() async {
@@ -702,11 +1032,7 @@ class _MeetingPageState extends State<MeetingPage> {
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: () {
-                  setState(() {
-                    _isConnecting = true;
-                    _errorMessage = null;
-                  });
-                  _requestPermissions();
+                  _showPermissionSettingsDialog();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFf6c302),
@@ -718,7 +1044,7 @@ class _MeetingPageState extends State<MeetingPage> {
                   ),
                 ),
                 child: const Text(
-                  'إعادة المحاولة',
+                  'تفعيل الصلاحيات',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
