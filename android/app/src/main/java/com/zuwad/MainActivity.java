@@ -293,6 +293,20 @@ public class MainActivity extends FlutterActivity {
         }
     }
 
+    private void openAppPermissionsPage() {
+        try {
+            // Try to open the App Permissions page (shows all permissions)
+            Intent intent = new Intent("android.settings.MANAGE_APP_PERMISSIONS");
+            Uri uri = Uri.fromParts("package", getPackageName(), null);
+            intent.setData(uri);
+            startActivity(intent);
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Error opening app permissions page", e);
+            // Fallback to app info page
+            openAppPermissionSettings();
+        }
+    }
+
     private void openCameraPermissionSettings() {
         try {
             // Android 13+ (API 33+): Open specific permission page
@@ -303,11 +317,12 @@ public class MainActivity extends FlutterActivity {
                 startActivity(intent);
             } else {
                 // Fallback for older Android: open app permissions page
-                openAppPermissionSettings();
+                openAppPermissionsPage();
             }
         } catch (Exception e) {
             android.util.Log.e("MainActivity", "Error opening camera permission settings", e);
-            openAppPermissionSettings();
+            // Fallback to app permissions page (shows all permissions)
+            openAppPermissionsPage();
         }
     }
 
@@ -321,11 +336,12 @@ public class MainActivity extends FlutterActivity {
                 startActivity(intent);
             } else {
                 // Fallback for older Android: open app permissions page
-                openAppPermissionSettings();
+                openAppPermissionsPage();
             }
         } catch (Exception e) {
             android.util.Log.e("MainActivity", "Error opening microphone permission settings", e);
-            openAppPermissionSettings();
+            // Fallback to app permissions page (shows all permissions)
+            openAppPermissionsPage();
         }
     }
 }
