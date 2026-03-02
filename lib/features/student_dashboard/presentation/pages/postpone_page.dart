@@ -181,50 +181,61 @@ class _PostponePageState extends State<PostponePage> {
   }
 
   void _initializeConvertedSlots() {
-    final now = TimezoneHelper.nowInEgypt();
     _convertedSlots = widget.freeSlots
         .map((slot) {
-          // 1. Determine date of next occurrence in Egypt time
+          // 1. Determine date of next occurrence
           // Server days: 0=Sunday, 1=Monday... 6=Saturday
           // Date.weekday: 1=Monday... 7=Sunday
 
-          // key: Map server day (0-6) to Dart weekday (1-7)
+          // Map server day (0-6) to Dart weekday (1-7)
           final serverDayToDart = slot.dayOfWeek == 0 ? 7 : slot.dayOfWeek;
 
-          int daysUntil = (serverDayToDart - now.weekday + 7) % 7;
+          // Calculate next occurrence in Egypt time
+          final nowEgypt = TimezoneHelper.nowInEgypt();
+          // Use Egypt weekday for correct day calculation since slots are in Egypt time
+          final egyptDartWeekday = nowEgypt.weekday;
+          int daysUntil = (serverDayToDart - egyptDartWeekday + 7) % 7;
           if (daysUntil == 0) daysUntil = 7; // Next occurrence
 
-          final egyptDate = now.add(Duration(days: daysUntil));
+          final egyptDate = nowEgypt.add(Duration(days: daysUntil));
 
-          // Parse times
+          // Parse times (these are in Egypt time from the server)
           final startParts = slot.startTime.split(':');
           final endParts = slot.endTime.split(':');
 
           if (startParts.length < 2 || endParts.length < 2) return null;
 
-          final egyptStart = DateTime(
+          final egyptStartHour = int.parse(startParts[0]);
+          final egyptStartMinute = int.parse(startParts[1]);
+          final egyptEndHour = int.parse(endParts[0]);
+          final egyptEndMinute = int.parse(endParts[1]);
+
+          // Convert Egypt time to local time using timezone offset difference
+          final offsetDiff = TimezoneHelper.deviceTimezoneOffsetHours -
+              TimezoneHelper.egyptTimezoneOffsetHours;
+
+          // Build local start/end by applying the offset difference
+          final localStart = DateTime(
             egyptDate.year,
             egyptDate.month,
             egyptDate.day,
-            int.parse(startParts[0]),
-            int.parse(startParts[1]),
+            egyptStartHour + offsetDiff,
+            egyptStartMinute,
           );
 
-          final egyptEnd = DateTime(
+          final localEnd = DateTime(
             egyptDate.year,
             egyptDate.month,
             egyptDate.day,
-            int.parse(endParts[0]),
-            int.parse(endParts[1]),
+            egyptEndHour + offsetDiff,
+            egyptEndMinute,
           );
-
-          // Convert to local
-          final localStart = TimezoneHelper.egyptToLocal(egyptStart);
-          final localEnd = TimezoneHelper.egyptToLocal(egyptEnd);
 
           return ConvertedSlot(
             localStart: localStart,
             localEnd: localEnd,
+            egyptStartHour: egyptStartHour,
+            egyptStartMinute: egyptStartMinute,
           );
         })
         .whereType<ConvertedSlot>()
@@ -692,34 +703,37 @@ class _PostponePageState extends State<PostponePage> {
     try {
       final student = authState.student!;
 
-      // 1. Calculate Local DateTime
-      final now = DateTime.now();
-      final daysUntilSelected = (_selectedDayOfWeek! - now.weekday + 7) % 7;
-      final localDate = now
-          .add(Duration(days: daysUntilSelected == 0 ? 7 : daysUntilSelected));
+      // 1. Calculate Egypt DateTime directly
+      // The selected time is displayed in local time, convert back to Egypt
+      final nowEgypt = TimezoneHelper.nowInEgypt();
+      // Map selected day (0=Sun) to Dart weekday (1=Mon..7=Sun)
+      final selectedDartWeekday =
+          _selectedDayOfWeek! == 0 ? 7 : _selectedDayOfWeek!;
+      final daysUntilSelected =
+          (selectedDartWeekday - nowEgypt.weekday + 7) % 7;
+      final egyptDate = nowEgypt.add(
+          Duration(days: daysUntilSelected == 0 ? 7 : daysUntilSelected));
 
-      // Parse time
+      // Parse the displayed local time and convert back to Egypt
       final timeParts = _selectedStartTime!.split(':');
-      final localDateTime = DateTime(
-        localDate.year,
-        localDate.month,
-        localDate.day,
-        int.parse(timeParts[0]),
-        int.parse(timeParts[1]),
-      );
+      final localHour = int.parse(timeParts[0]);
+      final localMinute = int.parse(timeParts[1]);
 
-      // 2. Convert back to Egypt DateTime for server
-      final egyptDateTime = TimezoneHelper.localToEgypt(localDateTime);
+      // Convert local time back to Egypt time
+      final offsetDiff = TimezoneHelper.deviceTimezoneOffsetHours -
+          TimezoneHelper.egyptTimezoneOffsetHours;
+      final egyptHour = localHour - offsetDiff;
+      final egyptMinute = localMinute;
 
       final egyptDateStr =
-          '${egyptDateTime.year}-${egyptDateTime.month.toString().padLeft(2, '0')}-${egyptDateTime.day.toString().padLeft(2, '0')}';
+          '${egyptDate.year}-${egyptDate.month.toString().padLeft(2, '0')}-${egyptDate.day.toString().padLeft(2, '0')}';
       final egyptTimeStr =
-          '${egyptDateTime.hour.toString().padLeft(2, '0')}:${egyptDateTime.minute.toString().padLeft(2, '0')}:00';
+          '${egyptHour.toString().padLeft(2, '0')}:${egyptMinute.toString().padLeft(2, '0')}:00';
 
       if (kDebugMode) {
         print('Creating event:');
-        print('  Local: $localDateTime');
         print('  Egypt: $egyptDateStr $egyptTimeStr');
+        print('  Offset diff (device - egypt): $offsetDiff hours');
         print('  Is Trial: ${widget.isTrial}');
       }
 
@@ -931,8 +945,15 @@ extension DateTimeComparison on DateTime {
 class ConvertedSlot {
   final DateTime localStart;
   final DateTime localEnd;
+  final int egyptStartHour;
+  final int egyptStartMinute;
 
-  ConvertedSlot({required this.localStart, required this.localEnd});
+  ConvertedSlot({
+    required this.localStart,
+    required this.localEnd,
+    required this.egyptStartHour,
+    required this.egyptStartMinute,
+  });
 
   int get dayOfWeek => localStart.weekday % 7; // 0=Sun, 1=Mon...
 }
