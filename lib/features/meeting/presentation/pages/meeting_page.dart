@@ -38,8 +38,10 @@ class MeetingPage extends StatefulWidget {
 
 class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
   static const MethodChannel _pipChannel = MethodChannel('com.zuwad/pip');
-  static const MethodChannel _settingsChannel = MethodChannel('com.zuwad/settings');
-  static const MethodChannel _permissionChannel = MethodChannel('com.zuwad/permissions');
+  static const MethodChannel _settingsChannel =
+      MethodChannel('com.zuwad/settings');
+  static const MethodChannel _permissionChannel =
+      MethodChannel('com.zuwad/permissions');
 
   late final LiveKitService _liveKitService;
   EventsListener<RoomEvent>? _roomListener;
@@ -145,7 +147,8 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
     final micStatus = await Permission.microphone.status;
 
     if (kDebugMode) {
-      print('MeetingPage: Camera status: $cameraStatus, Mic status: $micStatus');
+      print(
+          'MeetingPage: Camera status: $cameraStatus, Mic status: $micStatus');
     }
 
     setState(() {
@@ -165,6 +168,10 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
+      setState(() {
+        _isConnecting = true;
+        _errorMessage = null;
+      });
       await _connectToRoom();
     } else {
       // Still missing permissions - show error screen
@@ -358,14 +365,16 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
       final micStatus = statuses[Permission.microphone];
       final isPermanentlyDenied =
           (cameraStatus == PermissionStatus.permanentlyDenied) ||
-          (micStatus == PermissionStatus.permanentlyDenied);
+              (micStatus == PermissionStatus.permanentlyDenied);
 
       setState(() {
         _isConnecting = false;
         if (isPermanentlyDenied) {
-          _errorMessage = 'تم حظر الصلاحيات. يرجى السماح بها من إعدادات التطبيق.';
+          _errorMessage =
+              'تم حظر الصلاحيات. يرجى السماح بها من إعدادات التطبيق.';
         } else {
-          _errorMessage = 'يجب منح الصلاحيات للكاميرا والميكروفون للانضمام للدرس';
+          _errorMessage =
+              'يجب منح الصلاحيات للكاميرا والميكروفون للانضمام للدرس';
         }
       });
     }
@@ -448,7 +457,8 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
                             ),
                             child: const Row(
                               children: [
-                                Icon(Icons.check_circle, color: Colors.green, size: 20),
+                                Icon(Icons.check_circle,
+                                    color: Colors.green, size: 20),
                                 SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
@@ -473,15 +483,18 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
                   ElevatedButton(
                     onPressed: () {
                       Navigator.of(dialogContext).pop();
+                      _checkPermissionsAndJoin();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 10),
                     ),
                     child: const Text(
                       'انضمام للدرس',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                   )
                 else
@@ -505,11 +518,13 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFf6c302),
                           foregroundColor: AppTheme.primaryColor,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 10),
                         ),
                         child: const Text(
                           'فتح الإعدادات',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -591,6 +606,7 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
         setState(() {
           _isConnecting = false;
           _isConnected = true;
+          _errorMessage = null;
         });
         if (kDebugMode) {
           print('MeetingPage: State set to connected');
@@ -921,7 +937,8 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
               child: const Text(
                 'مغادرة',
