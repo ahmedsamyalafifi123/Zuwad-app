@@ -11,6 +11,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc() : super(AuthInitial()) {
     on<CheckAuthStatusEvent>(_onCheckAuthStatus);
     on<LoginWithPhoneEvent>(_onLoginWithPhone);
+    on<LoginAsTeacherEvent>(_onLoginAsTeacher);
     on<LogoutEvent>(_onLogout);
     on<GetStudentProfileEvent>(_onGetStudentProfile);
   }
@@ -27,18 +28,34 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
 
       if (isLoggedIn) {
-        try {
-          final student = await _authRepository.getStudentProfile();
-          if (kDebugMode) {
-            print('Student profile loaded: ${student.name}');
+        final role = await _authRepository.getCurrentUserRole();
+        if (role == 'teacher') {
+          try {
+            final teacher = await _authRepository.getTeacherProfile();
+            if (kDebugMode) {
+              print('Teacher profile loaded: ${teacher.name}');
+            }
+            emit(AuthTeacherAuthenticated(teacher: teacher));
+          } catch (e) {
+            if (kDebugMode) {
+              print('Error getting teacher profile but user is logged in: $e');
+            }
+            emit(const AuthTeacherAuthenticated());
           }
-          emit(AuthAuthenticated(student: student));
-        } catch (e) {
-          // If we can't get the profile but user is logged in
-          if (kDebugMode) {
-            print('Error getting profile but user is logged in: $e');
+        } else {
+          try {
+            final student = await _authRepository.getStudentProfile();
+            if (kDebugMode) {
+              print('Student profile loaded: ${student.name}');
+            }
+            emit(AuthAuthenticated(student: student));
+          } catch (e) {
+            // If we can't get the profile but user is logged in
+            if (kDebugMode) {
+              print('Error getting profile but user is logged in: $e');
+            }
+            emit(const AuthAuthenticated());
           }
-          emit(const AuthAuthenticated());
         }
       } else {
         emit(AuthUnauthenticated());
@@ -64,7 +81,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final success = await _authRepository.login(
         event.phone,
         event.password,
-        role: 'student', // Always login as student in this app
       );
 
       if (kDebugMode) {
@@ -72,50 +88,71 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
 
       if (success) {
-        try {
-          // Smart Student Selection Logic
+        final role = await _authRepository.getCurrentUserRole();
+        if (role == 'teacher') {
+          // Call the dedicated teacher-login endpoint to get full teacher+students data
           try {
+            final teacher = await _authRepository.teacherLogin(
+              event.phone,
+              event.password,
+            );
             if (kDebugMode) {
-              print('Smart Selection: Fetching family members...');
+              print('Teacher login via teacher API: ${teacher.name}');
             }
-            final family = await _authRepository.getFamilyMembers();
-
-            if (family.length > 1) {
-              if (kDebugMode) {
-                print(
-                    'Smart Selection: Found ${family.length} family members, calculating best student...');
-              }
-              final selectionService = StudentSelectionService();
-              final bestStudent =
-                  await selectionService.determineBestStudent(family);
-
-              if (kDebugMode) {
-                print(
-                    'Smart Selection: Best student determined: ${bestStudent.name} (${bestStudent.id})');
-              }
-
-              // Switch to the best student before loading profile
-              // This updates the stored user ID so getStudentProfile fetches the correct one
-              await _authRepository.switchUser(bestStudent);
-            }
+            emit(AuthTeacherAuthenticated(teacher: teacher));
           } catch (e) {
-            // Silently fail smart selection and proceed with default student
             if (kDebugMode) {
-              print('Smart Selection Error: $e');
+              print('Teacher-login API failed, falling back to profile: $e');
+            }
+            try {
+              final teacher = await _authRepository.getTeacherProfile();
+              emit(AuthTeacherAuthenticated(teacher: teacher));
+            } catch (_) {
+              emit(const AuthTeacherAuthenticated());
             }
           }
+        } else {
+          try {
+            // Smart Student Selection Logic
+            try {
+              if (kDebugMode) {
+                print('Smart Selection: Fetching family members...');
+              }
+              final family = await _authRepository.getFamilyMembers();
 
-          final student = await _authRepository.getStudentProfile();
-          if (kDebugMode) {
-            print('Student profile after login: ${student.toDebugString()}');
+              if (family.length > 1) {
+                if (kDebugMode) {
+                  print(
+                      'Smart Selection: Found ${family.length} family members, calculating best student...');
+                }
+                final selectionService = StudentSelectionService();
+                final bestStudent =
+                    await selectionService.determineBestStudent(family);
+
+                if (kDebugMode) {
+                  print(
+                      'Smart Selection: Best student determined: ${bestStudent.name} (${bestStudent.id})');
+                }
+
+                await _authRepository.switchUser(bestStudent);
+              }
+            } catch (e) {
+              if (kDebugMode) {
+                print('Smart Selection Error: $e');
+              }
+            }
+
+            final student = await _authRepository.getStudentProfile();
+            if (kDebugMode) {
+              print('Student profile after login: ${student.toDebugString()}');
+            }
+            emit(AuthAuthenticated(student: student));
+          } catch (e) {
+            if (kDebugMode) {
+              print('Login successful but error getting profile: $e');
+            }
+            emit(const AuthAuthenticated());
           }
-          emit(AuthAuthenticated(student: student));
-        } catch (e) {
-          // If we can't get the profile but login was successful
-          if (kDebugMode) {
-            print('Login successful but error getting profile: $e');
-          }
-          emit(const AuthAuthenticated());
         }
       } else {
         emit(const AuthError('رقم الهاتف أو كلمة المرور غير صحيحة'));
@@ -123,6 +160,28 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     } catch (e) {
       if (kDebugMode) {
         print('Login error: $e');
+      }
+      emit(AuthError('فشل تسجيل الدخول: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onLoginAsTeacher(
+    LoginAsTeacherEvent event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+    try {
+      if (kDebugMode) {
+        print('Attempting teacher login with phone: ${event.phone}');
+      }
+      final teacher = await _authRepository.teacherLogin(event.phone, event.password);
+      if (kDebugMode) {
+        print('Teacher login success: ${teacher.name}');
+      }
+      emit(AuthTeacherAuthenticated(teacher: teacher));
+    } catch (e) {
+      if (kDebugMode) {
+        print('Teacher login error: $e');
       }
       emit(AuthError('فشل تسجيل الدخول: ${e.toString()}'));
     }

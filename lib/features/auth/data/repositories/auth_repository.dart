@@ -3,6 +3,7 @@ import '../../../../core/services/secure_storage_service.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/api/wordpress_api.dart';
 import '../../domain/models/student.dart';
+import '../../domain/models/teacher.dart';
 
 /// Repository for authentication operations using API v2.
 class AuthRepository {
@@ -201,6 +202,28 @@ class AuthRepository {
       }
       return null;
     }
+  }
+
+  /// Login as teacher with phone and password.
+  /// Returns the Teacher object on success.
+  Future<Teacher> teacherLogin(String phone, String password) async {
+    final response = await _api.teacherLoginWithPhone(phone, password);
+    NotificationService().registerTokenWithBackend().then((registered) {
+      if (kDebugMode) {
+        print('Device token registration after teacher login: $registered');
+      }
+    });
+    return Teacher.fromApiResponse(response['user'] as Map<String, dynamic>);
+  }
+
+  /// Get teacher profile on app restart using stored user ID.
+  Future<Teacher> getTeacherProfile() async {
+    final userId = await getCurrentUserId();
+    if (userId == null) {
+      throw Exception('User not logged in');
+    }
+    final teacherData = await _api.getTeacherData(userId);
+    return Teacher.fromApiResponse(teacherData);
   }
 
   /// Change the user's password.

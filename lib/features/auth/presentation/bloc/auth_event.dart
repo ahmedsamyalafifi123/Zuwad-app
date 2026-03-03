@@ -20,6 +20,19 @@ class LoginWithPhoneEvent extends AuthEvent {
   List<Object> get props => [phone, password];
 }
 
+class LoginAsTeacherEvent extends AuthEvent {
+  final String phone;
+  final String password;
+
+  const LoginAsTeacherEvent({
+    required this.phone,
+    required this.password,
+  });
+
+  @override
+  List<Object> get props => [phone, password];
+}
+
 class CheckAuthStatusEvent extends AuthEvent {}
 
 class LogoutEvent extends AuthEvent {}

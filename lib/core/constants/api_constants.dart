@@ -17,6 +17,7 @@ class ApiConstants {
   // Authentication Endpoints
   // ============================================
   static String get loginEndpoint => '$v2BaseUrl/auth/login';
+  static String get teacherLoginEndpoint => '$v2BaseUrl/auth/teacher-login';
   static String get refreshTokenEndpoint => '$v2BaseUrl/auth/refresh';
   static String get verifyTokenEndpoint => '$v2BaseUrl/auth/verify';
   static String get logoutEndpoint => '$v2BaseUrl/auth/logout';

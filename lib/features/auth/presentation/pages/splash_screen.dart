@@ -9,6 +9,7 @@ import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 import 'login_page.dart';
 import '../../../student_dashboard/presentation/pages/student_dashboard_page.dart';
+import '../../../teacher_dashboard/presentation/pages/teacher_dashboard_page.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -157,6 +158,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         listener: (context, state) {
           if (state is AuthAuthenticated) {
             _navigateToPage(const StudentDashboardPage());
+          } else if (state is AuthTeacherAuthenticated) {
+            _navigateToPage(TeacherDashboardPage(teacher: state.teacher));
           } else if (state is AuthUnauthenticated) {
             _navigateToPage(const LoginPage());
           }

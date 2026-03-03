@@ -147,6 +147,53 @@ class WordPressApi {
     }
   }
 
+  /// Login as teacher with phone number and password.
+  /// Returns the full data map (including user with students) on success.
+  Future<Map<String, dynamic>> teacherLoginWithPhone(
+    String phone,
+    String password,
+  ) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.teacherLoginEndpoint,
+        data: jsonEncode({
+          'phone': phone,
+          'password': password,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+
+        if (jsonData['success'] == true) {
+          final data = jsonData['data'];
+
+          await _secureStorage.saveAuthData(
+            token: data['token'],
+            refreshToken: data['refresh_token'],
+            expiresIn: data['expires_in'] ?? 604800,
+            userId: data['user']['id'].toString(),
+            userName: data['user']['name'],
+            userRole: 'teacher',
+            userMId: data['user']['m_id'],
+          );
+
+          return data;
+        } else {
+          throw Exception(jsonData['error']?['message'] ?? 'Teacher login failed');
+        }
+      } else {
+        throw Exception('Failed to login: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      final errorMessage =
+          e.response?.data?['error']?['message'] ?? e.message ?? 'Teacher login failed';
+      throw Exception(errorMessage);
+    } catch (e) {
+      throw Exception('Teacher login failed: ${e.toString()}');
+    }
+  }
+
   /// Refresh the access token using the refresh token.
   /// Returns true if refresh was successful.
   Future<bool> refreshToken() async {

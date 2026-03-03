@@ -6,6 +6,7 @@ import '../bloc/auth_state.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../student_dashboard/presentation/pages/student_dashboard_page.dart';
+import '../../../teacher_dashboard/presentation/pages/teacher_dashboard_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -73,6 +74,12 @@ class _LoginPageState extends State<LoginPage> {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
                 builder: (_) => const StudentDashboardPage(),
+              ),
+            );
+          } else if (state is AuthTeacherAuthenticated) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => TeacherDashboardPage(teacher: state.teacher),
               ),
             );
           } else if (state is AuthError) {
@@ -295,15 +302,13 @@ class _LoginPageState extends State<LoginPage> {
                           CustomButton(
                             text: 'تسجيل الدخول',
                             onPressed: state is AuthLoading
-                                ? () {} // pass empty logic or handle in CustomButton via isLoading
+                                ? () {}
                                 : () {
                                     if (_formKey.currentState!.validate()) {
                                       context.read<AuthBloc>().add(
                                             LoginWithPhoneEvent(
-                                              phone:
-                                                  _phoneController.text.trim(),
-                                              password:
-                                                  _passwordController.text,
+                                              phone: _phoneController.text.trim(),
+                                              password: _passwordController.text,
                                             ),
                                           );
                                     }
