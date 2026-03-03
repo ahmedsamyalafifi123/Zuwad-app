@@ -102,6 +102,77 @@ Content-Type: application/json
 }
 ```
 
+### Teacher Login
+
+Dedicated endpoint for teachers that returns the teacher profile along with their students list in a single response.
+
+```http
+POST /auth/teacher-login
+Content-Type: application/json
+
+{
+  "phone": "01234567890",
+  "password": "teacher_password"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expires_in": 604800,
+    "token_type": "Bearer",
+    "user": {
+      "id": 42,
+      "name": "أحمد المعلم",
+      "phone": "01234567890",
+      "email": "teacher@example.com",
+      "role": "teacher",
+      "m_id": "0103",
+      "gender": "ذكر",
+      "profile_image_url": "https://example.com/uploads/profile.jpg",
+      "students": [
+        {
+          "id": 101,
+          "m_id": "010301",
+          "display_name": "محمد أحمد",
+          "phone": "01012345678",
+          "gender": "ذكر",
+          "lessons_name": "تحفيظ قرآن",
+          "lesson_duration": 30,
+          "amount": "200",
+          "currency": "EGP",
+          "payment_status": "نشط",
+          "profile_image_url": null
+        },
+        {
+          "id": 102,
+          "m_id": "010302",
+          "display_name": "فاطمة علي",
+          "phone": "01098765432",
+          "gender": "أنثى",
+          "lessons_name": "تجويد",
+          "lesson_duration": 45,
+          "amount": "300",
+          "currency": "EGP",
+          "payment_status": "في انتظار الدفع",
+          "profile_image_url": null
+        }
+      ]
+    }
+  }
+}
+```
+
+**Notes:**
+- Returns `403 Forbidden` if the credentials belong to a non-teacher role
+- Students with `payment_status: متوقف` are **not included** in the students list
+- Use this endpoint for teacher mobile apps to get all data in one API call
+
 ---
 
 ## 📚 Response Format
