@@ -56,20 +56,35 @@ class TimezoneHelper {
         egyptDateTime.second,
       );
 
-      // Convert to local timezone using Dart's native DateTime
-      // This properly uses the device's OS timezone (same as DateTime.now())
-      final result = DateTime.fromMillisecondsSinceEpoch(
-        egyptTZ.millisecondsSinceEpoch,
-      );
+      // Get UTC milliseconds from Egypt time
+      final utcMillis = egyptTZ.millisecondsSinceEpoch;
+
+      // Calculate timezone offset difference manually
+      // This works on all platforms including web
+      final deviceOffsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
+      final egyptOffsetMinutes = egyptTZ.timeZoneOffset.inMinutes;
+      final offsetDiffMinutes = deviceOffsetMinutes - egyptOffsetMinutes;
+
+      // Apply offset difference to Egypt time
+      final localTime = DateTime(
+        egyptDateTime.year,
+        egyptDateTime.month,
+        egyptDateTime.day,
+        egyptDateTime.hour,
+        egyptDateTime.minute,
+        egyptDateTime.second,
+      ).add(Duration(minutes: offsetDiffMinutes));
 
       if (kDebugMode) {
         print('Timezone conversion:');
         print('  Egypt time: $egyptDateTime');
-        print('  UTC millis: ${egyptTZ.millisecondsSinceEpoch}');
-        print('  Local time: $result');
+        print('  Egypt offset: ${egyptOffsetMinutes ~/ 60}h ${egyptOffsetMinutes % 60}m');
+        print('  Device offset: ${deviceOffsetMinutes ~/ 60}h ${deviceOffsetMinutes % 60}m');
+        print('  Offset diff: ${offsetDiffMinutes ~/ 60}h ${offsetDiffMinutes % 60}m');
+        print('  Local time: $localTime');
       }
 
-      return result;
+      return localTime;
     } catch (e) {
       if (kDebugMode) {
         print('Error converting timezone: $e');
