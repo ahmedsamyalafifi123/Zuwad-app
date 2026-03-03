@@ -10,7 +10,9 @@
       "Bash(grep:*)",
       "Bash(tail:*)",
       "mcp__ide__getDiagnostics",
-      "Skill(claude-developer-platform)"
+      "Skill(claude-developer-platform)",
+      "Bash(curl:*)",
+      "Bash(export:*)"
     ]
   }
 }
