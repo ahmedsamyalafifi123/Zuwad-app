@@ -1059,7 +1059,7 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
   }
 
-  void _findNextLesson(List<Schedule> schedules, List<StudentReport> reports) {
+  Future<void> _findNextLesson(List<Schedule> schedules, List<StudentReport> reports) async {
     if (schedules.isEmpty) {
       _nextLesson = null;
       return;
@@ -1409,7 +1409,7 @@ class _DashboardContentState extends State<_DashboardContent> {
       // The dateTime from upcomingLessons is in Egypt time
       // Convert to local time for countdown display
       final egyptDateTime = upcomingLessons.first['dateTime'] as DateTime;
-      _nextLessonDateTime = TimezoneHelper.egyptToLocal(egyptDateTime);
+      _nextLessonDateTime = await TimezoneHelper.egyptToLocalAsync(egyptDateTime);
       if (kDebugMode) {
         print(
           'Selected next lesson: ${_nextLesson!.day} at ${_nextLesson!.hour}',

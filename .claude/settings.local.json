@@ -12,7 +12,8 @@
       "mcp__ide__getDiagnostics",
       "Skill(claude-developer-platform)",
       "Bash(curl:*)",
-      "Bash(export:*)"
+      "Bash(export:*)",
+      "WebSearch"
     ]
   }
 }
