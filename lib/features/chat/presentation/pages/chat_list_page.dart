@@ -265,6 +265,15 @@ class _ChatListPageState extends State<ChatListPage> {
           results[0] as List<Contact>,
           resolvedFamilyMembers,
         );
+
+        // When the logged-in user IS a teacher, the contacts API may still
+        // return other teacher contacts (e.g. co-teachers). Strip them so only
+        // students and the supervisor appear in the teacher's chat list.
+        final authState = context.read<AuthBloc>().state;
+        if (authState is AuthTeacherAuthenticated) {
+          normalizedContacts.removeWhere((c) => _isTeacherContact(c));
+        }
+
         setState(() {
           _contacts = normalizedContacts;
           _teacherSubjectsById = teacherSubjectsById;
