@@ -1414,8 +1414,10 @@ class _DashboardContentState extends State<_DashboardContent> {
         print(
           'Selected next lesson: ${_nextLesson!.day} at ${_nextLesson!.hour}',
         );
-        print('  Egypt time: $egyptDateTime');
-        print('  Local time: $_nextLessonDateTime');
+        print('  Egypt time: $egyptDateTime (hour: ${egyptDateTime.hour})');
+        print('  Local time: $_nextLessonDateTime (hour: ${_nextLessonDateTime?.hour})');
+        print('  DateTime.now(): ${DateTime.now()} (hour: ${DateTime.now().hour})');
+        print('  Device timezone offset: ${DateTime.now().timeZoneOffset}');
         print('  isPostponed: ${_nextLesson!.isPostponed}');
         print('  isTrial: ${_nextLesson!.isTrial}');
       }
@@ -1755,11 +1757,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                         const SizedBox(height: 2), // Reduced spacing
                         Text(
                           _nextLessonDateTime != null
-                              ? TimezoneUtils.formatTime(
-                                  TimezoneHelper.localToEgypt(
-                                    _nextLessonDateTime!,
-                                  ),
-                                )
+                              ? TimezoneUtils.formatTime(_nextLessonDateTime!)
                               : _nextLesson!.hour,
                           style: TextStyle(
                             fontFamily: 'Qatar',

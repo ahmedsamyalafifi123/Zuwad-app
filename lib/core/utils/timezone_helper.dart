@@ -56,12 +56,16 @@ class TimezoneHelper {
         egyptDateTime.second,
       );
 
-      // Convert to local timezone using Dart's native .toLocal()
-      final result = egyptTZ.toLocal();
+      // Convert to local timezone using Dart's native DateTime
+      // This properly uses the device's OS timezone (same as DateTime.now())
+      final result = DateTime.fromMillisecondsSinceEpoch(
+        egyptTZ.millisecondsSinceEpoch,
+      );
 
       if (kDebugMode) {
         print('Timezone conversion:');
         print('  Egypt time: $egyptDateTime');
+        print('  UTC millis: ${egyptTZ.millisecondsSinceEpoch}');
         print('  Local time: $result');
       }
 

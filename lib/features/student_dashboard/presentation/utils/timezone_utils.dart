@@ -29,13 +29,16 @@ class TimezoneUtils {
     return _weekdayToArabic[date.weekday] ?? '';
   }
 
-  /// Formats the time in 12-hour format with Arabic AM/PM (e.g., "01:30 PM" or "01:30 م").
-  /// The design requested: "01:00 pm".
+  /// Formats the time in 12-hour format with AM/PM (e.g., "01:30 pm").
+  /// Uses direct DateTime access to avoid intl package timezone issues on desktop.
   static String formatTime(DateTime date) {
-    // Format: hh:mm a
-    final formatted = DateFormat('hh:mm a').format(date);
-    // Optional: Convert AM/PM to Arabic if desired, but user example showed "pm"
-    // Users request: "01:00 pm" (lowercase)
-    return formatted.toLowerCase();
+    final hour = date.hour;
+    final minute = date.minute;
+
+    // Convert to 12-hour format
+    final hour12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    final ampm = hour < 12 ? 'am' : 'pm';
+
+    return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $ampm';
   }
 }
