@@ -180,14 +180,16 @@ class WordPressApi {
 
           return data;
         } else {
-          throw Exception(jsonData['error']?['message'] ?? 'Teacher login failed');
+          throw Exception(
+              jsonData['error']?['message'] ?? 'Teacher login failed');
         }
       } else {
         throw Exception('Failed to login: ${response.statusCode}');
       }
     } on DioException catch (e) {
-      final errorMessage =
-          e.response?.data?['error']?['message'] ?? e.message ?? 'Teacher login failed';
+      final errorMessage = e.response?.data?['error']?['message'] ??
+          e.message ??
+          'Teacher login failed';
       throw Exception(errorMessage);
     } catch (e) {
       throw Exception('Teacher login failed: ${e.toString()}');
@@ -1130,7 +1132,10 @@ class WordPressApi {
 
   /// Get list of notifications for the current user.
   Future<List<dynamic>> getNotifications(
-      {int page = 1, int perPage = 50, int? studentId}) async {
+      {int page = 1,
+      int perPage = 50,
+      int? studentId,
+      bool isTeacher = false}) async {
     try {
       final queryParams = {
         'page': page,
@@ -1141,8 +1146,12 @@ class WordPressApi {
         queryParams['student_id'] = studentId;
       }
 
+      final endpoint = isTeacher
+          ? ApiConstants.teacherNotificationsEndpoint
+          : ApiConstants.notificationsEndpoint;
+
       final response = await _dio.get(
-        ApiConstants.notificationsEndpoint,
+        endpoint,
         queryParameters: queryParams,
       );
 
@@ -1162,10 +1171,14 @@ class WordPressApi {
   }
 
   /// Mark a single notification as read.
-  Future<bool> markNotificationAsRead(int notificationId) async {
+  Future<bool> markNotificationAsRead(int notificationId,
+      {bool isTeacher = false}) async {
     try {
+      final endpoint = isTeacher
+          ? ApiConstants.teacherNotificationReadEndpoint(notificationId)
+          : ApiConstants.notificationReadEndpoint(notificationId);
       final response = await _dio.post(
-        ApiConstants.notificationReadEndpoint(notificationId),
+        endpoint,
       );
 
       if (response.statusCode == 200) {
@@ -1182,10 +1195,13 @@ class WordPressApi {
   }
 
   /// Mark all notifications as read.
-  Future<bool> markAllNotificationsAsRead() async {
+  Future<bool> markAllNotificationsAsRead({bool isTeacher = false}) async {
     try {
+      final endpoint = isTeacher
+          ? ApiConstants.teacherNotificationMarkAllReadEndpoint
+          : ApiConstants.notificationMarkAllReadEndpoint;
       final response = await _dio.post(
-        ApiConstants.notificationMarkAllReadEndpoint,
+        endpoint,
       );
 
       if (response.statusCode == 200) {
@@ -1202,10 +1218,13 @@ class WordPressApi {
   }
 
   /// Get unread notification count.
-  Future<int> getUnreadNotificationCount() async {
+  Future<int> getUnreadNotificationCount({bool isTeacher = false}) async {
     try {
+      final endpoint = isTeacher
+          ? ApiConstants.teacherNotificationCountEndpoint
+          : ApiConstants.notificationCountEndpoint;
       final response = await _dio.get(
-        ApiConstants.notificationCountEndpoint,
+        endpoint,
       );
 
       if (response.statusCode == 200) {

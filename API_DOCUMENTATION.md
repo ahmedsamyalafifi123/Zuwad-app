@@ -1367,6 +1367,46 @@ GET /notifications/count
 GET /teacher/notifications?page=1
 ```
 
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "type": "lesson_change",
+      "message": "تم تغيير عدد الحصص للطالب محمد أحمد من \"8\" إلى \"4\"",
+      "student_id": 101,
+      "student_name": "محمد أحمد",
+      "old_value": "8",
+      "new_value": "4",
+      "changed_by": 5,
+      "changed_by_name": "مدير النظام",
+      "is_read": false,
+      "created_at": "2024-03-03 22:54:00"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 50,
+    "total": 1
+  }
+}
+```
+
+### Mark Teacher Notification as Read
+
+```http
+POST /teacher/notifications/{id}/read
+```
+
+### Mark All Teacher Notifications as Read
+
+```http
+POST /teacher/notifications/mark-all-read
+```
+
 ### Teacher Unread Count
 
 ```http

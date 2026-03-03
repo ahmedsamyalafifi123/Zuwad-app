@@ -11,7 +11,8 @@ import '../../domain/models/notification.dart';
 /// Matches the design style of the dashboard and other pages.
 class NotificationsPage extends StatefulWidget {
   final int? studentId;
-  const NotificationsPage({super.key, this.studentId});
+  final bool isTeacher;
+  const NotificationsPage({super.key, this.studentId, this.isTeacher = false});
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -20,6 +21,7 @@ class NotificationsPage extends StatefulWidget {
 class _NotificationsPageState extends State<NotificationsPage> {
   final NotificationRepository _repository = NotificationRepository();
   List<AppNotification> _notifications = [];
+  int _actualUnreadCount = 0;
   bool _isLoading = true;
   bool _hasError = false;
 
@@ -43,10 +45,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
       final notifications = await _repository.getNotifications(
         forceRefresh: forceRefresh,
         studentId: widget.studentId,
+        isTeacher: widget.isTeacher,
       );
+      final unreadCount =
+          await _repository.getUnreadCount(isTeacher: widget.isTeacher);
+
       if (mounted) {
         setState(() {
           _notifications = notifications;
+          _actualUnreadCount = unreadCount;
           _isLoading = false;
         });
       }
@@ -66,9 +73,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Future<void> _markAsRead(AppNotification notification) async {
     if (notification.isRead) return;
 
-    final success = await _repository.markAsRead(notification.id);
+    final success = await _repository.markAsRead(notification.id,
+        isTeacher: widget.isTeacher);
     if (success && mounted) {
       setState(() {
+        if (_actualUnreadCount > 0) _actualUnreadCount--;
         final index = _notifications.indexWhere((n) => n.id == notification.id);
         if (index != -1) {
           _notifications[index] = notification.copyWith(isRead: true);
@@ -81,9 +90,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final unreadCount = _notifications.where((n) => !n.isRead).length;
     if (unreadCount == 0) return;
 
-    final success = await _repository.markAllAsRead();
+    final success =
+        await _repository.markAllAsRead(isTeacher: widget.isTeacher);
     if (success && mounted) {
       setState(() {
+        _actualUnreadCount = 0;
         _notifications =
             _notifications.map((n) => n.copyWith(isRead: true)).toList();
       });
@@ -148,7 +159,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final unreadCount = _notifications.where((n) => !n.isRead).length;
+    final unreadCount = _actualUnreadCount;
 
     return Scaffold(
       backgroundColor: const Color(0xFF8b0628), // Deep Red Background

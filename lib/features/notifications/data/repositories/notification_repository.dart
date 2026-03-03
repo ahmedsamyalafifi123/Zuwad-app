@@ -15,7 +15,22 @@ class NotificationRepository {
     int perPage = 50,
     bool forceRefresh = false,
     int? studentId,
+    bool isTeacher = false,
   }) async {
+    if (isTeacher) {
+      try {
+        final apiData = await _api.getNotifications(
+          page: page,
+          perPage: perPage,
+          isTeacher: true,
+        );
+        return apiData.map((json) => AppNotification.fromJson(json)).toList();
+      } catch (e) {
+        if (kDebugMode) print('Error fetching teacher notifications: $e');
+        return [];
+      }
+    }
+
     // 1. Fetch from Local DB first (fastest)
     // Now with studentId filtering support
     final localNotifications =
@@ -53,8 +68,10 @@ class NotificationRepository {
     return localNotifications;
   }
 
-  /// Get count of unread notifications.
-  Future<int> getUnreadCount() async {
+  Future<int> getUnreadCount({bool isTeacher = false}) async {
+    if (isTeacher) {
+      return await _api.getUnreadNotificationCount(isTeacher: true);
+    }
     try {
       // Prioritize local Unread count as it reflects what user hasn't seen locally
       return await _databaseService.getUnreadCount();
@@ -66,8 +83,10 @@ class NotificationRepository {
     }
   }
 
-  /// Mark a single notification as read.
-  Future<bool> markAsRead(int notificationId) async {
+  Future<bool> markAsRead(int notificationId, {bool isTeacher = false}) async {
+    if (isTeacher) {
+      return await _api.markNotificationAsRead(notificationId, isTeacher: true);
+    }
     try {
       // Mark locally
       await _databaseService.markAsRead(notificationId);
@@ -85,8 +104,10 @@ class NotificationRepository {
     }
   }
 
-  /// Mark all notifications as read.
-  Future<bool> markAllAsRead() async {
+  Future<bool> markAllAsRead({bool isTeacher = false}) async {
+    if (isTeacher) {
+      return await _api.markAllNotificationsAsRead(isTeacher: true);
+    }
     try {
       // Mark locally
       await _databaseService.markAllAsRead();
