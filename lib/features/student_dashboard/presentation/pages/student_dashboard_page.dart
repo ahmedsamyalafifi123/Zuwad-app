@@ -1755,7 +1755,11 @@ class _DashboardContentState extends State<_DashboardContent> {
                         const SizedBox(height: 2), // Reduced spacing
                         Text(
                           _nextLessonDateTime != null
-                              ? TimezoneUtils.formatTime(_nextLessonDateTime!)
+                              ? TimezoneUtils.formatTime(
+                                  TimezoneHelper.localToEgypt(
+                                    _nextLessonDateTime!,
+                                  ),
+                                )
                               : _nextLesson!.hour,
                           style: TextStyle(
                             fontFamily: 'Qatar',
