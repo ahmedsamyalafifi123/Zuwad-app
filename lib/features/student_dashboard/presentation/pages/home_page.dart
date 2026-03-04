@@ -270,6 +270,9 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadData({bool forceRefresh = false}) async {
     final authState = context.read<AuthBloc>().state;
     if (authState is AuthAuthenticated && authState.student != null) {
+      // Set timezone based on student's country for correct time display
+      TimezoneHelper.setUserCountry(authState.student!.country);
+
       if (forceRefresh) {
         setState(() {
           _isLoadingReports = true;
@@ -1023,8 +1026,13 @@ class _HomePageState extends State<HomePage> {
     final dayNumber = dateTime.day.toString();
     final monthName = monthNames[dateTime.month] ?? '';
 
-    // Normalize time strictly for display (HH:MM or h:mm a)
-    String displayTime = schedule.hour;
+    // Convert Egypt lesson time to student's local timezone for display
+    final localDateTime = TimezoneHelper.egyptToLocal(dateTime);
+    final localHour = localDateTime.hour;
+    final localMinute = localDateTime.minute;
+    final hour12 = localHour == 0 ? 12 : (localHour > 12 ? localHour - 12 : localHour);
+    final ampm = localHour < 12 ? 'AM' : 'PM';
+    String displayTime = '${hour12.toString().padLeft(2, '0')}:${localMinute.toString().padLeft(2, '0')} $ampm';
 
     // Clean teacher first name
     String teacherFirstName = teacherName;

@@ -924,8 +924,8 @@ class _DashboardContentState extends State<_DashboardContent> {
   final ReportRepository _reportRepository = ReportRepository();
   StudentSchedule? _nextSchedule;
   Schedule? _nextLesson;
-  DateTime?
-      _nextLessonDateTime; // Store the actual calculated date for countdown
+  DateTime? _nextLessonDateTime; // Lesson time in student's local timezone (for display)
+  DateTime? _nextLessonUtc;     // Lesson time in UTC (for countdown & join logic)
   String _teacherName = '';
   String _teacherGender = 'ذكر';
   String? _teacherImage;
@@ -973,6 +973,9 @@ class _DashboardContentState extends State<_DashboardContent> {
         _teacherName = student.teacherName ?? 'المعلم';
         _teacherGender = student.teacherGender ?? 'ذكر';
         _teacherImage = student.teacherImage;
+
+        // Set timezone based on student's country so times display correctly on all platforms
+        TimezoneHelper.setUserCountry(student.country);
 
         // Get reports to check which schedules already have reports
         final reports = await _reportRepository.getStudentReports(
@@ -1406,59 +1409,53 @@ class _DashboardContentState extends State<_DashboardContent> {
       }
 
       _nextLesson = upcomingLessons.first['schedule'] as Schedule;
-      // The dateTime from upcomingLessons is in Egypt time
-      // Convert to local time for countdown display
       final egyptDateTime = upcomingLessons.first['dateTime'] as DateTime;
+      // Local time for display (student's country timezone)
       _nextLessonDateTime = await TimezoneHelper.egyptToLocalAsync(egyptDateTime);
+      // UTC time for countdown & join logic (works correctly on all platforms)
+      _nextLessonUtc = TimezoneHelper.egyptToUtc(egyptDateTime);
       if (kDebugMode) {
-        print(
-          'Selected next lesson: ${_nextLesson!.day} at ${_nextLesson!.hour}',
-        );
-        print('  Egypt time: $egyptDateTime (hour: ${egyptDateTime.hour})');
-        print('  Local time: $_nextLessonDateTime (hour: ${_nextLessonDateTime?.hour})');
-        print('  DateTime.now(): ${DateTime.now()} (hour: ${DateTime.now().hour})');
-        print('  Device timezone offset: ${DateTime.now().timeZoneOffset}');
-        print('  isPostponed: ${_nextLesson!.isPostponed}');
-        print('  isTrial: ${_nextLesson!.isTrial}');
+        print('Selected next lesson: ${_nextLesson!.day} at ${_nextLesson!.hour}');
+        print('  Egypt time: $egyptDateTime');
+        print('  UTC time: $_nextLessonUtc');
+        print('  Local display time: $_nextLessonDateTime');
+        print('  DateTime.now().toUtc(): ${DateTime.now().toUtc()}');
       }
     } else {
-      if (kDebugMode) {
-        print('No upcoming lessons found');
-      }
+      if (kDebugMode) print('No upcoming lessons found');
       _nextLesson = null;
       _nextLessonDateTime = null;
+      _nextLessonUtc = null;
     }
   }
 
   void _updateCountdown() {
-    // Use the stored _nextLessonDateTime directly instead of recalculating
-    // This ensures the countdown uses the correct date that accounts for reports
-    if (_nextLessonDateTime != null) {
-      final now = DateTime.now();
+    // Use UTC for countdown so it works correctly on all platforms (web/native)
+    if (_nextLessonUtc != null) {
+      final now = DateTime.now().toUtc();
       final previousDuration = _timeUntilNextLesson;
       Duration? newDuration;
 
-      if (_nextLessonDateTime!.isAfter(now)) {
+      if (_nextLessonUtc!.isAfter(now)) {
         // Lesson hasn't started yet - show countdown
-        newDuration = _nextLessonDateTime!.difference(now);
+        newDuration = _nextLessonUtc!.difference(now);
       } else {
         // Lesson has started or is in progress
-        // Get lesson duration to determine when to stop showing zeros
         int lessonDuration = 30;
         if (_nextSchedule != null && _nextSchedule!.lessonDuration.isNotEmpty) {
           lessonDuration = int.tryParse(_nextSchedule!.lessonDuration) ?? 30;
         }
 
-        // Calculate lesson end time + 10 minutes
-        final lessonEndPlusTenMin = _nextLessonDateTime!.add(
+        // Calculate lesson end time + 10 minutes (in UTC)
+        final lessonEndPlusTenMin = _nextLessonUtc!.add(
           Duration(minutes: lessonDuration + 10),
         );
 
         if (now.isBefore(lessonEndPlusTenMin)) {
-          // Within the lesson period (lesson start to 10 min after end) - show 0:0:0
+          // Within the lesson period - show 0:0:0
           newDuration = Duration.zero;
         } else {
-          // Past the lesson period - set to null to trigger next lesson load
+          // Past the lesson period - load next lesson
           newDuration = null;
         }
       }
@@ -1594,11 +1591,10 @@ class _DashboardContentState extends State<_DashboardContent> {
     bool canJoin = false;
     bool canPostpone = true;
 
-    // Calculate actual time difference from lesson start time directly
-    // Don't use _timeUntilNextLesson as it's set to 0 during the lesson for display purposes
-    if (_nextLessonDateTime != null) {
-      final now = DateTime.now();
-      final actualDifference = _nextLessonDateTime!.difference(now);
+    // Calculate actual time difference using UTC so it's correct on all platforms
+    if (_nextLessonUtc != null) {
+      final now = DateTime.now().toUtc();
+      final actualDifference = _nextLessonUtc!.difference(now);
       final minutesUntilStart = actualDifference.inMinutes;
       final minutesAfterStart =
           -minutesUntilStart; // Positive after lesson starts
@@ -2298,6 +2294,7 @@ class _DashboardContentState extends State<_DashboardContent> {
         _nextSchedule = null;
         _nextLesson = null;
         _nextLessonDateTime = null;
+        _nextLessonUtc = null;
         _lastReport = null;
         _familyMembers = []; // Clear family members so they reload
         _timeUntilNextLesson = null;

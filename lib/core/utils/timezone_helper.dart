@@ -1,17 +1,143 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 
 /// Helper class for timezone conversions.
 /// All schedules are stored in Egypt time (Africa/Cairo) on the server.
-/// This helper converts Egypt time to the device's local timezone.
+/// This helper converts Egypt time to the student's country timezone.
 class TimezoneHelper {
   static bool _isInitialized = false;
   static late tz.Location _egyptLocation;
-  static String? _userTimezone;
-  static bool _useApiConversion = false;
+  static tz.Location? _userLocation;
+
+  /// Maps Arabic country names (as stored in the student profile) to IANA timezone names.
+  static const Map<String, String> _countryToTimezone = {
+    // Arab countries
+    'مصر': 'Africa/Cairo',
+    'عمان': 'Asia/Muscat',
+    'الإمارات': 'Asia/Dubai',
+    'المملكة العربية السعودية': 'Asia/Riyadh',
+    'الكويت': 'Asia/Kuwait',
+    'قطر': 'Asia/Qatar',
+    'البحرين': 'Asia/Bahrain',
+    'الأردن': 'Asia/Amman',
+    'العراق': 'Asia/Baghdad',
+    'سوريا': 'Asia/Damascus',
+    'لبنان': 'Asia/Beirut',
+    'اليمن': 'Asia/Aden',
+    'فلسطين': 'Asia/Gaza',
+    'ليبيا': 'Africa/Tripoli',
+    'تونس': 'Africa/Tunis',
+    'الجزائر': 'Africa/Algiers',
+    'المغرب': 'Africa/Casablanca',
+    'السودان': 'Africa/Khartoum',
+    'الصومال': 'Africa/Mogadishu',
+    'جيبوتي': 'Africa/Djibouti',
+    'موريتانيا': 'Africa/Nouakchott',
+    'قبرص': 'Asia/Nicosia',
+    // Rest of the world (common countries for students)
+    'تركيا': 'Europe/Istanbul',
+    'إيران': 'Asia/Tehran',
+    'أفغانستان': 'Asia/Kabul',
+    'باكستان': 'Asia/Karachi',
+    'الهند': 'Asia/Kolkata',
+    'سريلانكا': 'Asia/Colombo',
+    'بنغلاديش': 'Asia/Dhaka',
+    'نيبال': 'Asia/Kathmandu',
+    'ماليزيا': 'Asia/Kuala_Lumpur',
+    'سنغافورة': 'Asia/Singapore',
+    'إندونيسيا': 'Asia/Jakarta',
+    'الفلبين': 'Asia/Manila',
+    'الصين': 'Asia/Shanghai',
+    'اليابان': 'Asia/Tokyo',
+    'كوريا الجنوبية': 'Asia/Seoul',
+    'كوريا الشمالية': 'Asia/Pyongyang',
+    'تايوان': 'Asia/Taipei',
+    'هونغ كونغ': 'Asia/Hong_Kong',
+    'ماكاو': 'Asia/Macau',
+    'تايلاند': 'Asia/Bangkok',
+    'فيتنام': 'Asia/Ho_Chi_Minh',
+    'كمبوديا': 'Asia/Phnom_Penh',
+    'ميانمار': 'Asia/Rangoon',
+    'لاوس': 'Asia/Vientiane',
+    'أوزبكستان': 'Asia/Tashkent',
+    'تركمانستان': 'Asia/Ashgabat',
+    'كازاخستان': 'Asia/Almaty',
+    'قرغيزستان': 'Asia/Bishkek',
+    'أذربيجان': 'Asia/Baku',
+    'أرمينيا': 'Asia/Yerevan',
+    'جورجيا': 'Asia/Tbilisi',
+    'روسيا': 'Europe/Moscow',
+    'أوكرانيا': 'Europe/Kiev',
+    'بيلاروسيا': 'Europe/Minsk',
+    'بولندا': 'Europe/Warsaw',
+    'ألمانيا': 'Europe/Berlin',
+    'فرنسا': 'Europe/Paris',
+    'إسبانيا': 'Europe/Madrid',
+    'إيطاليا': 'Europe/Rome',
+    'المملكة المتحدة': 'Europe/London',
+    'هولندا': 'Europe/Amsterdam',
+    'بلجيكا': 'Europe/Brussels',
+    'سويسرا': 'Europe/Zurich',
+    'النمسا': 'Europe/Vienna',
+    'السويد': 'Europe/Stockholm',
+    'النرويج': 'Europe/Oslo',
+    'الدنمارك': 'Europe/Copenhagen',
+    'فنلندا': 'Europe/Helsinki',
+    'اليونان': 'Europe/Athens',
+    'رومانيا': 'Europe/Bucharest',
+    'بلغاريا': 'Europe/Sofia',
+    'صربيا': 'Europe/Belgrade',
+    'كرواتيا': 'Europe/Zagreb',
+    'جمهورية التشيك': 'Europe/Prague',
+    'سلوفاكيا': 'Europe/Bratislava',
+    'المجر': 'Europe/Budapest',
+    'لاتفيا': 'Europe/Riga',
+    'ليتوانيا': 'Europe/Vilnius',
+    'إستونيا': 'Europe/Tallinn',
+    'البرتغال': 'Europe/Lisbon',
+    'أيرلندا': 'Europe/Dublin',
+    'أيسلندا': 'Atlantic/Reykjavik',
+    'مالطا': 'Europe/Malta',
+    'أستراليا': 'Australia/Sydney',
+    'نيوزيلندا': 'Pacific/Auckland',
+    'كندا': 'America/Toronto',
+    'الولايات المتحدة': 'America/New_York',
+    'المكسيك': 'America/Mexico_City',
+    'البرازيل': 'America/Sao_Paulo',
+    'الأرجنتين': 'America/Argentina/Buenos_Aires',
+    'كولومبيا': 'America/Bogota',
+    'بيرو': 'America/Lima',
+    'تشيلي': 'America/Santiago',
+    'فنزويلا': 'America/Caracas',
+    'الإكوادور': 'America/Guayaquil',
+    'بوليفيا': 'America/La_Paz',
+    'باراغواي': 'America/Asuncion',
+    'أوروغواي': 'America/Montevideo',
+    'كوبا': 'America/Havana',
+    'جامايكا': 'America/Jamaica',
+    'جنوب أفريقيا': 'Africa/Johannesburg',
+    'كينيا': 'Africa/Nairobi',
+    'إثيوبيا': 'Africa/Addis_Ababa',
+    'تنزانيا': 'Africa/Dar_es_Salaam',
+    'أوغندا': 'Africa/Kampala',
+    'رواندا': 'Africa/Kigali',
+    'نيجيريا': 'Africa/Lagos',
+    'غانا': 'Africa/Accra',
+    'الكاميرون': 'Africa/Douala',
+    'السنغال': 'Africa/Dakar',
+    'الغابون': 'Africa/Libreville',
+    'جنوب السودان': 'Africa/Juba',
+    'الصحراء الغربية': 'Africa/El_Aaiun',
+    'موزمبيق': 'Africa/Maputo',
+    'زيمبابوي': 'Africa/Harare',
+    'زامبيا': 'Africa/Lusaka',
+    'مدغشقر': 'Indian/Antananarivo',
+    'موريشيوس': 'Indian/Mauritius',
+    'جزر المالديف': 'Indian/Maldives',
+    'سيشل': 'Indian/Mahe',
+    'جزر القمر': 'Indian/Comoro',
+  };
 
   /// Initialize timezone data. Call this once at app startup.
   static Future<void> initialize() async {
@@ -20,122 +146,47 @@ class TimezoneHelper {
     try {
       tz_data.initializeTimeZones();
       _egyptLocation = tz.getLocation('Africa/Cairo');
-
-      // On web, detect timezone from browser offset and use API
-      if (kIsWeb) {
-        _userTimezone = _detectTimezoneFromOffset();
-        _useApiConversion = _userTimezone != null;
-      }
-
       _isInitialized = true;
 
       if (kDebugMode) {
-        print('TimezoneHelper initialized:');
-        print('  Egypt timezone: ${_egyptLocation.name}');
-        print('  User timezone: $_userTimezone');
-        print('  Using API conversion: $_useApiConversion');
+        print('TimezoneHelper initialized (Egypt timezone: ${_egyptLocation.name})');
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('Error initializing timezone: $e');
-      }
+      if (kDebugMode) print('Error initializing timezone: $e');
       _egyptLocation = tz.getLocation('Africa/Cairo');
       _isInitialized = true;
     }
   }
 
-  /// Detect user's timezone name from browser offset
-  static String? _detectTimezoneFromOffset() {
-    final offsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
-
-    // Map common offsets to IANA timezone names
-    final offsetToTz = <int, String>{
-      -720: 'Etc/GMT+12',
-      -660: 'Pacific/Niue',
-      -600: 'Pacific/Honolulu',
-      -540: 'America/Anchorage',
-      -480: 'America/Los_Angeles',
-      -420: 'America/Denver',
-      -360: 'America/Chicago',
-      -300: 'America/New_York',
-      -240: 'America/Caracas',
-      -180: 'America/Sao_Paulo',
-      -120: 'Atlantic/South_Georgia',
-      -60: 'Atlantic/Azores',
-      0: 'Europe/London',
-      60: 'Europe/Paris',
-      120: 'Africa/Cairo',
-      180: 'Europe/Moscow',
-      210: 'Asia/Tehran',
-      240: 'Asia/Dubai', // UAE, Oman
-      270: 'Asia/Kabul',
-      300: 'Asia/Karachi',
-      330: 'Asia/Kolkata',
-      345: 'Asia/Kathmandu',
-      360: 'Asia/Dhaka',
-      390: 'Asia/Yangon',
-      420: 'Asia/Bangkok',
-      480: 'Asia/Shanghai',
-      540: 'Asia/Tokyo',
-      570: 'Australia/Adelaide',
-      600: 'Australia/Sydney',
-      660: 'Pacific/Noumea',
-      720: 'Pacific/Auckland',
-      780: 'Pacific/Tongatapu',
-      840: 'Pacific/Kiritimati',
-    };
-
-    return offsetToTz[offsetMinutes];
-  }
-
-  /// Convert timezone via OpenTimezone API
-  static Future<DateTime?> _convertViaApi(
-    DateTime dateTime,
-    String fromTimezone,
-    String toTimezone,
-  ) async {
-    try {
-      final dateTimeStr =
-          '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}T'
-          '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}';
-
-      final response = await http.post(
-        Uri.parse('https://api.opentimezone.com/convert'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'dateTime': dateTimeStr,
-          'fromTimezone': fromTimezone,
-          'toTimezone': toTimezone,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final convertedStr = data['dateTime'] as String?;
-        if (convertedStr != null) {
-          final converted = DateTime.parse(convertedStr);
-          if (kDebugMode) {
-            print('API timezone conversion:');
-            print('  From ($fromTimezone): $dateTimeStr');
-            print('  To ($toTimezone): $convertedStr');
-          }
-          return converted;
-        }
-      } else {
-        if (kDebugMode) {
-          print('API conversion failed: ${response.statusCode} - ${response.body}');
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error calling timezone API: $e');
-      }
+  /// Set the user's timezone based on the student's country (Arabic name from profile).
+  /// Call this after loading the student profile.
+  static void setUserCountry(String? arabicCountry) {
+    if (arabicCountry == null || arabicCountry.isEmpty) {
+      _userLocation = null;
+      if (kDebugMode) print('TimezoneHelper: no country set, will use device timezone');
+      return;
     }
-    return null;
+
+    final tzName = _countryToTimezone[arabicCountry];
+    if (tzName == null) {
+      _userLocation = null;
+      if (kDebugMode) print('TimezoneHelper: unknown country "$arabicCountry", will use device timezone');
+      return;
+    }
+
+    try {
+      _userLocation = tz.getLocation(tzName);
+      if (kDebugMode) print('TimezoneHelper: country="$arabicCountry" → timezone=$tzName');
+    } catch (e) {
+      _userLocation = null;
+      if (kDebugMode) print('TimezoneHelper: failed to load timezone $tzName: $e');
+    }
   }
 
-  /// Manual timezone conversion using offset calculation (fallback)
-  static DateTime _manualConversion(DateTime egyptDateTime) {
+  /// Convert a DateTime from Egypt time to the student's local time.
+  static DateTime egyptToLocal(DateTime egyptDateTime) {
+    if (!_isInitialized) return egyptDateTime;
+
     try {
       final egyptTZ = tz.TZDateTime(
         _egyptLocation,
@@ -147,107 +198,99 @@ class TimezoneHelper {
         egyptDateTime.second,
       );
 
+      if (_userLocation != null) {
+        // Convert using timezone package — pure Dart, works on web and native.
+        final userTZ = tz.TZDateTime.from(egyptTZ, _userLocation!);
+        if (kDebugMode) {
+          print('egyptToLocal: $egyptDateTime (Egypt) → $userTZ (${_userLocation!.name})');
+        }
+        return DateTime(userTZ.year, userTZ.month, userTZ.day,
+            userTZ.hour, userTZ.minute, userTZ.second);
+      }
+
+      // Fallback: use device timezone offset (for native where it's reliable)
       final deviceOffsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
       final egyptOffsetMinutes = egyptTZ.timeZoneOffset.inMinutes;
-      final offsetDiffMinutes = deviceOffsetMinutes - egyptOffsetMinutes;
+      final diff = deviceOffsetMinutes - egyptOffsetMinutes;
+      return DateTime(egyptDateTime.year, egyptDateTime.month, egyptDateTime.day,
+              egyptDateTime.hour, egyptDateTime.minute, egyptDateTime.second)
+          .add(Duration(minutes: diff));
+    } catch (e) {
+      if (kDebugMode) print('Error in egyptToLocal: $e');
+      return egyptDateTime;
+    }
+  }
 
-      final localTime = DateTime(
+  /// Async version — same logic, kept for API compatibility.
+  static Future<DateTime> egyptToLocalAsync(DateTime egyptDateTime) async {
+    return egyptToLocal(egyptDateTime);
+  }
+
+  /// Convert an Egypt time to UTC. Use this for countdown calculations so
+  /// that comparing with DateTime.now().toUtc() works correctly on all platforms.
+  static DateTime egyptToUtc(DateTime egyptDateTime) {
+    if (!_isInitialized) return egyptDateTime;
+    try {
+      final egyptTZ = tz.TZDateTime(
+        _egyptLocation,
         egyptDateTime.year,
         egyptDateTime.month,
         egyptDateTime.day,
         egyptDateTime.hour,
         egyptDateTime.minute,
         egyptDateTime.second,
-      ).add(Duration(minutes: offsetDiffMinutes));
-
-      if (kDebugMode) {
-        print('Manual timezone conversion:');
-        print('  Egypt time: $egyptDateTime');
-        print('  Device offset: ${deviceOffsetMinutes ~/ 60}h');
-        print('  Local time: $localTime');
-      }
-
-      return localTime;
+      );
+      return DateTime.fromMillisecondsSinceEpoch(
+        egyptTZ.millisecondsSinceEpoch,
+        isUtc: true,
+      );
     } catch (e) {
-      if (kDebugMode) {
-        print('Error in manual conversion: $e');
-      }
+      if (kDebugMode) print('Error in egyptToUtc: $e');
       return egyptDateTime;
     }
   }
 
-  /// Convert a DateTime from Egypt time to local device time (async).
-  /// Uses API on web, manual calculation on native.
-  static Future<DateTime> egyptToLocalAsync(DateTime egyptDateTime) async {
-    if (!_isInitialized) return egyptDateTime;
-
-    // Use API on web
-    if (_useApiConversion && _userTimezone != null) {
-      final result = await _convertViaApi(egyptDateTime, 'Africa/Cairo', _userTimezone!);
-      if (result != null) return result;
-    }
-
-    // Fallback to manual
-    return _manualConversion(egyptDateTime);
-  }
-
-  /// Convert a DateTime from Egypt time to local device time (sync).
-  /// Uses manual calculation only.
-  static DateTime egyptToLocal(DateTime egyptDateTime) {
-    if (!_isInitialized) return egyptDateTime;
-    return _manualConversion(egyptDateTime);
-  }
-
-  /// Convert a DateTime from local device time to Egypt time (async).
-  static Future<DateTime> localToEgyptAsync(DateTime localDateTime) async {
-    if (!_isInitialized) return localDateTime;
-
-    if (_useApiConversion && _userTimezone != null) {
-      final result = await _convertViaApi(localDateTime, _userTimezone!, 'Africa/Cairo');
-      if (result != null) return result;
-    }
-
-    return _manualLocalToEgypt(localDateTime);
-  }
-
-  /// Convert a DateTime from local device time to Egypt time (sync).
+  /// Convert a DateTime from local (student's country) time to Egypt time.
   static DateTime localToEgypt(DateTime localDateTime) {
     if (!_isInitialized) return localDateTime;
-    return _manualLocalToEgypt(localDateTime);
-  }
 
-  static DateTime _manualLocalToEgypt(DateTime localDateTime) {
     try {
-      final egyptTZ = tz.TZDateTime.from(localDateTime, _egyptLocation);
-      return DateTime(
-        egyptTZ.year,
-        egyptTZ.month,
-        egyptTZ.day,
-        egyptTZ.hour,
-        egyptTZ.minute,
-        egyptTZ.second,
-      );
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error converting to Egypt timezone: $e');
+      if (_userLocation != null) {
+        final localTZ = tz.TZDateTime(
+          _userLocation!,
+          localDateTime.year,
+          localDateTime.month,
+          localDateTime.day,
+          localDateTime.hour,
+          localDateTime.minute,
+          localDateTime.second,
+        );
+        final egyptTZ = tz.TZDateTime.from(localTZ, _egyptLocation);
+        return DateTime(egyptTZ.year, egyptTZ.month, egyptTZ.day,
+            egyptTZ.hour, egyptTZ.minute, egyptTZ.second);
       }
+
+      // Fallback
+      final egyptTZ = tz.TZDateTime.from(localDateTime, _egyptLocation);
+      return DateTime(egyptTZ.year, egyptTZ.month, egyptTZ.day,
+          egyptTZ.hour, egyptTZ.minute, egyptTZ.second);
+    } catch (e) {
+      if (kDebugMode) print('Error in localToEgypt: $e');
       return localDateTime;
     }
   }
 
-  /// Get the current time in Egypt timezone
+  /// Async version — same logic, kept for API compatibility.
+  static Future<DateTime> localToEgyptAsync(DateTime localDateTime) async {
+    return localToEgypt(localDateTime);
+  }
+
+  /// Get the current time in Egypt timezone.
   static DateTime nowInEgypt() => localToEgypt(DateTime.now());
 
-  /// Check if timezone helper is initialized
   static bool get isInitialized => _isInitialized;
-
-  /// Get user's detected timezone name
-  static String? get userTimezone => _userTimezone;
-
-  /// Get device timezone offset in hours
+  static String? get userTimezone => _userLocation?.name;
   static int get deviceTimezoneOffsetHours => DateTime.now().timeZoneOffset.inHours;
-
-  /// Get Egypt timezone offset in hours
   static int get egyptTimezoneOffsetHours {
     if (!_isInitialized) return 2;
     return tz.TZDateTime.now(_egyptLocation).timeZoneOffset.inHours;
