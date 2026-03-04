@@ -300,9 +300,16 @@ class _ChatListPageState extends State<ChatListPage> {
 
           _conversations = results[1] as List<Conversation>;
 
-          // Sort contacts by: unread messages first, then by last message time
+          // Sort contacts by: Supervisor always first, then unread messages, then by last message time
           _contacts.sort((a, b) {
-            // Get unread counts
+            // First priority: Supervisor (Customer Service) always at the top
+            final aIsSupervisor = _isSupervisorContact(a);
+            final bIsSupervisor = _isSupervisorContact(b);
+
+            if (aIsSupervisor && !bIsSupervisor) return -1;
+            if (!aIsSupervisor && bIsSupervisor) return 1;
+
+            // Get unread counts (for non-supervisor contacts)
             final aUnread = _getUnreadCountForContact(a.id);
             final bUnread = _getUnreadCountForContact(b.id);
 
@@ -314,7 +321,7 @@ class _ChatListPageState extends State<ChatListPage> {
             final aTime = aConv?.lastMessageAt;
             final bTime = bConv?.lastMessageAt;
 
-            // First priority: unread messages (descending)
+            // Second priority: unread messages (descending)
             if (aUnread > 0 && bUnread == 0) return -1;
             if (aUnread == 0 && bUnread > 0) return 1;
 
@@ -327,13 +334,7 @@ class _ChatListPageState extends State<ChatListPage> {
               return 1; // b has message, a doesn't
             }
 
-            // Fallback: supervisor first, then teacher
-            final aIsSupervisor = _isSupervisorContact(a);
-            final bIsSupervisor = _isSupervisorContact(b);
-
-            if (aIsSupervisor && !bIsSupervisor) return -1;
-            if (!aIsSupervisor && bIsSupervisor) return 1;
-
+            // Fallback: teacher before others
             final aIsTeacher = _isTeacherContact(a);
             final bIsTeacher = _isTeacherContact(b);
 
