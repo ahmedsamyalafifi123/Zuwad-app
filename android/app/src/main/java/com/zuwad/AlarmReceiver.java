@@ -156,9 +156,12 @@ public class AlarmReceiver extends BroadcastReceiver {
         try {
             Vibrator vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
             if (vibrator != null) {
-                // Vibrate pattern: 0ms delay, 500ms vibrate, 200ms pause, 500ms vibrate
                 long[] pattern = {0, 500, 200, 500};
-                vibrator.vibrate(pattern, -1); // -1 = don't repeat
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(android.os.VibrationEffect.createWaveform(pattern, -1));
+                } else {
+                    vibrator.vibrate(pattern, -1); // -1 = don't repeat
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
