@@ -160,9 +160,12 @@ class _ChatListPageState extends State<ChatListPage> {
         normalized.add(
           Contact(
             id: teacherId,
-            name: (source?.teacherName != null && source!.teacherName!.isNotEmpty)
-                ? source.teacherName!
-                : (widget.teacherName.isNotEmpty ? widget.teacherName : 'المعلم'),
+            name:
+                (source?.teacherName != null && source!.teacherName!.isNotEmpty)
+                    ? source.teacherName!
+                    : (widget.teacherName.isNotEmpty
+                        ? widget.teacherName
+                        : 'المعلم'),
             role: 'teacher',
             relation: 'teacher',
             profileImage: source?.teacherImage,
@@ -296,6 +299,50 @@ class _ChatListPageState extends State<ChatListPage> {
           });
 
           _conversations = results[1] as List<Conversation>;
+
+          // Sort contacts by: unread messages first, then by last message time
+          _contacts.sort((a, b) {
+            // Get unread counts
+            final aUnread = _getUnreadCountForContact(a.id);
+            final bUnread = _getUnreadCountForContact(b.id);
+
+            // Get last message times
+            final aConv =
+                _conversations.where((c) => c.otherUser.id == a.id).firstOrNull;
+            final bConv =
+                _conversations.where((c) => c.otherUser.id == b.id).firstOrNull;
+            final aTime = aConv?.lastMessageAt;
+            final bTime = bConv?.lastMessageAt;
+
+            // First priority: unread messages (descending)
+            if (aUnread > 0 && bUnread == 0) return -1;
+            if (aUnread == 0 && bUnread > 0) return 1;
+
+            // If both have unread or both don't, sort by last message time (newest first)
+            if (aTime != null && bTime != null) {
+              return bTime.compareTo(aTime); // Descending order
+            } else if (aTime != null) {
+              return -1; // a has message, b doesn't
+            } else if (bTime != null) {
+              return 1; // b has message, a doesn't
+            }
+
+            // Fallback: supervisor first, then teacher
+            final aIsSupervisor = _isSupervisorContact(a);
+            final bIsSupervisor = _isSupervisorContact(b);
+
+            if (aIsSupervisor && !bIsSupervisor) return -1;
+            if (!aIsSupervisor && bIsSupervisor) return 1;
+
+            final aIsTeacher = _isTeacherContact(a);
+            final bIsTeacher = _isTeacherContact(b);
+
+            if (aIsTeacher && !bIsTeacher) return -1;
+            if (!aIsTeacher && bIsTeacher) return 1;
+
+            return 0;
+          });
+
           _isLoading = false;
         });
 
@@ -587,13 +634,12 @@ class _ChatListPageState extends State<ChatListPage> {
 
     final roleName =
         _getRoleName(contact.role, contact.relation, gender: gender);
-    final teacherSubject = _isTeacherContact(contact)
-        ? _teacherSubjectsById[contact.id]
-        : null;
-    final roleNameWithSubject = (teacherSubject != null &&
-            teacherSubject.trim().isNotEmpty)
-        ? '$roleName | $teacherSubject'
-        : roleName;
+    final teacherSubject =
+        _isTeacherContact(contact) ? _teacherSubjectsById[contact.id] : null;
+    final roleNameWithSubject =
+        (teacherSubject != null && teacherSubject.trim().isNotEmpty)
+            ? '$roleName | $teacherSubject'
+            : roleName;
 
     // Override display name for supervisor
     String displayName = contact.name;
@@ -785,8 +831,8 @@ class _ChatListPageState extends State<ChatListPage> {
 
     // Check if this contact is the FIRST teacher
     if (_isTeacherContact(contact)) {
-      final firstTeacherIndex = _contacts.indexWhere((c) =>
-          _isTeacherContact(c));
+      final firstTeacherIndex =
+          _contacts.indexWhere((c) => _isTeacherContact(c));
       if (firstTeacherIndex != -1 &&
           _contacts[firstTeacherIndex].id == contact.id) {
         return _teacherKey;
@@ -795,8 +841,8 @@ class _ChatListPageState extends State<ChatListPage> {
 
     // Check if this contact is the FIRST supervisor
     if (_isSupervisorContact(contact)) {
-      final firstSupervisorIndex = _contacts.indexWhere((c) =>
-          _isSupervisorContact(c));
+      final firstSupervisorIndex =
+          _contacts.indexWhere((c) => _isSupervisorContact(c));
       if (firstSupervisorIndex != -1 &&
           _contacts[firstSupervisorIndex].id == contact.id) {
         return _supervisorKey;
@@ -1054,4 +1100,3 @@ class _ChatListPageState extends State<ChatListPage> {
     });
   }
 }
-
