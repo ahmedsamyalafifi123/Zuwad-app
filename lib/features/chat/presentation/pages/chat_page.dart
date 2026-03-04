@@ -81,6 +81,8 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    // Clear active chat so notifications are shown again
+    _chatEventService.clearActiveChat();
     _pollTimer?.cancel();
     _chatController.dispose();
     _textController.dispose();
@@ -93,6 +95,12 @@ class _ChatPageState extends State<ChatPage> {
     _chatRepository = ChatRepository();
     _chatController = core.InMemoryChatController();
     _serverConversationId = widget.conversationId;
+
+    // Set this chat as active for notification filtering
+    _chatEventService.setActiveChat(
+      conversationId: widget.conversationId,
+      recipientId: widget.recipientId,
+    );
 
     // Initialize controller with initial message if provided
     if (widget.initialMessage != null) {

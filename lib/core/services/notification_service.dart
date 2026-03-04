@@ -254,6 +254,26 @@ class NotificationService {
       }
       // Notify ChatListPage to refresh when a chat message notification arrives
       final senderId = message.data['sender_id']?.toString();
+      final conversationId = message.data['conversation_id']?.toString();
+
+      // Check if user is currently in the chat with this sender
+      // If so, don't show local notification
+      if (_chatEventService.isChatActive(
+        senderId: senderId,
+        conversationId: conversationId,
+      )) {
+        if (kDebugMode) {
+          print(
+              'Chat is active with sender $senderId, suppressing notification');
+        }
+        // Still notify listeners so the chat UI updates
+        _chatEventService.notifyMessageReceived(
+          senderId: senderId ?? '',
+          message: notification?.body,
+        );
+        return;
+      }
+
       _chatEventService.notifyMessageReceived(
         senderId: senderId ?? '',
         message: notification?.body,
