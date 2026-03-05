@@ -417,6 +417,47 @@ class WordPressApi {
     }
   }
 
+  /// Get student events.
+  /// Returns events matching the student's criteria (age, gender, supervisor m_id, country).
+  /// Events within 12 hours include a `is_countdown` flag for showing countdown timers.
+  Future<List<dynamic>> getStudentEvents(int studentId) async {
+    try {
+      if (kDebugMode) {
+        print('WordPressApi.getStudentEvents - studentId: $studentId');
+        print(
+            'WordPressApi.getStudentEvents - endpoint: ${ApiConstants.studentEventsEndpoint(studentId)}');
+      }
+
+      final response = await _dio.get(
+        ApiConstants.studentEventsEndpoint(studentId),
+      );
+
+      if (kDebugMode) {
+        print(
+            'WordPressApi.getStudentEvents - statusCode: ${response.statusCode}');
+        print('WordPressApi.getStudentEvents - response: ${response.data}');
+      }
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          final data = jsonData['data'];
+          if (data is List) {
+            return data;
+          }
+          return [];
+        }
+        return [];
+      }
+      return [];
+    } catch (e) {
+      if (kDebugMode) {
+        print('WordPressApi.getStudentEvents - Error: $e');
+      }
+      return [];
+    }
+  }
+
   // ============================================
   // Teacher Methods
   // ============================================

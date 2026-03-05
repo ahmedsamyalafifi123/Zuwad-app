@@ -661,7 +661,10 @@ Authorization: Bearer {token}
       "is_countdown": true,
       "is_event": true,
       "teacher_id": 5,
-      "teacher_name": "أحمد محمد"
+      "teacher_name": "أحمد محمد",
+      "media_url": "https://example.com/wp-content/uploads/2024/01/event_image.jpg",
+      "media_type": "image",
+      "media_filename": "event_image.jpg"
     }
   ]
 }
@@ -685,6 +688,9 @@ Authorization: Bearer {token}
 | `is_event`       | boolean | Always true for events (distinguish from lessons)   |
 | `teacher_id`     | integer | Event creator ID                                    |
 | `teacher_name`   | string  | Event creator name                                  |
+| `media_url`      | string  | Event media file URL (image or video)               |
+| `media_type`     | string  | Type of media: `image` or `video`                   |
+| `media_filename` | string  | Original filename of the uploaded media             |
 
 #### Countdown Feature
 

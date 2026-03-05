@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:video_player/video_player.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
 import 'dart:async';
@@ -20,8 +21,10 @@ import '../../../chat/data/repositories/chat_repository.dart';
 import '../../../meeting/presentation/pages/meeting_page.dart';
 import '../../data/repositories/schedule_repository.dart';
 import '../../data/repositories/report_repository.dart';
+import '../../data/repositories/event_repository.dart';
 import '../../domain/models/schedule.dart';
 import '../../domain/models/student_report.dart';
+import '../../domain/models/student_event.dart';
 import '../../../../core/widgets/responsive_content_wrapper.dart';
 import 'postpone_page.dart';
 import 'alarm_settings_page.dart';
@@ -922,10 +925,12 @@ class _DashboardContent extends StatefulWidget {
 class _DashboardContentState extends State<_DashboardContent> {
   final ScheduleRepository _scheduleRepository = ScheduleRepository();
   final ReportRepository _reportRepository = ReportRepository();
+  final EventRepository _eventRepository = EventRepository();
   StudentSchedule? _nextSchedule;
   Schedule? _nextLesson;
-  DateTime? _nextLessonDateTime; // Lesson time in student's local timezone (for display)
-  DateTime? _nextLessonUtc;     // Lesson time in UTC (for countdown & join logic)
+  DateTime?
+      _nextLessonDateTime; // Lesson time in student's local timezone (for display)
+  DateTime? _nextLessonUtc; // Lesson time in UTC (for countdown & join logic)
   String _teacherName = '';
   String _teacherGender = 'ذكر';
   String? _teacherImage;
@@ -933,6 +938,14 @@ class _DashboardContentState extends State<_DashboardContent> {
   bool _isLoading = true;
   Duration? _timeUntilNextLesson;
   Timer? _countdownTimer;
+
+  // Event-related variables
+  StudentEvent? _nextEvent;
+  DateTime?
+      _eventLocalDateTime; // Event time in student's local timezone (for display)
+  DateTime? _eventUtc; // Event time in UTC (for countdown logic)
+  Timer? _eventCountdownTimer;
+  Duration? _timeUntilEvent;
 
   final AuthRepository _authRepository = AuthRepository();
   StudentReport? _lastReport;
@@ -945,12 +958,131 @@ class _DashboardContentState extends State<_DashboardContent> {
     super.initState();
     // Force refresh on init to ensure fresh data after page reload
     _loadNextLesson(forceRefresh: true);
+    _loadNextEvent();
   }
 
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _eventCountdownTimer?.cancel();
     super.dispose();
+  }
+
+  /// Load the next upcoming event for the student
+  Future<void> _loadNextEvent() async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated && authState.student != null) {
+      try {
+        final student = authState.student!;
+        final nextEvent = await _eventRepository.getNextEvent(student.id);
+
+        if (mounted && nextEvent != null) {
+          // Parse event datetime (from API which is in Egypt time)
+          final egyptDateTime = nextEvent.eventDateTime;
+          if (egyptDateTime != null) {
+            // Local time for display (student's country timezone)
+            _eventLocalDateTime =
+                await TimezoneHelper.egyptToLocalAsync(egyptDateTime);
+            // UTC time for countdown & join logic (works correctly on all platforms)
+            _eventUtc = TimezoneHelper.egyptToUtc(egyptDateTime);
+          }
+
+          setState(() {
+            _nextEvent = nextEvent;
+          });
+
+          // Start countdown timer (always show countdown for future events)
+          _startEventCountdown();
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error loading next event: $e');
+        }
+      }
+    }
+  }
+
+  /// Start countdown timer for event
+  void _startEventCountdown() {
+    _eventCountdownTimer?.cancel();
+
+    if (_eventUtc == null) return;
+
+    // Initialize immediately so countdown shows right away
+    final now = DateTime.now().toUtc();
+    if (_eventUtc!.isAfter(now)) {
+      _timeUntilEvent = _eventUtc!.difference(now);
+    } else {
+      _timeUntilEvent = Duration.zero;
+    }
+
+    _eventCountdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) {
+        _eventCountdownTimer?.cancel();
+        return;
+      }
+
+      final now = DateTime.now().toUtc();
+      if (_eventUtc!.isAfter(now)) {
+        setState(() {
+          _timeUntilEvent = _eventUtc!.difference(now);
+        });
+      } else {
+        // Event has started
+        _eventCountdownTimer?.cancel();
+        setState(() {
+          _timeUntilEvent = Duration.zero;
+        });
+      }
+    });
+  }
+
+  /// Navigate to meeting page for the event
+  void _joinEvent() async {
+    if (_nextEvent == null) return;
+
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated || authState.student == null) return;
+
+    final student = authState.student!;
+    final event = _nextEvent!;
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFFD4AF37),
+        ),
+      ),
+    );
+
+    try {
+      await Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MeetingPage(
+            roomName: event.roomName,
+            participantName: student.name,
+            participantId: student.id.toString(),
+            participantEmail: student.email ?? '',
+            lessonName: event.title,
+            teacherName: event.teacherName,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Dismiss loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ أثناء الانضمام للحدث: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _loadNextLesson({bool forceRefresh = false}) async {
@@ -1062,7 +1194,8 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
   }
 
-  Future<void> _findNextLesson(List<Schedule> schedules, List<StudentReport> reports) async {
+  Future<void> _findNextLesson(
+      List<Schedule> schedules, List<StudentReport> reports) async {
     if (schedules.isEmpty) {
       _nextLesson = null;
       return;
@@ -1411,11 +1544,13 @@ class _DashboardContentState extends State<_DashboardContent> {
       _nextLesson = upcomingLessons.first['schedule'] as Schedule;
       final egyptDateTime = upcomingLessons.first['dateTime'] as DateTime;
       // Local time for display (student's country timezone)
-      _nextLessonDateTime = await TimezoneHelper.egyptToLocalAsync(egyptDateTime);
+      _nextLessonDateTime =
+          await TimezoneHelper.egyptToLocalAsync(egyptDateTime);
       // UTC time for countdown & join logic (works correctly on all platforms)
       _nextLessonUtc = TimezoneHelper.egyptToUtc(egyptDateTime);
       if (kDebugMode) {
-        print('Selected next lesson: ${_nextLesson!.day} at ${_nextLesson!.hour}');
+        print(
+            'Selected next lesson: ${_nextLesson!.day} at ${_nextLesson!.hour}');
         print('  Egypt time: $egyptDateTime');
         print('  UTC time: $_nextLessonUtc');
         print('  Local display time: $_nextLessonDateTime');
@@ -2064,6 +2199,350 @@ class _DashboardContentState extends State<_DashboardContent> {
               fontWeight: FontWeight.w500,
               color: Colors.black,
               height: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build the Events Section - Shows upcoming events with countdown and join button
+  Widget _buildEventsSection() {
+    if (_nextEvent == null) return const SizedBox.shrink();
+
+    final event = _nextEvent!;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final isDesktop = screenWidth >= 600;
+    final containerPadding = isSmallScreen ? 12.0 : 16.0;
+    final buttonFontSize = isDesktop ? 16.0 : (isSmallScreen ? 12.0 : 14.0);
+    final buttonPaddingH = isDesktop ? 24.0 : (isSmallScreen ? 16.0 : 24.0);
+    final buttonPaddingV = isDesktop ? 16.0 : (isSmallScreen ? 8.0 : 12.0);
+    final subjectFontSize = isSmallScreen ? 16.0 : 18.0;
+    final dayFontSize = isSmallScreen ? 14.0 : 16.0;
+    final timeFontSize = isSmallScreen ? 12.0 : 14.0;
+
+    // Use the converted local time for display
+    String formattedDate = event.date;
+    String formattedTime = event.time;
+
+    if (_eventLocalDateTime != null) {
+      formattedDate = TimezoneUtils.getArabicDayName(_eventLocalDateTime!);
+      formattedTime = TimezoneUtils.formatTime(_eventLocalDateTime!);
+    }
+
+    // Always show countdown if we have time data
+    bool shouldShowCountdown = _timeUntilEvent != null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section Header - Same style as "العب مع زواد"
+          const Row(
+            children: [
+              Icon(Icons.event_available, color: Color(0xFFD4AF37), size: 32),
+              SizedBox(width: 8),
+              Text(
+                'فعالية قادمة',
+                style: TextStyle(
+                  fontFamily: 'Qatar',
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Event Card - Same white gradient style as lesson card
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              // Gradient background like lesson card
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color.fromARGB(255, 255, 255, 255), // Warm cream white
+                  Color.fromARGB(255, 230, 230, 230), // Subtle gold tint
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color.fromARGB(140, 0, 0, 0),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Column(
+                children: [
+                  // Event Media - full-bleed at the top
+                  if (event.mediaUrl != null && event.mediaUrl!.isNotEmpty) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: event.mediaType == 'video'
+                          ? _InlineVideoPlayer(
+                              videoUrl: event.mediaUrl!,
+                              height: isSmallScreen ? 160.0 : 200.0,
+                            )
+                          : Image.network(
+                              event.mediaUrl!,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: isSmallScreen ? 160.0 : 200.0,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: Colors.grey[300],
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.broken_image,
+                                    color: Colors.grey,
+                                    size: 40,
+                                  ),
+                                ),
+                              ),
+                              loadingBuilder: (_, child, progress) {
+                                if (progress == null) return child;
+                                return Container(
+                                  color: Colors.grey[200],
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Color(0xFFD4AF37),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+
+                  // Padded content below media
+                  Padding(
+                    padding: EdgeInsets.all(containerPadding),
+                    child: Column(
+                      children: [
+                        // Event Title - Same style as lesson subject
+                        Text(
+                          event.title,
+                          style: TextStyle(
+                            fontFamily: 'Qatar',
+                            fontSize: subjectFontSize,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Date and Time Row - Same style as lesson card
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.calendar_today,
+                              color: const Color(0xFFD4AF37),
+                              size: isSmallScreen ? 16 : 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              formattedDate,
+                              style: TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: dayFontSize,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Icon(
+                              Icons.access_time,
+                              color: const Color(0xFFD4AF37),
+                              size: isSmallScreen ? 16 : 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              formattedTime,
+                              style: TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: timeFontSize,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Countdown Timer - Always show if event is in the future
+                        if (shouldShowCountdown) ...[
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            height: 60,
+                            child: Stack(
+                              alignment: Alignment.centerRight,
+                              children: [
+                                // Background Text Layer
+                                Transform.translate(
+                                  offset: const Offset(0, -2),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Text(
+                                        'الوقــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــت',
+                                        style: TextStyle(
+                                          fontFamily: 'Qatar',
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.black,
+                                          height: 1.0,
+                                          letterSpacing: 0.3,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.visible,
+                                      ),
+                                      SizedBox(height: 8),
+                                      Text(
+                                        'المتبقــــــــــــــــــــــــــــــــــــــــــــــــــــــــــي',
+                                        style: TextStyle(
+                                          fontFamily: 'Qatar',
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.black,
+                                          height: 1.0,
+                                          letterSpacing: 0.3,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.visible,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Foreground Countdown Layer
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(width: 50),
+                                    if (_timeUntilEvent!.inDays > 0) ...[
+                                      _buildCountdownItem(
+                                        _timeUntilEvent!.inDays,
+                                        'يوم',
+                                      ),
+                                      const SizedBox(width: 8),
+                                    ],
+                                    _buildCountdownItem(
+                                      _timeUntilEvent!.inHours % 24,
+                                      'ساعة',
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _buildCountdownItem(
+                                      _timeUntilEvent!.inMinutes % 60,
+                                      'دقيقة',
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _buildCountdownItem(
+                                      _timeUntilEvent!.inSeconds % 60,
+                                      'ثانية',
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Buttons below the card - Same style as lesson buttons
+          SizedBox(height: isSmallScreen ? 8 : 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Join Event Button - Same green gradient style as "إنضم للدرس"
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: event.canJoin
+                        ? const LinearGradient(
+                            colors: [
+                              Color.fromARGB(255, 101, 206, 107),
+                              Color.fromARGB(255, 63, 151, 66),
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          )
+                        : const LinearGradient(
+                            colors: [
+                              Color.fromARGB(0, 255, 255, 255),
+                              Color.fromARGB(0, 240, 191, 12),
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color.fromARGB(157, 255, 255, 255),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: event.canJoin ? _joinEvent : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor: Colors.black,
+                      disabledForegroundColor: Colors.black,
+                      padding: EdgeInsets.symmetric(
+                        vertical: buttonPaddingV,
+                        horizontal: buttonPaddingH,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.video_call,
+                          color: event.canJoin
+                              ? Colors.white
+                              : const Color.fromARGB(157, 255, 255, 255),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'انضم للحدث',
+                          style: TextStyle(
+                            fontFamily: 'Qatar',
+                            fontSize: buttonFontSize,
+                            fontWeight: FontWeight.bold,
+                            color: event.canJoin
+                                ? Colors.white
+                                : const Color.fromARGB(157, 255, 255, 255),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -2882,6 +3361,12 @@ class _DashboardContentState extends State<_DashboardContent> {
 
                             const SizedBox(height: 20),
 
+                            // Events Section - Shows only if there's an upcoming event
+                            if (_nextEvent != null) ...[
+                              _buildEventsSection(),
+                              const SizedBox(height: 20),
+                            ],
+
                             // Wordwall Game Section Header
                             const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 16.0),
@@ -3043,6 +3528,138 @@ class _DashboardContentState extends State<_DashboardContent> {
                       fontWeight: FontWeight.bold,
                       fontSize: 10,
                       color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Inline video player — initializes immediately to show first frame as thumbnail.
+/// Fixed height always; tapping plays/pauses inline without resizing.
+class _InlineVideoPlayer extends StatefulWidget {
+  final String videoUrl;
+  final double height;
+
+  const _InlineVideoPlayer({required this.videoUrl, required this.height});
+
+  @override
+  State<_InlineVideoPlayer> createState() => _InlineVideoPlayerState();
+}
+
+class _InlineVideoPlayerState extends State<_InlineVideoPlayer> {
+  VideoPlayerController? _controller;
+  bool _initialized = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initController();
+  }
+
+  Future<void> _initController() async {
+    try {
+      final ctrl = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+      await ctrl.initialize();
+      if (!mounted) {
+        ctrl.dispose();
+        return;
+      }
+      // Seek to first frame so it shows as thumbnail (don't autoplay)
+      await ctrl.seekTo(Duration.zero);
+      setState(() {
+        _controller = ctrl;
+        _initialized = true;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _hasError = true);
+    }
+  }
+
+  void _togglePlay() {
+    final ctrl = _controller;
+    if (ctrl == null) return;
+    setState(() {
+      ctrl.value.isPlaying ? ctrl.pause() : ctrl.play();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return SizedBox(
+        height: widget.height,
+        width: double.infinity,
+        child: const ColoredBox(
+          color: Colors.black,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline, color: Colors.white54, size: 40),
+                SizedBox(height: 8),
+                Text(
+                  'تعذّر تشغيل الفيديو',
+                  style: TextStyle(
+                    fontFamily: 'Qatar',
+                    color: Colors.white54,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!_initialized || _controller == null) {
+      return SizedBox(
+        height: widget.height,
+        width: double.infinity,
+        child: const ColoredBox(
+          color: Colors.black,
+          child: Center(
+            child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
+          ),
+        ),
+      );
+    }
+
+    // Use AspectRatio so the full video is visible — no cropping
+    return GestureDetector(
+      onTap: _togglePlay,
+      child: AspectRatio(
+        aspectRatio: _controller!.value.aspectRatio,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            VideoPlayer(_controller!),
+            // Play/pause overlay fades out while playing
+            ValueListenableBuilder<VideoPlayerValue>(
+              valueListenable: _controller!,
+              builder: (_, value, __) => AnimatedOpacity(
+                opacity: value.isPlaying ? 0.0 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  color: Colors.black38,
+                  child: const Center(
+                    child: Icon(
+                      Icons.play_circle_outline,
+                      color: Colors.white,
+                      size: 64,
                     ),
                   ),
                 ),
