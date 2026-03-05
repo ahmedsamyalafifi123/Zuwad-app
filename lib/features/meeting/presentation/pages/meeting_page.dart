@@ -21,6 +21,9 @@ class MeetingPage extends StatefulWidget {
   final String participantEmail;
   final String lessonName;
   final String teacherName;
+  // When provided, these override client-side token generation
+  final String? serverToken;
+  final String? serverUrl;
 
   const MeetingPage({
     super.key,
@@ -30,6 +33,8 @@ class MeetingPage extends StatefulWidget {
     required this.participantEmail,
     required this.lessonName,
     required this.teacherName,
+    this.serverToken,
+    this.serverUrl,
   });
 
   @override
@@ -582,56 +587,44 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
   }
 
   Future<void> _connectToRoom() async {
-    if (kDebugMode) {
-      print('MeetingPage: _connectToRoom started');
-    }
+    print('[MeetingPage] _connectToRoom ▶ roomName=${widget.roomName}');
+    print('[MeetingPage] serverToken=${widget.serverToken != null ? "✅ server(${widget.serverToken!.length} chars)" : "❌ null→client-side"}');
+    print('[MeetingPage] serverUrl=${widget.serverUrl}');
     try {
-      if (kDebugMode) {
-        print('MeetingPage: Calling LiveKitService.connectToRoom');
-      }
       final success = await _liveKitService.connectToRoom(
         roomName: widget.roomName,
         participantName: widget.participantName,
         participantId: widget.participantId,
+        serverToken: widget.serverToken,
+        serverUrl: widget.serverUrl,
       );
-      if (kDebugMode) {
-        print('MeetingPage: connectToRoom succeeded: $success');
-      }
+      print('[MeetingPage] connectToRoom returned: success=$success');
+      print('[MeetingPage] room=${_liveKitService.room}  isConnected=${_liveKitService.isConnected}');
 
       if (success && _liveKitService.room != null) {
-        if (kDebugMode) {
-          print('MeetingPage: Success and room not null, setup listeners');
-        }
+        print('[MeetingPage] ✅ Connected — setting up listeners');
         _setupRoomListeners();
         setState(() {
           _isConnecting = false;
           _isConnected = true;
           _errorMessage = null;
         });
-        if (kDebugMode) {
-          print('MeetingPage: State set to connected');
-        }
       } else {
-        if (kDebugMode) {
-          print('MeetingPage: Connection not successful');
-        }
+        print('[MeetingPage] ❌ Connection returned false or room is null');
         setState(() {
           _isConnecting = false;
           _errorMessage = 'فشل في الاتصال بالدرس. يرجى المحاولة مرة أخرى.';
         });
       }
-    } catch (e) {
-      if (kDebugMode) {
-        print('MeetingPage: connectToRoom failed: $e');
-      }
+    } catch (e, st) {
+      print('[MeetingPage] ❌ EXCEPTION: $e');
+      print('[MeetingPage] ❌ stacktrace: $st');
       setState(() {
         _isConnecting = false;
         _errorMessage = 'حدث خطأ أثناء الاتصال: ${e.toString()}';
       });
     }
-    if (kDebugMode) {
-      print('MeetingPage: _connectToRoom ended');
-    }
+    print('[MeetingPage] _connectToRoom ◀ done');
   }
 
   void _setupRoomListeners() {

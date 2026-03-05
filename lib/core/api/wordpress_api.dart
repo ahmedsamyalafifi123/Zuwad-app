@@ -458,6 +458,49 @@ class WordPressApi {
     }
   }
 
+  /// Fetch a server-side LiveKit meeting token via the REST API.
+  /// Returns a map with `token`, `server_url`, `room_name`, etc., or null on error.
+  Future<Map<String, dynamic>?> getMeetingToken({
+    required String roomName,
+    String studentName = '',
+  }) async {
+    try {
+      final endpoint = '${ApiConstants.v2BaseUrl}/meetings/token';
+      print('[getMeetingToken] ▶ POST $endpoint room=$roomName');
+
+      final response = await _dio.post(
+        endpoint,
+        data: {
+          'room_name': roomName,
+          'student_name': studentName,
+        },
+      );
+
+      print('[getMeetingToken] ◀ status: ${response.statusCode}');
+      print('[getMeetingToken] ◀ body: ${response.data}');
+
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body is Map && body['success'] == true && body['data'] != null) {
+          final data = Map<String, dynamic>.from(body['data'] as Map);
+          print('[getMeetingToken] ✅ token=${data['token'] != null ? "present(${(data['token'] as String).length} chars)" : "NULL"}');
+          print('[getMeetingToken] ✅ server_url=${data['server_url']}');
+          print('[getMeetingToken] ✅ room_name=${data['room_name']}');
+          return data;
+        } else {
+          print('[getMeetingToken] ❌ success!=true or data==null. body=$body');
+        }
+      } else {
+        print('[getMeetingToken] ❌ status=${response.statusCode} body=${response.data}');
+      }
+      return null;
+    } catch (e, st) {
+      print('[getMeetingToken] ❌ EXCEPTION: $e');
+      print('[getMeetingToken] ❌ stacktrace: $st');
+      return null;
+    }
+  }
+
   // ============================================
   // Teacher Methods
   // ============================================

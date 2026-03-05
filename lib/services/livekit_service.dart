@@ -57,27 +57,34 @@ class LiveKitService {
     return '$message.$signature';
   }
 
-  /// Connect to LiveKit room
+  /// Connect to LiveKit room.
+  /// If [serverToken] is provided it is used directly (server-side generated);
+  /// otherwise a local JWT is generated from [LiveKitConfig] credentials.
+  /// If [serverUrl] is provided it overrides [LiveKitConfig.livekitUrl].
   Future<bool> connectToRoom({
     required String roomName,
     required String participantName,
     required String participantId,
+    String? serverToken,
+    String? serverUrl,
   }) async {
     if (kDebugMode) {
       print('LiveKitService: connectToRoom started');
     }
     try {
+      print('[LiveKitService] roomName=$roomName');
+      print('[LiveKitService] participantName=$participantName participantId=$participantId');
+      print('[LiveKitService] serverToken=${serverToken != null ? "✅ server-side(${serverToken.length} chars)" : "❌ null → generating locally"}');
+      final token = serverToken ??
+          generateToken(
+            roomName: roomName,
+            participantName: participantName,
+            participantId: participantId,
+          );
+      final livekitServer = serverUrl ?? LiveKitConfig.livekitUrl;
+      print('[LiveKitService] livekitServer=$livekitServer');
+      print('[LiveKitService] token (first 60 chars)=${token.length > 60 ? token.substring(0, 60) : token}');
       if (kDebugMode) {
-        print('LiveKitService: Generating token');
-      }
-      // Generate token
-      final token = generateToken(
-        roomName: roomName,
-        participantName: participantName,
-        participantId: participantId,
-      );
-      if (kDebugMode) {
-        print('LiveKitService: Token generated');
         print('LiveKitService: Creating Room');
       }
 
@@ -110,7 +117,7 @@ class LiveKitService {
         }
         // Connect to room with audio-focused options
         await _room!.connect(
-          LiveKitConfig.livekitUrl,
+          livekitServer,
           token,
           connectOptions: const ConnectOptions(
             autoSubscribe: true,
@@ -122,39 +129,29 @@ class LiveKitService {
 
         _isConnected = true;
       } catch (connectError) {
-        if (kDebugMode) {
-          print('LiveKit connection error: $connectError');
-          print('LiveKitService: Attempting fallback connection');
-        }
-        // Try with simpler options if the first attempt fails
+        print('[LiveKitService] ❌ first connect failed: $connectError');
+        print('[LiveKitService] ▶ trying fallback (protocolVersion v8)...');
         try {
           await _room!.connect(
-            LiveKitConfig.livekitUrl,
+            livekitServer,
             token,
             connectOptions: const ConnectOptions(
               autoSubscribe: true,
               protocolVersion: ProtocolVersion.v8,
             ),
           );
-          if (kDebugMode) {
-            print('LiveKitService: Fallback connection successful');
-          }
+          print('[LiveKitService] ✅ fallback connection succeeded');
           _isConnected = true;
         } catch (fallbackError) {
-          if (kDebugMode) {
-            print('LiveKit fallback connection error: $fallbackError');
-          }
+          print('[LiveKitService] ❌ fallback also failed: $fallbackError');
           rethrow;
         }
       }
-      if (kDebugMode) {
-        print('LiveKitService: connectToRoom completed successfully');
-      }
+      print('[LiveKitService] ✅ connectToRoom completed. room=${_room?.name}');
       return true;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error connecting to LiveKit room: $e');
-      }
+    } catch (e, st) {
+      print('[LiveKitService] ❌ FATAL error connecting: $e');
+      print('[LiveKitService] ❌ stacktrace: $st');
       _isConnected = false;
       return false;
     }

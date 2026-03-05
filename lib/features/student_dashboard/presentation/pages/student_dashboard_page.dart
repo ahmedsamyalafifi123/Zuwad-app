@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
 import 'dart:async';
 
+import '../../../../core/api/wordpress_api.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/loading_widget.dart';
 import '../../../../core/widgets/custom_button.dart';
@@ -1037,8 +1038,9 @@ class _DashboardContentState extends State<_DashboardContent> {
     });
   }
 
-  /// Navigate to meeting page for the event
-  void _joinEvent() async {
+  /// Navigate to meeting page for the event.
+  /// Fetches a server-side LiveKit token so it matches the web system exactly.
+  Future<void> _joinEvent() async {
     if (_nextEvent == null) return;
 
     final authState = context.read<AuthBloc>().state;
@@ -1047,34 +1049,73 @@ class _DashboardContentState extends State<_DashboardContent> {
     final student = authState.student!;
     final event = _nextEvent!;
 
-    // Show loading indicator
+    // Show loading while fetching server token
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(
-          color: Color(0xFFD4AF37),
-        ),
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
       ),
     );
 
     try {
-      await Navigator.pushReplacement(
+      print('[_joinEvent] ▶ event.roomName=${event.roomName}');
+      print('[_joinEvent] ▶ event.roomUrl=${event.roomUrl}');
+      print('[_joinEvent] ▶ student.name=${student.name} id=${student.id}');
+
+      // Extract actual room name from roomUrl (the room= query param has the correct name)
+      // e.g. roomUrl = "/lesson/?room=event_1772749321_9402&..." → "event_1772749321_9402"
+      String actualRoomName = event.roomName;
+      if (event.roomUrl.isNotEmpty) {
+        try {
+          final uri = Uri.parse(event.roomUrl.startsWith('http')
+              ? event.roomUrl
+              : 'https://placeholder.com${event.roomUrl}');
+          final roomParam = uri.queryParameters['room'];
+          if (roomParam != null && roomParam.isNotEmpty) {
+            actualRoomName = roomParam;
+          }
+        } catch (_) {}
+      }
+      print('[_joinEvent] ▶ actualRoomName=$actualRoomName');
+
+      // Fetch server-side token — same mechanism as the web system
+      final tokenData = await WordPressApi().getMeetingToken(
+        roomName: actualRoomName,
+        studentName: student.name,
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss loading
+
+      final serverToken = tokenData?['token'] as String?;
+      final serverUrl = tokenData?['server_url'] as String?;
+
+      print('[_joinEvent] tokenData=$tokenData');
+      print('[_joinEvent] serverToken=${serverToken != null ? "✅ present" : "❌ null — will use client-side fallback"}');
+      print('[_joinEvent] serverUrl=$serverUrl');
+      print('[_joinEvent] ▶ pushing MeetingPage...');
+
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => MeetingPage(
-            roomName: event.roomName,
+            roomName: actualRoomName,
             participantName: student.name,
             participantId: student.id.toString(),
             participantEmail: student.email ?? '',
             lessonName: event.title,
             teacherName: event.teacherName,
+            serverToken: serverToken,
+            serverUrl: serverUrl,
           ),
         ),
       );
-    } catch (e) {
+    } catch (e, st) {
+      print('[_joinEvent] ❌ EXCEPTION: $e');
+      print('[_joinEvent] ❌ stacktrace: $st');
       if (mounted) {
-        Navigator.pop(context); // Dismiss loading dialog
+        Navigator.pop(context); // dismiss loading
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('حدث خطأ أثناء الانضمام للحدث: ${e.toString()}'),

@@ -664,7 +664,8 @@ Authorization: Bearer {token}
       "teacher_name": "أحمد محمد",
       "media_url": "https://example.com/wp-content/uploads/2024/01/event_image.jpg",
       "media_type": "image",
-      "media_filename": "event_image.jpg"
+      "media_filename": "event_image.jpg",
+      "can_join_event": true
     }
   ]
 }
@@ -703,6 +704,118 @@ The `room_url` follows the same format as regular lessons but includes `event=1`
 ```
 /lesson/?room={room_name}&student={title}&student_id=0&teacher_id={creator_id}&datetime={datetime}&time={time}&duration={duration}&stealth=0&obs=0&trial=0&event=1
 ```
+
+### Get Meeting Token
+
+Get a LiveKit JWT token for joining meetings (lessons or events). This endpoint is used by Flutter apps to obtain authentication tokens for video meetings.
+
+**Permission:** Any authenticated user (students, teachers, admins can all join meetings)
+
+**For Events:** Any logged-in user can join events.
+**For Regular Lessons:** Only the student assigned to the lesson, the teacher, admins, or KPI observers can join.
+
+```http
+POST /meetings/token
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "room_name": "event_1772745715_2605",
+  "student_name": "محمد علي",
+  "is_stealth_hidden": false
+}
+```
+
+#### Parameters
+
+| Field               | Type    | Required | Description                                                              |
+| ------------------- | ------- | -------- | ------------------------------------------------------------------------ |
+| `room_name`         | string  | Yes      | LiveKit room name (e.g., `event_123456789_1234` or `room_student_123_teacher_456`) |
+| `student_name`      | string  | No       | Student name for display in meeting logs                                 |
+| `is_stealth_hidden` | boolean | No       | Set to `true` for KPI stealth observation mode (KPI users only)         |
+
+#### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "room_name": "event_1772745715_2605",
+    "server_url": "wss://livekit.zuwad-academy.com",
+    "participant_name": "محمد علي",
+    "participant_id": 123,
+    "teacher_m_id": "010301",
+    "is_observer": false
+  }
+}
+```
+
+#### Response Fields
+
+| Field              | Type    | Description                                                    |
+| ------------------ | ------- | -------------------------------------------------------------- |
+| `token`            | string  | LiveKit JWT token for connecting to the room                   |
+| `room_name`        | string  | The room name that was requested                               |
+| `server_url`       | string  | LiveKit WebSocket server URL (wss://livekit.zuwad-academy.com) |
+| `participant_name`   | string  | Display name of the participant                                |
+| `participant_id`   | integer | WordPress user ID of the participant                          |
+| `teacher_m_id`     | string  | User's m_id (hierarchical ID)                                 |
+| `is_observer`      | boolean | `true` if user should join as observer (no publish rights)    |
+
+#### Error Responses
+
+| Code                | Status | Description                                           |
+| ------------------- | ------ | ----------------------------------------------------- |
+| `missing_room_name` | 400    | Room name is required                                 |
+| `access_denied`     | 403    | User does not have permission to join this lesson     |
+| `not_authenticated` | 401    | User is not authenticated                             |
+| `server_error`      | 500    | Meeting token function not available                  |
+
+#### Flutter Implementation
+
+```dart
+// Get meeting token before joining LiveKit room
+Future<void> joinMeeting(String roomName, String studentName) async {
+  final response = await http.post(
+    Uri.parse('https://your-domain.com/wp-json/zuwad/v2/meetings/token'),
+    headers: {
+      'Authorization': 'Bearer $jwtToken',
+      'Content-Type': 'application/json',
+    },
+    body: jsonEncode({
+      'room_name': roomName,
+      'student_name': studentName,
+    }),
+  );
+
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body);
+    if (data['success']) {
+      final meetingData = data['data'];
+      // Now connect to LiveKit using the token
+      await connectToLiveKit(
+        serverUrl: meetingData['server_url'],
+        token: meetingData['token'],
+        roomName: meetingData['room_name'],
+      );
+    }
+  }
+}
+```
+
+#### Important Notes
+
+1. **For Events:** Any authenticated user can get a token and join events. Events are public gatherings.
+
+2. **For Regular Lessons:** The API validates that the user is either:
+   - The student assigned to the lesson (extracted from room name `room_student_{id}_teacher_{id}`)
+   - The teacher assigned to the lesson
+   - An administrator or KPI user
+
+3. **Observer Mode:** KPI users can set `is_stealth_hidden: true` to join without publishing audio/video (for observation/evaluation purposes).
+
+4. **Token Expiration:** The LiveKit token is valid for 6 hours.
 
 ---
 
