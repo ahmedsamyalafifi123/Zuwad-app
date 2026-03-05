@@ -632,6 +632,72 @@ Content-Type: application/json
 
 > **Note:** This endpoint looks up the CRM lead by the student's WordPress user_id, so you only need to provide the student ID (not the lead_id).
 
+### Get Student Events
+
+Returns events matching the student's criteria (age, gender, supervisor m_id, country). Events within 12 hours include a `is_countdown` flag for showing countdown timers.
+
+```http
+GET /students/{id}/events
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "title": "محاضرة خاصة",
+      "date": "2024-01-20",
+      "time": "2:30 PM",
+      "datetime": "2024-01-20 14:30:00",
+      "duration": 60,
+      "room_name": "room_student_0_teacher_5_event_1",
+      "room_url": "https://example.com/lesson/?room=room_student_0_teacher_5_event_1&student=محاضرة خاصة&student_id=0&teacher_id=5&datetime=2024-01-20 14:30:00&time=2:30 PM&duration=60&stealth=0&obs=0&trial=0&event=1",
+      "minutes_until": 45,
+      "can_join": false,
+      "is_countdown": true,
+      "is_event": true,
+      "teacher_id": 5,
+      "teacher_name": "أحمد محمد"
+    }
+  ]
+}
+```
+
+#### Event Fields
+
+| Field            | Type    | Description                                         |
+| ---------------- | ------- | --------------------------------------------------- |
+| `id`             | integer | Event ID                                            |
+| `title`          | string  | Event title                                         |
+| `date`           | string  | Event date (Y-m-d)                                  |
+| `time`           | string  | Event time (g:i A format)                           |
+| `datetime`       | string  | Full datetime (Y-m-d H:i:s)                         |
+| `duration`       | integer | Event duration in minutes                           |
+| `room_name`      | string  | LiveKit room name                                   |
+| `room_url`       | string  | Full URL to join the event                          |
+| `minutes_until`  | integer | Minutes until event starts (negative if ongoing)    |
+| `can_join`       | boolean | True if student can join now (15min before to 30min after end) |
+| `is_countdown`   | boolean | True if event within 12 hours (show countdown)       |
+| `is_event`       | boolean | Always true for events (distinguish from lessons)   |
+| `teacher_id`     | integer | Event creator ID                                    |
+| `teacher_name`   | string  | Event creator name                                  |
+
+#### Countdown Feature
+
+When `is_countdown` is `true`, the app should display a countdown timer showing time remaining until the event. Events with `can_join: true` should show a "Join Event" button with the same UI as lessons.
+
+#### Room URL Format
+
+The `room_url` follows the same format as regular lessons but includes `event=1` parameter to identify it as an event:
+
+```
+/lesson/?room={room_name}&student={title}&student_id=0&teacher_id={creator_id}&datetime={datetime}&time={time}&duration={duration}&stealth=0&obs=0&trial=0&event=1
+```
+
 ---
 
 ## 👨‍🏫 Teachers API
