@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../../../../core/api/wordpress_api.dart';
+import '../../../../core/utils/timezone_helper.dart';
 import '../../domain/models/student_event.dart';
 
 /// Repository for managing student events
@@ -52,17 +53,18 @@ class EventRepository {
   /// Get only upcoming events (not in the past)
   Future<List<StudentEvent>> getUpcomingEvents(int studentId) async {
     final events = await getStudentEvents(studentId);
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     return events.where((event) {
       if (event.datetime.isEmpty) return false;
       try {
-        final eventDateTime =
+        // API returns Egypt time — parse clock values then convert to UTC for comparison
+        final egyptDateTime =
             DateTime.parse(event.datetime.replaceFirst(' ', 'T'));
+        final eventUtc = TimezoneHelper.egyptToUtc(egyptDateTime);
         // Include events that haven't ended yet (add duration to start time)
-        final eventEndTime =
-            eventDateTime.add(Duration(minutes: event.duration));
-        return eventEndTime.isAfter(now);
+        final eventEndUtc = eventUtc.add(Duration(minutes: event.duration));
+        return eventEndUtc.isAfter(now);
       } catch (e) {
         return false;
       }

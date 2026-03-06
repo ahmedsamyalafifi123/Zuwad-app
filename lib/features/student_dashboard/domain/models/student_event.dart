@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../../core/utils/timezone_helper.dart';
 
 /// Student Event Model
 /// Represents an event that a student can participate in
@@ -99,9 +100,10 @@ class StudentEvent {
   bool get isPast {
     if (datetime.isEmpty) return false;
     try {
-      // Parse the datetime string (expected format: Y-m-d H:i:s)
-      final eventDateTime = DateTime.parse(datetime.replaceFirst(' ', 'T'));
-      return eventDateTime.isBefore(DateTime.now());
+      // API returns Egypt time — convert to UTC before comparing with now
+      final egyptDateTime = DateTime.parse(datetime.replaceFirst(' ', 'T'));
+      final eventUtc = TimezoneHelper.egyptToUtc(egyptDateTime);
+      return eventUtc.isBefore(DateTime.now().toUtc());
     } catch (e) {
       return false;
     }
