@@ -1029,11 +1029,20 @@ class _DashboardContentState extends State<_DashboardContent> {
           _timeUntilEvent = _eventUtc!.difference(now);
         });
       } else {
-        // Event has started
-        _eventCountdownTimer?.cancel();
-        setState(() {
-          _timeUntilEvent = Duration.zero;
-        });
+        // Event has started — hide 10 minutes after event ends (start + duration + 10)
+        final eventDuration = _nextEvent?.duration ?? 60;
+        final hiddenAt = _eventUtc!.add(Duration(minutes: eventDuration + 10));
+        if (now.isAfter(hiddenAt)) {
+          _eventCountdownTimer?.cancel();
+          setState(() {
+            _nextEvent = null;
+            _timeUntilEvent = null;
+          });
+        } else {
+          setState(() {
+            _timeUntilEvent = Duration.zero;
+          });
+        }
       }
     });
   }
