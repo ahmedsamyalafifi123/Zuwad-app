@@ -1101,7 +1101,8 @@ class _DashboardContentState extends State<_DashboardContent> {
       final serverUrl = tokenData?['server_url'] as String?;
 
       print('[_joinEvent] tokenData=$tokenData');
-      print('[_joinEvent] serverToken=${serverToken != null ? "✅ present" : "❌ null — will use client-side fallback"}');
+      print(
+          '[_joinEvent] serverToken=${serverToken != null ? "✅ present" : "❌ null — will use client-side fallback"}');
       print('[_joinEvent] serverUrl=$serverUrl');
       print('[_joinEvent] ▶ pushing MeetingPage...');
 
@@ -3709,7 +3710,7 @@ class _InlineVideoPlayerState extends State<_InlineVideoPlayer> {
                     child: Icon(
                       Icons.play_circle_outline,
                       color: Colors.white,
-                      size: 64,
+                      size: 96,
                     ),
                   ),
                 ),
