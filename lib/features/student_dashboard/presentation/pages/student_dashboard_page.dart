@@ -3695,26 +3695,25 @@ class _InlineVideoPlayerState extends State<_InlineVideoPlayer> {
       child: AspectRatio(
         aspectRatio: _controller!.value.aspectRatio,
         child: Stack(
-          fit: StackFit.expand,
           children: [
             VideoPlayer(_controller!),
-            // Play/pause overlay fades out while playing
+            // Play/pause overlay - always visible when paused
             ValueListenableBuilder<VideoPlayerValue>(
               valueListenable: _controller!,
-              builder: (_, value, __) => AnimatedOpacity(
-                opacity: value.isPlaying ? 0.0 : 1.0,
-                duration: const Duration(milliseconds: 200),
-                child: Container(
+              builder: (_, value, __) {
+                if (value.isPlaying) {
+                  return const SizedBox.shrink();
+                }
+                return Container(
                   color: Colors.black38,
-                  child: const Center(
-                    child: Icon(
-                      Icons.play_circle_outline,
-                      color: Colors.white,
-                      size: 96,
-                    ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.play_circle_outline,
+                    color: Colors.white,
+                    size: 96,
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ],
         ),
