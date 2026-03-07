@@ -32,40 +32,48 @@ class _WhiteboardWebViewState extends State<WhiteboardWebView> {
     if (kDebugMode) {
       print('WhiteboardWebView: initState for room ${widget.roomName}');
     }
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.black)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (int progress) {
-            if (kDebugMode && progress % 20 == 0) {
-              print('Whiteboard loading progress: $progress%');
-            }
-          },
-          onPageStarted: (String url) {
-            if (mounted) {
-              setState(() {
-                _isLoading = true;
-                _hasInjectedAuth = false;
-              });
-            }
-          },
-          onPageFinished: (String url) {
-            if (mounted) {
-              setState(() {
-                _isLoading = false;
-              });
-              _injectAuthHandshake();
-            }
-          },
-          onWebResourceError: (WebResourceError error) {
-            if (kDebugMode) {
-              print('Whiteboard error: ${error.description}, code: ${error.errorCode}');
-            }
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse('https://board.zuwad-academy.com/${widget.roomName}'));
+    _controller = WebViewController();
+    if (!kIsWeb) {
+      _controller
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setBackgroundColor(Colors.black)
+        ..setNavigationDelegate(
+          NavigationDelegate(
+            onProgress: (int progress) {
+              if (kDebugMode && progress % 20 == 0) {
+                print('Whiteboard loading progress: $progress%');
+              }
+            },
+            onPageStarted: (String url) {
+              if (mounted) {
+                setState(() {
+                  _isLoading = true;
+                  _hasInjectedAuth = false;
+                });
+              }
+            },
+            onPageFinished: (String url) {
+              if (mounted) {
+                setState(() {
+                  _isLoading = false;
+                });
+                _injectAuthHandshake();
+              }
+            },
+            onWebResourceError: (WebResourceError error) {
+              if (kDebugMode) {
+                print('Whiteboard error: ${error.description}, code: ${error.errorCode}');
+              }
+            },
+          ),
+        );
+    } else {
+      // On web: iframe loads instantly, hide spinner after a short delay
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _isLoading = false);
+      });
+    }
+    _controller.loadRequest(Uri.parse('https://board.zuwad-academy.com/${widget.roomName}'));
   }
 
   void _injectAuthHandshake() {
