@@ -73,7 +73,13 @@ class _WhiteboardWebViewState extends State<WhiteboardWebView> {
         if (mounted) setState(() => _isLoading = false);
       });
     }
-    _controller.loadRequest(Uri.parse('https://board.zuwad-academy.com/${widget.roomName}'));
+    final uri = Uri.https('board.zuwad-academy.com', '/${widget.roomName}', {
+      'userId': widget.studentId,
+      'userName': widget.studentName,
+      'userEmail': widget.studentEmail,
+      'role': 'student',
+    });
+    _controller.loadRequest(uri);
   }
 
   void _injectAuthHandshake() {
