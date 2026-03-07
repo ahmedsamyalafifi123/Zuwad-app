@@ -13,6 +13,7 @@ import '../widgets/participant_widget.dart';
 import '../widgets/control_bar.dart';
 import '../widgets/whiteboard_webview_mobile.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class MeetingPage extends StatefulWidget {
   final String roomName;
@@ -1214,14 +1215,16 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
           bottom: 0,
           left: 0,
           right: 0,
-          child: ControlBar(
-            isCameraEnabled: _isCameraEnabled,
-            isMicrophoneEnabled: _isMicrophoneEnabled,
-            isWhiteboardVisible: _isWhiteboardVisible,
-            onToggleCamera: _toggleCamera,
-            onToggleMicrophone: _toggleMicrophone,
-            onSwitchCamera: () {},
-            onLeaveMeeting: _leaveMeeting,
+          child: PointerInterceptor(
+            child: ControlBar(
+              isCameraEnabled: _isCameraEnabled,
+              isMicrophoneEnabled: _isMicrophoneEnabled,
+              isWhiteboardVisible: _isWhiteboardVisible,
+              onToggleCamera: _toggleCamera,
+              onToggleMicrophone: _toggleMicrophone,
+              onSwitchCamera: () {},
+              onLeaveMeeting: _leaveMeeting,
+            ),
           ),
         ),
       ],
