@@ -11,7 +11,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../services/livekit_service.dart';
 import '../widgets/participant_widget.dart';
 import '../widgets/control_bar.dart';
-import '../widgets/whiteboard_webview.dart';
+import '../widgets/whiteboard_webview_mobile.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 class MeetingPage extends StatefulWidget {

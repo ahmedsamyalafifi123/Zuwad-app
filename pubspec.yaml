@@ -83,6 +83,7 @@ dependencies:
   firebase_analytics: ^12.1.0
   alarm: ^5.1.5
   webview_flutter: ^4.13.1
+  webview_flutter_web: ^0.2.3+4
   url_launcher: ^6.3.2
   audioplayers: ^6.0.0
   web: ^1.1.1
