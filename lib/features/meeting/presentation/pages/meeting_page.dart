@@ -899,7 +899,8 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
+        return PointerInterceptor(
+          child: AlertDialog(
           title: const Text(
             'مغادرة الدرس',
             style: TextStyle(
@@ -943,6 +944,7 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
               ),
             ),
           ],
+        ),
         );
       },
     );
