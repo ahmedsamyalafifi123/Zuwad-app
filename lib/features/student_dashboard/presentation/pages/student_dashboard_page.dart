@@ -1973,7 +1973,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                           mainAxisSize: MainAxisSize.min,
                           children: const [
                             Text(
-                              'الوقــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــت', // Extended line
+                              'الوقـــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــت', // Extended line
                               style: TextStyle(
                                 fontFamily: 'Qatar',
                                 fontSize: 16,
@@ -1990,7 +1990,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                               height: 8,
                             ), // Space between lines to match boxes
                             Text(
-                              'المتبقــــــــــــــــــــــــــــــــــــــــــــــــــــــــــي', // Extended line
+                              'المتبقـــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــي', // Extended line
                               style: TextStyle(
                                 fontFamily: 'Qatar',
                                 fontSize: 16,
