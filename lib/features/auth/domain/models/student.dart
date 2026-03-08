@@ -51,7 +51,9 @@ class Student {
   factory Student.fromJson(
       Map<String, dynamic> json, Map<String, dynamic> userMeta) {
     return Student(
-      id: json['id'] ?? 0,
+      id: json['id'] is int
+          ? json['id']
+          : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       name: json['name'] ?? userMeta['name'] ?? '',
       phone: json['phone'] ?? userMeta['phone'] ?? '',
       email: userMeta['email']?.toString(),
@@ -88,7 +90,9 @@ class Student {
         '';
 
     return Student(
-      id: json['id'] ?? 0,
+      id: json['id'] is int
+          ? json['id']
+          : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       name: studentName,
       phone: json['phone']?.toString() ?? '',
       email: json['email']?.toString(),

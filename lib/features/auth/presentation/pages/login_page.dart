@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
@@ -250,7 +251,10 @@ class _LoginPageState extends State<LoginPage> {
                             controller: _phoneController,
                             hintText: 'رقم الهاتف',
                             icon: Icons.phone,
-                            keyboardType: TextInputType.phone,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly
+                            ],
                           ),
                           const SizedBox(height: 12),
 
@@ -307,8 +311,11 @@ class _LoginPageState extends State<LoginPage> {
                                     if (_formKey.currentState!.validate()) {
                                       context.read<AuthBloc>().add(
                                             LoginWithPhoneEvent(
-                                              phone: _phoneController.text.trim(),
-                                              password: _passwordController.text,
+                                              phone: _phoneController.text
+                                                  .trim()
+                                                  .replaceAll(' ', ''),
+                                              password: _passwordController.text
+                                                  .trim(),
                                             ),
                                           );
                                     }
@@ -357,11 +364,13 @@ class _LoginPageState extends State<LoginPage> {
     TextInputType keyboardType = TextInputType.text,
     bool obscureText = false,
     Widget? suffixIcon,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscureText,
+      inputFormatters: inputFormatters,
       textDirection: TextDirection.rtl,
       textAlign: TextAlign.right,
       style: const TextStyle(fontSize: 14),

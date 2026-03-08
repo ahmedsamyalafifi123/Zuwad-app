@@ -19,7 +19,9 @@ class TeacherStudent {
 
   factory TeacherStudent.fromJson(Map<String, dynamic> json) {
     return TeacherStudent(
-      id: json['id'] as int,
+      id: json['id'] is int
+          ? json['id']
+          : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       mId: json['m_id']?.toString() ?? '',
       name: json['display_name']?.toString() ?? json['name']?.toString() ?? '',
       gender: json['gender']?.toString(),
@@ -52,7 +54,9 @@ class Teacher {
   factory Teacher.fromApiResponse(Map<String, dynamic> json) {
     final studentsJson = json['students'] as List<dynamic>? ?? [];
     return Teacher(
-      id: json['id'] as int,
+      id: json['id'] is int
+          ? json['id']
+          : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       mId: json['m_id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       gender: json['gender']?.toString(),
