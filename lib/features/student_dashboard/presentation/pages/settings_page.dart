@@ -1036,194 +1036,200 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   // Adapted Logic for Package Edit Modal
+  // Temporarily changed to open chat instead of modal
   void _showPackageEditDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('تعديل الباقة',
-                  style: TextStyle(
-                      fontFamily: 'Qatar', fontWeight: FontWeight.bold)),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.warning,
-                              color: Colors.orange, size: 20),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                              child: Text(
-                                  'تغيير هذه البيانات قد يؤثر على المدفوعات والجدول',
-                                  style: TextStyle(
-                                      fontFamily: 'Qatar', fontSize: 12))),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    _buildDropdownField(
-                      label: 'عدد الحصص شهرياً',
-                      icon: Icons.format_list_numbered,
-                      value: int.tryParse(_lessonsNumberController.text),
-                      items: _lessonsNumberOptions,
-                      onChanged: (value) {
-                        if (value != null) {
-                          _lessonsNumberController.text = value.toString();
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _buildDropdownField(
-                      label: 'مدة الحصة (دقيقة)',
-                      icon: Icons.timer_outlined,
-                      value: int.tryParse(_lessonDurationController.text),
-                      items: _lessonDurationOptions,
-                      onChanged: (value) {
-                        if (value != null) {
-                          _lessonDurationController.text = value.toString();
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('إلغاء',
-                        style: TextStyle(
-                            fontFamily: 'Qatar', fontWeight: FontWeight.bold))),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _showPackageSaveConfirmation();
-                  },
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color.fromARGB(255, 223, 181, 44),
-                      foregroundColor: const Color.fromARGB(255, 0, 0, 0)),
-                  child: const Text('تأكيد التعديل',
-                      style: TextStyle(
-                          fontFamily: 'Qatar', fontWeight: FontWeight.bold)),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
+    _contactSupport("السلام عليكم، أود تعديل الباقة.");
   }
 
-  void _showPackageSaveConfirmation() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          'تأكيد التغييرات',
-          style: TextStyle(
-            fontFamily: 'Qatar',
-            fontWeight: FontWeight.bold,
-            color: Colors.red,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.warning_amber_rounded,
-                size: 48, color: Colors.orange),
-            const SizedBox(height: 16),
-            const Text(
-              'هل أنت متأكد من تغيير الباقة؟',
-              style: TextStyle(fontFamily: 'Qatar', fontSize: 18),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'سيؤثر هذا التغيير على المبلغ المطلوب والجدول الدراسي للطالب. يرجى التأكد من البيانات قبل الحفظ.',
-              style: TextStyle(
-                fontFamily: 'Qatar',
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء',
-                style: TextStyle(
-                    fontFamily: 'Qatar',
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _savePackageData();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD4AF37),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('نعم، تأكيد الحفظ',
-                style: TextStyle(
-                    fontFamily: 'Qatar', fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
+  // Temporarily commented out - will be restored later
+  // void _showPackageEditDialog() {
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) {
+  //       return StatefulBuilder(
+  //         builder: (context, setDialogState) {
+  //           return AlertDialog(
+  //             title: const Text('تعديل الباقة',
+  //                 style: TextStyle(
+  //                     fontFamily: 'Qatar', fontWeight: FontWeight.bold)),
+  //             content: SingleChildScrollView(
+  //               child: Column(
+  //                 mainAxisSize: MainAxisSize.min,
+  //                 children: [
+  //                   Container(
+  //                     padding: const EdgeInsets.all(12),
+  //                     decoration: BoxDecoration(
+  //                       color: Colors.orange.withValues(alpha: 0.1),
+  //                       borderRadius: BorderRadius.circular(8),
+  //                     ),
+  //                     child: Row(
+  //                       children: [
+  //                         const Icon(Icons.warning,
+  //                             color: Colors.orange, size: 20),
+  //                         const SizedBox(width: 8),
+  //                         const Expanded(
+  //                             child: Text(
+  //                                 'تغيير هذه البيانات قد يؤثر على المدفوعات والجدول',
+  //                                 style: TextStyle(
+  //                                     fontFamily: 'Qatar', fontSize: 12))),
+  //                       ],
+  //                     ),
+  //                   ),
+  //                   const SizedBox(height: 24),
+  //                   _buildDropdownField(
+  //                     label: 'عدد الحصص شهرياً',
+  //                     icon: Icons.format_list_numbered,
+  //                     value: int.tryParse(_lessonsNumberController.text),
+  //                     items: _lessonsNumberOptions,
+  //                     onChanged: (value) {
+  //                       if (value != null) {
+  //                         _lessonsNumberController.text = value.toString();
+  //                       }
+  //                     },
+  //                   ),
+  //                   const SizedBox(height: 16),
+  //                   _buildDropdownField(
+  //                     label: 'مدة الحصة (دقيقة)',
+  //                     icon: Icons.timer_outlined,
+  //                     value: int.tryParse(_lessonDurationController.text),
+  //                     items: _lessonDurationOptions,
+  //                     onChanged: (value) {
+  //                       if (value != null) {
+  //                         _lessonDurationController.text = value.toString();
+  //                       }
+  //                     },
+  //                   ),
+  //                 ],
+  //               ),
+  //             ),
+  //             actions: [
+  //               TextButton(
+  //                   onPressed: () => Navigator.pop(context),
+  //                   child: const Text('إلغاء',
+  //                       style: TextStyle(
+  //                           fontFamily: 'Qatar', fontWeight: FontWeight.bold))),
+  //               ElevatedButton(
+  //                 onPressed: () {
+  //                   Navigator.pop(context);
+  //                   _showPackageSaveConfirmation();
+  //                 },
+  //                 style: ElevatedButton.styleFrom(
+  //                     backgroundColor: const Color.fromARGB(255, 223, 181, 44),
+  //                     foregroundColor: const Color.fromARGB(255, 0, 0, 0)),
+  //                 child: const Text('تأكيد التعديل',
+  //                     style: TextStyle(
+  //                         fontFamily: 'Qatar', fontWeight: FontWeight.bold)),
+  //               ),
+  //             ],
+  //           );
+  //         },
+  //       );
+  //     },
+  //   );
+  // }
 
-  Future<void> _savePackageData() async {
-    try {
-      setState(() => _isSaving = true);
-      // Calculate new amount logic (simplified from original)
-      final oldLessonsNumber = _student?.lessonsNumber ?? 0;
-      final oldAmount = _student?.amount ?? 0;
-      final pricePerLesson =
-          oldLessonsNumber > 0 ? (oldAmount / oldLessonsNumber) : 0.0;
-      final newLessonsNumber =
-          int.tryParse(_lessonsNumberController.text) ?? oldLessonsNumber;
-      final newAmount = (newLessonsNumber * pricePerLesson).round();
+  // void _showPackageSaveConfirmation() {
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: const Text(
+  //         'تأكيد التغييرات',
+  //         style: TextStyle(
+  //           fontFamily: 'Qatar',
+  //           fontWeight: FontWeight.bold,
+  //           color: Colors.red,
+  //         ),
+  //         textAlign: TextAlign.center,
+  //       ),
+  //       content: Column(
+  //         mainAxisSize: MainAxisSize.min,
+  //         children: [
+  //           const Icon(Icons.warning_amber_rounded,
+  //               size: 48, color: Colors.orange),
+  //           const SizedBox(height: 16),
+  //           const Text(
+  //             'هل أنت متأكد من تغيير الباقة؟',
+  //             style: TextStyle(fontFamily: 'Qatar', fontSize: 18),
+  //             textAlign: TextAlign.center,
+  //           ),
+  //           const SizedBox(height: 8),
+  //           Text(
+  //             'سيؤثر هذا التغيير على المبلغ المطلوب والجدول الدراسي للطالب. يرجى التأكد من البيانات قبل الحفظ.',
+  //             style: TextStyle(
+  //               fontFamily: 'Qatar',
+  //               fontSize: 14,
+  //               color: Colors.grey[600],
+  //             ),
+  //             textAlign: TextAlign.center,
+  //           ),
+  //         ],
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: const Text('إلغاء',
+  //               style: TextStyle(
+  //                   fontFamily: 'Qatar',
+  //                   fontWeight: FontWeight.bold,
+  //                   color: Colors.grey)),
+  //         ),
+  //         ElevatedButton(
+  //           onPressed: () {
+  //             Navigator.pop(context);
+  //             _savePackageData();
+  //           },
+  //           style: ElevatedButton.styleFrom(
+  //             backgroundColor: const Color(0xFFD4AF37),
+  //             foregroundColor: Colors.white,
+  //             shape: RoundedRectangleBorder(
+  //               borderRadius: BorderRadius.circular(8),
+  //             ),
+  //           ),
+  //           child: const Text('نعم، تأكيد الحفظ',
+  //               style: TextStyle(
+  //                   fontFamily: 'Qatar', fontWeight: FontWeight.bold)),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
-      final updatedStudent = await _repository.updateProfile(
-        lessonsName: _lessonsNameController.text,
-        lessonDuration: _lessonDurationController.text,
-        lessonsNumber: int.tryParse(_lessonsNumberController.text),
-        amount: newAmount,
-      );
+  // Future<void> _savePackageData() async {
+  //   try {
+  //     setState(() => _isSaving = true);
+  //     // Calculate new amount logic (simplified from original)
+  //     final oldLessonsNumber = _student?.lessonsNumber ?? 0;
+  //     final oldAmount = _student?.amount ?? 0;
+  //     final pricePerLesson =
+  //         oldLessonsNumber > 0 ? (oldAmount / oldLessonsNumber) : 0.0;
+  //     final newLessonsNumber =
+  //         int.tryParse(_lessonsNumberController.text) ?? oldLessonsNumber;
+  //     final newAmount = (newLessonsNumber * pricePerLesson).round();
 
-      if (mounted) {
-        setState(() => _student = updatedStudent);
-        context.read<AuthBloc>().add(GetStudentProfileEvent());
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('تم حفظ بيانات الباقة بنجاح'),
-            backgroundColor: Colors.green));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('فشل في حفظ البيانات: ${e.toString()}'),
-            backgroundColor: Colors.red));
-      }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
-  }
+  //     final updatedStudent = await _repository.updateProfile(
+  //       lessonsName: _lessonsNameController.text,
+  //       lessonDuration: _lessonDurationController.text,
+  //       lessonsNumber: int.tryParse(_lessonsNumberController.text),
+  //       amount: newAmount,
+  //     );
+
+  //     if (mounted) {
+  //       setState(() => _student = updatedStudent);
+  //       context.read<AuthBloc>().add(GetStudentProfileEvent());
+  //       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+  //           content: Text('تم حفظ بيانات الباقة بنجاح'),
+  //           backgroundColor: Colors.green));
+  //     }
+  //   } catch (e) {
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+  //           content: Text('فشل في حفظ البيانات: ${e.toString()}'),
+  //           backgroundColor: Colors.red));
+  //     }
+  //   } finally {
+  //     if (mounted) setState(() => _isSaving = false);
+  //   }
+  // }
 
   // Transactions Modal
   void _showTransactionsModal() {
