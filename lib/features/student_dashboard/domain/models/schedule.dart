@@ -266,6 +266,21 @@ class StudentSchedule {
                 break;
               }
             }
+            // Also check for schedule items under numeric keys
+            // (postponed schedules store {"real_student_id":X, "0":{"day":"...","hour":"..."}})
+            if (scheduleItems.isEmpty) {
+              for (var entry in rawSchedules.entries) {
+                if (entry.value is Map &&
+                    (entry.value as Map).containsKey('day') &&
+                    (entry.value as Map).containsKey('hour')) {
+                  scheduleItems.add(entry.value);
+                  if (kDebugMode) {
+                    print(
+                        'Found schedule item under key "${entry.key}": ${entry.value}');
+                  }
+                }
+              }
+            }
           }
         } catch (e) {
           if (kDebugMode) {
