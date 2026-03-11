@@ -43,14 +43,11 @@
 		</array>
 		<key>UIBackgroundModes</key>
 		<array>
-			<string>voip</string>
+			<string>audio</string>
 			<string>remote-notification</string>
-			<string>fetch</string>
 		</array>
 		<key>BGTaskSchedulerPermittedIdentifiers</key>
 		<array>
-			<string>com.zuwad.refresh</string>
-			<string>com.zuwad.processing</string>
 			<string>com.gdelataillade.fetch</string>
 			<string>com.gdelataillade.alarm</string>
 		</array>
