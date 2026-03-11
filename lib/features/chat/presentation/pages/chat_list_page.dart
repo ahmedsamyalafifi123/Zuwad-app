@@ -9,6 +9,7 @@ import '../../data/models/conversation.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../auth/domain/models/student.dart';
+import '../../../auth/domain/models/teacher.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import 'package:zuwad/features/auth/presentation/bloc/auth_state.dart';
 import 'package:zuwad/core/utils/gender_helper.dart';
@@ -195,6 +196,21 @@ class _ChatListPageState extends State<ChatListPage> {
     return normalized;
   }
 
+  /// Build contacts list from teacher's students.
+  /// According to API docs, students have m_id that starts with teacher's m_id.
+  /// Example: Teacher m_id="02113" → Students m_id="02113001", "02113002"
+  List<Contact> _buildTeacherStudentContacts(Teacher teacher) {
+    return teacher.students.map((student) {
+      return Contact(
+        id: student.id,
+        name: student.name,
+        role: 'student',
+        relation: 'student',
+        profileImage: student.profileImage,
+      );
+    }).toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -262,38 +278,49 @@ class _ChatListPageState extends State<ChatListPage> {
       ]);
 
       if (mounted) {
-        final teacherSubjectsById =
-            _buildTeacherSubjectsMap(resolvedFamilyMembers);
-        final normalizedContacts = _normalizeContactsForSelectedStudent(
-          results[0] as List<Contact>,
-          resolvedFamilyMembers,
-        );
-
-        // When the logged-in user IS a teacher, the contacts API may still
-        // return other teacher contacts (e.g. co-teachers). Strip them so only
-        // students and the supervisor appear in the teacher's chat list.
         final authState = context.read<AuthBloc>().state;
-        if (authState is AuthTeacherAuthenticated) {
-          normalizedContacts.removeWhere((c) => _isTeacherContact(c));
+        List<Contact> finalContacts;
+
+        // When the logged-in user IS a teacher, we should show their students as contacts
+        // The API determines teacher-student relationships using TWO methods:
+        // 1. Primary: Checks the `teacher` meta field on students
+        // 2. Fallback: Checks if the student's `m_id` starts with the teacher's `m_id`
+        if (authState is AuthTeacherAuthenticated &&
+            authState.teacher != null) {
+          final teacher = authState.teacher!;
+          // Build contacts from teacher's students list
+          finalContacts = _buildTeacherStudentContacts(teacher);
+
+          // Add supervisor if available from API contacts
+          final apiContacts = results[0] as List<Contact>;
+          final supervisorContact = apiContacts.firstWhere(
+            (c) => _isSupervisorContact(c),
+            orElse: () => Contact(id: 0, name: '', role: '', relation: ''),
+          );
+          if (supervisorContact.id > 0) {
+            finalContacts.add(supervisorContact);
+          }
+        } else {
+          // For students: normalize contacts as usual
+          final teacherSubjectsById =
+              _buildTeacherSubjectsMap(resolvedFamilyMembers);
+          _teacherSubjectsById = teacherSubjectsById;
+          finalContacts = _normalizeContactsForSelectedStudent(
+            results[0] as List<Contact>,
+            resolvedFamilyMembers,
+          );
         }
 
         setState(() {
-          _contacts = normalizedContacts;
-          _teacherSubjectsById = teacherSubjectsById;
+          _contacts = finalContacts;
 
-          // Sort contacts: Supervisor (Customer Service) first, then Teacher, then others
+          // Sort contacts: Supervisor (Customer Service) first, then others
           _contacts.sort((a, b) {
             final aIsSupervisor = _isSupervisorContact(a);
             final bIsSupervisor = _isSupervisorContact(b);
 
             if (aIsSupervisor && !bIsSupervisor) return -1;
             if (!aIsSupervisor && bIsSupervisor) return 1;
-
-            final aIsTeacher = _isTeacherContact(a);
-            final bIsTeacher = _isTeacherContact(b);
-
-            if (aIsTeacher && !bIsTeacher) return -1;
-            if (!aIsTeacher && bIsTeacher) return 1;
 
             return 0;
           });

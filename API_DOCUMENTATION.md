@@ -1642,6 +1642,41 @@ GET /chat/contacts
 Authorization: Bearer {token}
 ```
 
+**Teacher-Student Relationship (IMPORTANT):**
+
+The API determines teacher-student relationships using **TWO methods**:
+
+1. **Primary Method**: Checks the `teacher` meta field on students
+2. **Fallback Method**: Checks if the student's `m_id` starts with the teacher's `m_id`
+
+**Example:**
+- Teacher m_id: `02113` (Supervisor 02's teacher #113)
+- Student m_id: `02113001` → This student belongs to teacher `02113`
+- Student m_id: `02113002` → This student belongs to teacher `02113`
+
+**Relationship Hierarchy:**
+```
+Supervisor:        02
+Teacher:           02113        (supervisor 02's 113th teacher)
+Student:           02113001     (teacher 02113's 1st student)
+Student:           02113002     (teacher 02113's 2nd student)
+```
+
+**Troubleshooting 403 Errors:**
+
+If a teacher gets `403 Forbidden: "This student is not assigned to you"`:
+
+1. **Check student has `teacher` meta field:**
+   - The student must have `teacher` meta set to the teacher's user ID
+   
+2. **Check m_id format:**
+   - Student m_id should start with teacher m_id
+   - Example: Teacher `02113` → Students `02113xxx`
+
+3. **Verify role assignment:**
+   - Student must have WordPress role: `student`
+   - Teacher must have WordPress role: `teacher`
+
 **Response:**
 
 ```json
@@ -1929,6 +1964,10 @@ class ChatService {
   int? _activeConversationId;
 
   // Get available contacts based on user role
+  // For teachers: returns students where:
+  //   1. student.meta.teacher == teacher.user_id OR
+  //   2. student.m_id starts with teacher.m_id
+  // Example: Teacher m_id="02113" → Students m_id="02113001", "02113002"
   Future<List<Contact>> getContacts() async {
     final response = await _api.get('/chat/contacts');
     return (response['data'] as List)
