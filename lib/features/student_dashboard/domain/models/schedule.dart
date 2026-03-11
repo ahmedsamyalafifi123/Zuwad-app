@@ -375,6 +375,67 @@ class StudentSchedule {
       }
     }
 
+    // If this is a postponed entry with postponed_date/postponed_time but no
+    // parseable schedules (DB stores only {"real_student_id":...}), create a
+    // synthetic Schedule from the postponed date & time.
+    final isPostponedEntry = json['is_postponed'] == true ||
+        json['is_postponed'] == 1 ||
+        json['is_postponed'] == '1';
+    final postponedDateVal = json['postponed_date'];
+
+    if (schedulesList.isEmpty &&
+        isPostponedEntry &&
+        postponedDateVal != null) {
+      try {
+        final postponedDate = DateTime.parse(postponedDateVal.toString());
+        // Map weekday number to Arabic day name
+        const weekdayToArabic = {
+          DateTime.sunday: 'الأحد',
+          DateTime.monday: 'الاثنين',
+          DateTime.tuesday: 'الثلاثاء',
+          DateTime.wednesday: 'الأربعاء',
+          DateTime.thursday: 'الخميس',
+          DateTime.friday: 'الجمعة',
+          DateTime.saturday: 'السبت',
+        };
+        final dayName = weekdayToArabic[postponedDate.weekday] ?? '';
+
+        // Convert postponed_time (e.g. "17:30:00") to 12-hour format
+        String hourStr = '';
+        final postponedTime = json['postponed_time'];
+        if (postponedTime != null) {
+          final timeParts = postponedTime.toString().split(':');
+          if (timeParts.length >= 2) {
+            int h = int.tryParse(timeParts[0]) ?? 0;
+            final m = timeParts[1];
+            final ampm = h >= 12 ? 'PM' : 'AM';
+            if (h > 12) h -= 12;
+            if (h == 0) h = 12;
+            hourStr = '$h:$m $ampm';
+          }
+        }
+
+        if (dayName.isNotEmpty && hourStr.isNotEmpty) {
+          schedulesList.add(Schedule(
+            day: dayName,
+            hour: hourStr,
+            isPostponed: true,
+            postponedDate: postponedDateVal.toString(),
+          ));
+          if (kDebugMode) {
+            print(
+              'Created synthetic postponed schedule: $dayName at $hourStr, '
+              'postponedDate: $postponedDateVal',
+            );
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error creating synthetic postponed schedule: $e');
+        }
+      }
+    }
+
     if (kDebugMode) {
       print('Final schedules list has ${schedulesList.length} items');
     }
