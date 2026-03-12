@@ -1522,28 +1522,56 @@ GET /analytics/payment-status
 
 ## 🔔 Notifications API
 
+The system has **two separate notification systems**:
+
+1. **Admin Notifications** (`/notifications`) - For supervisors, accountants, HR, and admins to monitor system-wide events
+2. **Teacher Notifications** (`/teacher/notifications`) - For teachers to receive notifications about their students
+
 ### Admin Notifications
+
+Admin notifications are displayed on the admin dashboard and track system-wide events.
 
 ```http
 GET /notifications?status=unread&page=1
 ```
 
-### Mark as Read
+#### Admin Notification Types
 
-```http
-POST /notifications/{id}/read
-```
+| Type | Arabic Name | Trigger |
+|------|-------------|---------|
+| `student_added` | طالب جديد | New student created via user modal |
+| `lesson_change` | تغيير الحصص | Student's `lessons_number` or `lesson_duration` changed |
+| `payment_status_change` | حالة الدفع | Payment status changed (suspend, reactivate, etc.) |
+| `payment_receipt_added` | إيصال دفع | Payment receipt added to student |
+| `first_lesson_absence` | غياب أول حصة | Student absent on first lesson with pending payment status |
+| `first_lesson_postponement` | تأجيل أول حصة | Student postponed first lesson with pending payment status |
+| `absence_twice` | غياب متتالي | Student has two consecutive absences |
+| `crm_converted` | تحويل CRM | Lead converted from CRM to student |
 
-### Mark All as Read
+**Source Locations:**
+- `student_added`: `pages/notifications/notifications_hooks.php:172`
+- `lesson_change`: `pages/notifications/notifications_hooks.php:316`
+- `payment_status_change`: `pages/notifications/notifications_hooks.php:234,247,260`
+- `first_lesson_absence`: `pages/notifications/notifications_hooks.php:61`
+- `first_lesson_postponement`: `pages/notifications/notifications_hooks.php:88`
+- `absence_twice`: `pages/notifications/notifications_hooks.php:124`
 
-```http
-POST /notifications/mark-all-read
-```
+**Example Notification Object:**
 
-### Get Unread Count
-
-```http
-GET /notifications/count
+```json
+{
+  "id": 1,
+  "type": "absence_twice",
+  "message": "الطالب محمد أحمد لديه غياب متتالي في آخر حصتين مع المعلم: أحمد علي",
+  "student_id": 101,
+  "student_name": "محمد أحمد",
+  "teacher_id": 42,
+  "teacher_name": "أحمد علي",
+  "old_value": "حضر",
+  "new_value": "غياب متتالي",
+  "is_read": false,
+  "created_at": "2024-01-15 14:30:00"
+}
 ```
 
 ### Teacher Notifications
@@ -1596,6 +1624,129 @@ POST /teacher/notifications/mark-all-read
 
 ```http
 GET /teacher/notifications/count
+```
+
+### Teacher Notification Types
+
+Teacher notifications are automatically created for specific events related to their students:
+
+| Type | Arabic Name | Trigger |
+|------|-------------|---------|
+| `new_student` | طالب جديد | When a new student is assigned to the teacher |
+| `lesson_change` | تغيير الحصص | When student's `lessons_number` or `lesson_duration` is changed |
+| `student_stopped` | ايقاف طالب | When student's payment status changes to `متوقف` or `متوقف & في انتظار الدفع` |
+| `lesson_postponed_parent` | تأجيل حصة | When a parent/teacher postpones a lesson |
+
+**Source Locations:**
+- `new_student`: `includes/class-zuwad-plugin-settings.php:256`, `templates/supervisor.php:2338`, `pages/suspended_students/suspended_students_shortcode.php:645`
+- `lesson_change`: `templates/supervisor.php:2545,2559`, `pages/crm/lead_management.php:1834,1842`
+- `student_stopped`: `templates/supervisor.php:2848`, `pages/crm/lead_management.php:1853`
+- `lesson_postponed_parent`: `includes/api.php:2331,2426`
+
+**Example Notification Object:**
+
+```json
+{
+  "id": 1,
+  "type": "lesson_postponed_parent",
+  "message": "تم تأجيل حصة الطالب: محمد أحمد الى يوم السبت 2024/01/20 الساعة 2:00 PM",
+  "student_id": 101,
+  "student_name": "محمد أحمد",
+  "old_value": null,
+  "new_value": "2024-01-20 14:00",
+  "changed_by": 5,
+  "changed_by_name": "أحمد المعلم",
+  "is_read": false,
+  "created_at": "2024-01-15 14:30:00"
+}
+```
+
+### Student Notifications
+
+Students receive notifications about their own reports, schedules, payments, and other events.
+
+```http
+GET /student/notifications?page=1&type=report&status=unread
+Authorization: Bearer {token}
+```
+
+#### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | int | 1 | Page number |
+| `per_page` | int | 50 | Items per page |
+| `type` | string | null | Filter by type: `report`, `schedule`, `payment`, `announcement`, `reminder`, `system` |
+| `status` | string | all | Filter by status: `unread`, `read`, `all` |
+| `student_id` | int | null | Optional: get notifications for specific student (defaults to current user) |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "title": "تقرير جديد",
+      "message": "تم إضافة تقرير حصة جديد من المعلم أحمد",
+      "type": "report",
+      "data": {"report_id": 456, "teacher_id": 789},
+      "is_read": false,
+      "created_at": "2024-01-15T14:30:00Z",
+      "read_at": null
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 50,
+    "total": 1,
+    "total_pages": 1
+  }
+}
+```
+
+#### Student Notification Types
+
+| Type | Arabic Name | Description |
+|------|-------------|-------------|
+| `report` | تقرير | New lesson report added |
+| `schedule` | جدول | Schedule changes, postponed lessons |
+| `payment` | دفع | Payment reminders, status changes |
+| `announcement` | إعلان | General announcements |
+| `reminder` | تذكير | Lesson reminders, renewal reminders |
+| `system` | نظام | System notifications |
+
+### Mark Student Notification as Read
+
+```http
+POST /student/notifications/{id}/read
+Authorization: Bearer {token}
+```
+
+### Mark All Student Notifications as Read
+
+```http
+POST /student/notifications/mark-all-read
+Authorization: Bearer {token}
+```
+
+### Get Student Unread Count
+
+```http
+GET /student/notifications/count
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "unread_count": 5
+  }
+}
 ```
 
 ---
