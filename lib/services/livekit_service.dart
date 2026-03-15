@@ -73,8 +73,10 @@ class LiveKitService {
     }
     try {
       print('[LiveKitService] roomName=$roomName');
-      print('[LiveKitService] participantName=$participantName participantId=$participantId');
-      print('[LiveKitService] serverToken=${serverToken != null ? "✅ server-side(${serverToken.length} chars)" : "❌ null → generating locally"}');
+      print(
+          '[LiveKitService] participantName=$participantName participantId=$participantId');
+      print(
+          '[LiveKitService] serverToken=${serverToken != null ? "✅ server-side(${serverToken.length} chars)" : "❌ null → generating locally"}');
       final token = serverToken ??
           generateToken(
             roomName: roomName,
@@ -83,7 +85,8 @@ class LiveKitService {
           );
       final livekitServer = serverUrl ?? LiveKitConfig.livekitUrl;
       print('[LiveKitService] livekitServer=$livekitServer');
-      print('[LiveKitService] token (first 60 chars)=${token.length > 60 ? token.substring(0, 60) : token}');
+      print(
+          '[LiveKitService] token (first 60 chars)=${token.length > 60 ? token.substring(0, 60) : token}');
       if (kDebugMode) {
         print('LiveKitService: Creating Room');
       }
@@ -236,6 +239,7 @@ class LiveKitService {
   Future<void> disconnect() async {
     try {
       await _room?.disconnect();
+      await _room?.dispose();
       _room = null;
       _isConnected = false;
     } catch (e) {
@@ -264,7 +268,8 @@ class LiveKitService {
 
   /// Filter out hidden KPI observers from a list of participants
   /// Use this to get only visible participants for the UI
-  static List<Participant> filterHiddenObservers(List<Participant> participants) {
+  static List<Participant> filterHiddenObservers(
+      List<Participant> participants) {
     return participants.where((p) => !isHiddenKPIObserver(p)).toList();
   }
 

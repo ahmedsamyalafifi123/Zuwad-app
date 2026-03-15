@@ -99,8 +99,21 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
   }
 
   void _onParticipantChanged() {
-    if (mounted) {
-      _setupParticipant();
+    if (!mounted) return;
+
+    // Store previous state to check if rebuild is needed
+    final previousVideoEnabled = _isVideoEnabled;
+    final previousAudioEnabled = _isAudioEnabled;
+    final previousScreenSharing = _isScreenSharing;
+    final previousVideoTrack = _videoTrack;
+
+    _setupParticipant();
+
+    // Only rebuild if visible state actually changed
+    if (previousVideoEnabled != _isVideoEnabled ||
+        previousAudioEnabled != _isAudioEnabled ||
+        previousScreenSharing != _isScreenSharing ||
+        previousVideoTrack != _videoTrack) {
       setState(() {});
     }
   }
@@ -293,7 +306,6 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
       ),
     );
   }
-
 }
 
 class _AvatarFallback extends StatelessWidget {
@@ -311,7 +323,8 @@ class _AvatarFallback extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double size = math.min(constraints.maxWidth, constraints.maxHeight);
+        final double size =
+            math.min(constraints.maxWidth, constraints.maxHeight);
         final double avatarRadius = (size * 0.3).clamp(15.0, 40.0);
         final double fontSize = (size * 0.15).clamp(10.0, 24.0);
         final double nameFontSize = (size * 0.12).clamp(8.0, 16.0);

@@ -62,7 +62,8 @@ class _WhiteboardWebViewState extends State<WhiteboardWebView> {
             },
             onWebResourceError: (WebResourceError error) {
               if (kDebugMode) {
-                print('Whiteboard error: ${error.description}, code: ${error.errorCode}');
+                print(
+                    'Whiteboard error: ${error.description}, code: ${error.errorCode}');
               }
             },
           ),
@@ -84,7 +85,7 @@ class _WhiteboardWebViewState extends State<WhiteboardWebView> {
 
   void _injectAuthHandshake() {
     if (_hasInjectedAuth) return;
-    
+
     final authMessage = {
       'type': 'WORDPRESS_USER_AUTH',
       'payload': {
@@ -171,6 +172,13 @@ class _WhiteboardWebViewState extends State<WhiteboardWebView> {
         print('Whiteboard: Injected auth handshake for ${widget.studentName}');
       }
     }
+  }
+
+  @override
+  void dispose() {
+    // Clean up WebView resources by loading blank page
+    _controller.loadRequest(Uri.parse('about:blank'));
+    super.dispose();
   }
 
   @override

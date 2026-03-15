@@ -128,6 +128,8 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
     _disablePiP();
     // Dispose event listener if initialized
     _roomListener?.dispose();
+    // Remove room listener to prevent callbacks on disposed widget
+    _liveKitService.room?.removeListener(_onRoomUpdate);
     // _celebrationTimer removed in optimization
     _audioPlayer.dispose();
     _liveKitService.disconnect();
@@ -589,7 +591,8 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
 
   Future<void> _connectToRoom() async {
     print('[MeetingPage] _connectToRoom ▶ roomName=${widget.roomName}');
-    print('[MeetingPage] serverToken=${widget.serverToken != null ? "✅ server(${widget.serverToken!.length} chars)" : "❌ null→client-side"}');
+    print(
+        '[MeetingPage] serverToken=${widget.serverToken != null ? "✅ server(${widget.serverToken!.length} chars)" : "❌ null→client-side"}');
     print('[MeetingPage] serverUrl=${widget.serverUrl}');
     try {
       final success = await _liveKitService.connectToRoom(
@@ -600,7 +603,8 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
         serverUrl: widget.serverUrl,
       );
       print('[MeetingPage] connectToRoom returned: success=$success');
-      print('[MeetingPage] room=${_liveKitService.room}  isConnected=${_liveKitService.isConnected}');
+      print(
+          '[MeetingPage] room=${_liveKitService.room}  isConnected=${_liveKitService.isConnected}');
 
       if (success && _liveKitService.room != null) {
         print('[MeetingPage] ✅ Connected — setting up listeners');
@@ -699,16 +703,40 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
     _liveKitService.enableMicrophone();
   }
 
-  void _onRoomUpdate() {
-    if (mounted) {
-      setState(() {
-        final room = _liveKitService.room!;
-        _localParticipant = room.localParticipant;
+  DateTime _lastRoomUpdate = DateTime.fromMillisecondsSinceEpoch(0);
 
-        // Filter out hidden KPI observers using the helper method
-        final allRemoteParticipants = room.remoteParticipants.values.toList();
-        _participants =
-            LiveKitService.filterHiddenObservers(allRemoteParticipants);
+  void _onRoomUpdate() {
+    if (!mounted) return;
+
+    // Throttle updates to max 5 per second (200ms interval)
+    final now = DateTime.now();
+    if (now.difference(_lastRoomUpdate).inMilliseconds < 200) {
+      return;
+    }
+    _lastRoomUpdate = now;
+
+    final room = _liveKitService.room;
+    if (room == null) return;
+
+    // Store previous state to check if rebuild is needed
+    final previousParticipants = _participants;
+    final previousScreenShare = _screenShareParticipant;
+    final previousLocalParticipant = _localParticipant;
+
+    final newLocalParticipant = room.localParticipant;
+    final allRemoteParticipants = room.remoteParticipants.values.toList();
+    final newParticipants =
+        LiveKitService.filterHiddenObservers(allRemoteParticipants);
+    final newScreenShareParticipant = _findScreenShareParticipant();
+
+    // Only rebuild if something actually changed
+    if (previousLocalParticipant != newLocalParticipant ||
+        !_participantsEqual(previousParticipants, newParticipants) ||
+        previousScreenShare != newScreenShareParticipant) {
+      setState(() {
+        _localParticipant = newLocalParticipant;
+        _participants = newParticipants;
+        _screenShareParticipant = newScreenShareParticipant;
 
         if (kDebugMode &&
             allRemoteParticipants.length != _participants.length) {
@@ -717,8 +745,6 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
           print(
               'MeetingPage: Filtered out $hiddenCount hidden KPI observer(s)');
         }
-
-        _screenShareParticipant = _findScreenShareParticipant();
 
         // Debug: Log participant and track information
         if (kDebugMode) {
@@ -735,6 +761,14 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
         }
       });
     }
+  }
+
+  bool _participantsEqual(List<Participant> a, List<Participant> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].identity != b[i].identity) return false;
+    }
+    return true;
   }
 
   Participant? _findScreenShareParticipant() {
@@ -901,50 +935,50 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
       builder: (BuildContext context) {
         return PointerInterceptor(
           child: AlertDialog(
-          title: const Text(
-            'مغادرة الدرس',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
+            title: const Text(
+              'مغادرة الدرس',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          content: const Text(
-            'هل أنت متأكد من مغادرة الدرس؟',
-            style: TextStyle(fontSize: 16),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-              },
-              child: const Text(
-                'إلغاء',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 16,
+            content: const Text(
+              'هل أنت متأكد من مغادرة الدرس؟',
+              style: TextStyle(fontSize: 16),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // Close dialog
+                },
+                child: const Text(
+                  'إلغاء',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 16,
+                  ),
                 ),
               ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-                Navigator.of(context).pop(); // Leave meeting
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-              child: const Text(
-                'مغادرة',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // Close dialog
+                  Navigator.of(context).pop(); // Leave meeting
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                child: const Text(
+                  'مغادرة',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         );
       },
     );
@@ -1155,6 +1189,9 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
         itemCount: orderedParticipants.length,
         separatorBuilder: (_, __) => const SizedBox(height: 8, width: 8),
         scrollDirection: isLandscape ? Axis.vertical : Axis.horizontal,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
+        cacheExtent: 100,
         itemBuilder: (context, index) {
           final p = orderedParticipants[index];
           // Make them "big" - fixed height/width based on orientation
@@ -1331,6 +1368,9 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
         return GridView.builder(
           physics: const BouncingScrollPhysics(),
           itemCount: participants.length,
+          addAutomaticKeepAlives: false,
+          addRepaintBoundaries: true,
+          cacheExtent: 100,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
             childAspectRatio: aspectRatio,
@@ -1417,6 +1457,11 @@ class _CelebrationOverlayState extends State<_CelebrationOverlay>
     final bool isConfetti = variant == 'confetti';
     // Increased particle count as requested (was 20/5)
     final int count = isConfetti ? 50 : 20;
+
+    // Limit total particles to prevent memory issues (max 200)
+    if (_particles.length > 150) {
+      _particles.removeRange(0, _particles.length - 150);
+    }
 
     for (int i = 0; i < count; i++) {
       _particles.add(Particle(
