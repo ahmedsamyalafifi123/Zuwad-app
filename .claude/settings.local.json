@@ -13,7 +13,8 @@
       "Skill(claude-developer-platform)",
       "Bash(curl:*)",
       "Bash(export:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(find:*)"
     ]
   }
 }

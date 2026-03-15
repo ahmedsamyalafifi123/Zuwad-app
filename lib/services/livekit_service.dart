@@ -96,6 +96,13 @@ class LiveKitService {
         roomOptions: RoomOptions(
           adaptiveStream: true,
           dynacast: true,
+          // Simulcast publishes multiple quality layers (180p / 360p / 720p).
+          // The LiveKit SFU automatically delivers the right layer to each
+          // subscriber based on their available bandwidth, so slow-network
+          // students receive 360p or lower instead of freezing.
+          defaultVideoPublishOptions: const VideoPublishOptions(
+            simulcast: true,
+          ),
           defaultCameraCaptureOptions: CameraCaptureOptions(
             maxFrameRate: LiveKitConfig.defaultVideoFrameRate.toDouble(),
           ),

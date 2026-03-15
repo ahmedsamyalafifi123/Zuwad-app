@@ -67,6 +67,10 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
   Participant? _localParticipant;
   Participant? _screenShareParticipant;
 
+  // Network / reconnection state
+  bool _isReconnecting = false;
+  ConnectionQuality _connectionQuality = ConnectionQuality.good;
+
   // Celebration state - now triggers via an object to avoid duplicate adds on rebuild
   _ReactionEvent? _reactionEvent;
   // Throttling variables
@@ -677,6 +681,37 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
           print('MeetingPage: Data received');
         }
         _handleDataReceived(event);
+      })
+      // ── Network resilience: reconnection events ──────────────────────────
+      ..on<RoomReconnectingEvent>((_) {
+        if (!mounted) return;
+        setState(() => _isReconnecting = true);
+      })
+      ..on<RoomReconnectedEvent>((_) {
+        if (!mounted) return;
+        setState(() {
+          _isReconnecting = false;
+          _connectionQuality = ConnectionQuality.good;
+        });
+        _onRoomUpdate();
+      })
+      ..on<RoomDisconnectedEvent>((event) {
+        if (!mounted) return;
+        // Listener is disposed before disconnect() is called on intentional
+        // leave, so reaching here means an unexpected server-side drop.
+        setState(() {
+          _isReconnecting = false;
+          _isConnected = false;
+          _errorMessage = 'انقطع الاتصال بالدرس. يرجى المحاولة مرة أخرى.';
+        });
+      })
+      // ── Network quality: adapt indicator ────────────────────────────────
+      ..on<ParticipantConnectionQualityUpdatedEvent>((event) {
+        if (!mounted) return;
+        // Only track the local participant's upload quality
+        if (event.participant == _liveKitService.room?.localParticipant) {
+          setState(() => _connectionQuality = event.connectionQuality);
+        }
       });
 
     // Set initial participants (filter out hidden KPI observers)
@@ -1127,6 +1162,9 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
           child: _buildLayout(allParticipants),
         ),
         if (_reactionEvent != null) _buildFullPageCelebration(),
+        // Network quality / reconnecting banner (top of screen)
+        if (_isReconnecting || _connectionQuality == ConnectionQuality.poor || _connectionQuality == ConnectionQuality.lost)
+          _buildNetworkBanner(),
         Positioned(
           bottom: 0,
           left: 0,
@@ -1249,6 +1287,9 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
       children: [
         Positioned.fill(child: body),
         if (_reactionEvent != null) _buildFullPageCelebration(),
+        // Network quality / reconnecting banner (top of screen)
+        if (_isReconnecting || _connectionQuality == ConnectionQuality.poor || _connectionQuality == ConnectionQuality.lost)
+          _buildNetworkBanner(),
         // Controls overlay
         Positioned(
           bottom: 0,
@@ -1390,6 +1431,53 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
   }
 
   // Removed unused "more participants" indicator for the new grid layout
+
+  Widget _buildNetworkBanner() {
+    final isReconnecting = _isReconnecting;
+    final color = isReconnecting ? Colors.orange : Colors.red.shade700;
+    final message = isReconnecting
+        ? 'جاري إعادة الاتصال...'
+        : 'الاتصال ضعيف – جودة الفيديو منخفضة';
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: IgnorePointer(
+        child: SafeArea(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            color: color.withValues(alpha: 0.85),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isReconnecting)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                else
+                  const Icon(Icons.signal_wifi_statusbar_connected_no_internet_4,
+                      color: Colors.white, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildFullPageCelebration() {
     return Positioned.fill(
