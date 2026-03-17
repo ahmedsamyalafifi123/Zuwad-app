@@ -68,6 +68,9 @@ class _ChatPageState extends State<ChatPage> {
   final Set<String> _knownServerIds = {};
   static const int _maxKnownIds = 500;
 
+  // Count of sends currently in-flight — poll is paused while > 0 to prevent duplicates
+  int _pendingSendCount = 0;
+
   String? _serverConversationId; // Server-assigned conversation ID
   int _lastMessageId = 0; // For polling new messages
   String? _detectedRecipientRole; // Role detected from API response
@@ -192,7 +195,10 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Poll for NEW messages only using after_id (as per API best practices)
   Future<void> _pollNewMessages() async {
-    if (_serverConversationId == null || _lastMessageId == 0 || _isDisposed) {
+    if (_serverConversationId == null ||
+        _lastMessageId == 0 ||
+        _isDisposed ||
+        _pendingSendCount > 0) {
       return;
     }
 
@@ -210,23 +216,18 @@ class _ChatPageState extends State<ChatPage> {
         print('Received ${messages.length} new messages from poll');
       }
 
-      if (mounted && !_isDisposed && messages.isNotEmpty) {
-        // Get existing messages
-        final existingMessages =
-            List<core.Message>.from(_chatController.messages);
-        final existingIds = existingMessages.map((m) => m.id).toSet();
+      if (!_isDisposed && messages.isNotEmpty) {
+        final existingIds =
+            _chatController.messages.map((m) => m.id).toSet();
 
         bool hasNewIncoming = false;
         final newMessages = <core.TextMessage>[];
 
-        for (var msg in messages) {
-          // Update last message ID
+        for (final msg in messages) {
           final msgId = int.tryParse(msg.id) ?? 0;
-          if (msgId > _lastMessageId) {
-            _lastMessageId = msgId;
-          }
+          if (msgId > _lastMessageId) _lastMessageId = msgId;
 
-          // Skip if we already have this message or it was sent by us
+          // Skip already-known messages
           if (existingIds.contains(msg.id) ||
               _knownServerIds.contains(msg.id)) {
             continue;
@@ -235,11 +236,8 @@ class _ChatPageState extends State<ChatPage> {
           _knownServerIds.add(msg.id);
           _cleanupKnownServerIds();
 
-          // Check if this is an incoming message (not from us)
           final isIncoming = !msg.isMine && msg.senderId != widget.studentId;
-          if (isIncoming && !msg.isRead) {
-            hasNewIncoming = true;
-          }
+          if (isIncoming && !msg.isRead) hasNewIncoming = true;
 
           newMessages.add(core.TextMessage(
             id: msg.id,
@@ -250,34 +248,22 @@ class _ChatPageState extends State<ChatPage> {
           ));
         }
 
-        if (newMessages.isNotEmpty) {
+        if (newMessages.isNotEmpty && !_isDisposed) {
           if (kDebugMode) {
             print('Adding ${newMessages.length} new messages to UI');
           }
 
-          setState(() {
-            final allMessages = [...existingMessages, ...newMessages];
-            // Sort by message ID first (for server messages - they're sequential)
-            // Only use timestamp for temp messages (like 'temp_xxx')
-            allMessages.sort((a, b) {
-              final aId = int.tryParse(a.id) ?? 0;
-              final bId = int.tryParse(b.id) ?? 0;
-              // Both have numeric IDs (server messages) - sort by ID
-              if (aId > 0 && bId > 0) {
-                return aId.compareTo(bId);
-              }
-              // At least one is a temp message - use timestamp
-              return (a.createdAt ?? DateTime(0))
-                  .compareTo(b.createdAt ?? DateTime(0));
-            });
-            _chatController.setMessages(allMessages);
-          });
+          // Insert before any pending temp messages so ordering stays correct
+          final firstTempIndex = _chatController.messages
+              .indexWhere((m) => m.id.startsWith('temp_'));
+          await _chatController.insertAllMessages(
+            newMessages,
+            index: firstTempIndex == -1 ? null : firstTempIndex,
+          );
 
-          // Only mark as read if there are new INCOMING unread messages
-          if (hasNewIncoming) {
+          if (hasNewIncoming && !_isDisposed) {
             await _chatRepository.markAsRead(
                 conversationId: _serverConversationId!);
-            // Notify that messages were read so unread count updates
             _chatEventService.notifyMessagesRead(
                 recipientId: widget.recipientId);
           }
@@ -407,115 +393,94 @@ class _ChatPageState extends State<ChatPage> {
   void _handleSendPressed(types.PartialText message) {
     if (!mounted || _isDisposed) return;
     final tempId = 'temp_${const Uuid().v4()}';
-
-    // Optimistic update: append temp message to end (no sort needed)
-    setState(() {
-      final currentMessages = List<core.Message>.from(_chatController.messages);
-      currentMessages.add(core.TextMessage(
-        id: tempId,
-        authorId: widget.studentId,
-        createdAt: DateTime.now(),
-        text: message.text,
-        status: core.MessageStatus.sending,
-      ));
-      _chatController.setMessages(currentMessages);
-    });
-
-    _sendMessageToServer(tempId, message.text);
+    final tempMsg = core.TextMessage(
+      id: tempId,
+      authorId: widget.studentId,
+      createdAt: DateTime.now(),
+      text: message.text,
+      status: core.MessageStatus.sending,
+    );
+    // Use insertMessage (not setMessages) — no full-list re-render, clean animation
+    _chatController.insertMessage(tempMsg);
+    _pendingSendCount++;
+    _sendMessageToServer(tempId, messageText: message.text, tempMsg: tempMsg);
   }
 
-  Future<void> _sendMessageToServer(String tempId, String messageText) async {
+  Future<void> _sendMessageToServer(
+    String tempId, {
+    required String messageText,
+    required core.TextMessage tempMsg,
+  }) async {
     try {
       final recipientIdInt = int.tryParse(widget.recipientId);
-      if (recipientIdInt == null) {
-        throw Exception('Invalid recipient ID');
-      }
+      if (recipientIdInt == null) throw Exception('Invalid recipient ID');
 
-      // Use direct message
       final sentMessage = await _chatRepository.sendDirectMessage(
         recipientId: recipientIdInt,
         senderId: widget.studentId,
         message: messageText,
       );
 
-      if (mounted && !_isDisposed) {
-        // Register server ID BEFORE touching UI so the poll can't sneak in a duplicate
-        _knownServerIds.add(sentMessage.id);
-        _cleanupKnownServerIds();
+      if (_isDisposed) return;
 
-        // Advance the poll cursor
-        final sentMsgId = int.tryParse(sentMessage.id) ?? 0;
-        if (sentMsgId > _lastMessageId) {
-          _lastMessageId = sentMsgId;
-        }
+      // Register server ID BEFORE touching UI so poll can't sneak in a duplicate
+      _knownServerIds.add(sentMessage.id);
+      _cleanupKnownServerIds();
 
-        setState(() {
-          final current = List<core.Message>.from(_chatController.messages);
+      final sentMsgId = int.tryParse(sentMessage.id) ?? 0;
+      if (sentMsgId > _lastMessageId) _lastMessageId = sentMsgId;
 
-          // If the 2-second poll already added the server message, just drop the temp.
-          // Otherwise update the temp message's status in-place (keep same ID → no animation glitch).
-          if (current.any((m) => m.id == sentMessage.id)) {
-            _chatController.setMessages(
-              current.where((m) => m.id != tempId).toList(),
-            );
-          } else {
-            _chatController.setMessages(current.map((msg) {
-              if (msg.id == tempId && msg is core.TextMessage) {
-                return core.TextMessage(
-                  id: msg.id, // keep temp ID — avoids replacement animation
-                  authorId: msg.authorId,
-                  createdAt: msg.createdAt,
-                  text: msg.text,
-                  status: core.MessageStatus.sent,
-                );
-              }
-              return msg;
-            }).toList());
-          }
-        });
+      if (_chatController.messages.any((m) => m.id == sentMessage.id)) {
+        // Poll already added the confirmed message — just remove the temp
+        await _chatController.removeMessage(tempMsg);
+      } else {
+        // Normal path: update status in-place — same ID, no removal animation
+        await _chatController.updateMessage(
+          tempMsg,
+          core.TextMessage(
+            id: tempMsg.id,
+            authorId: tempMsg.authorId,
+            createdAt: tempMsg.createdAt,
+            text: tempMsg.text,
+            status: core.MessageStatus.sent,
+          ),
+        );
+      }
 
-        if (kDebugMode) {
-          print('Message sent successfully: ${sentMessage.id}');
-        }
+      if (kDebugMode) print('Message sent successfully: ${sentMessage.id}');
 
+      if (!_isDisposed) {
         _chatEventService.notifyMessageSent(
           recipientId: widget.recipientId,
           message: messageText,
         );
       }
     } catch (e) {
-      if (mounted && !_isDisposed) {
-        // Update message status to error
-        setState(() {
-          final currentMessages =
-              List<core.Message>.from(_chatController.messages);
-          final updatedMessages = currentMessages.map((msg) {
-            if (msg.id == tempId && msg is core.TextMessage) {
-              return core.TextMessage(
-                id: msg.id,
-                authorId: msg.authorId,
-                createdAt: msg.createdAt,
-                text: msg.text,
-                status: core.MessageStatus.error,
-              );
-            }
-            return msg;
-          }).toList();
-          _chatController.setMessages(updatedMessages);
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('سيتم إرسال الرسالة عندما تعود للاتصال بالإنترنت'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
+      if (!_isDisposed) {
+        // Update status in-place to error — no list reconstruction
+        await _chatController.updateMessage(
+          tempMsg,
+          core.TextMessage(
+            id: tempMsg.id,
+            authorId: tempMsg.authorId,
+            createdAt: tempMsg.createdAt,
+            text: tempMsg.text,
+            status: core.MessageStatus.error,
           ),
         );
-
-        if (kDebugMode) {
-          print('Failed to send message: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('سيتم إرسال الرسالة عندما تعود للاتصال بالإنترنت'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
         }
       }
+      if (kDebugMode) print('Failed to send message: $e');
+    } finally {
+      _pendingSendCount--;
     }
   }
 
