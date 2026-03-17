@@ -60,13 +60,15 @@ class _ChatPageState extends State<ChatPage> {
   final ChatEventService _chatEventService = ChatEventService();
   bool _isLoading = false;
   bool _isInitializing = true;
+  bool _isDisposed = false;
   int _currentPage = 1;
   Timer? _pollTimer;
 
   // Track pending messages by their temp ID to prevent duplicates
   final Map<String, String> _pendingToServerIds = {};
-  // Track all server message IDs we've seen
+  // Track all server message IDs we've seen (cleanup: keep last 500 to avoid memory bloat)
   final Set<String> _knownServerIds = {};
+  static const int _maxKnownIds = 500;
 
   String? _serverConversationId; // Server-assigned conversation ID
   int _lastMessageId = 0; // For polling new messages
@@ -79,9 +81,15 @@ class _ChatPageState extends State<ChatPage> {
     return role == 'supervisor' || role == 'mini-visor';
   }
 
+  void _cleanupKnownServerIds() {
+    while (_knownServerIds.length > _maxKnownIds) {
+      _knownServerIds.remove(_knownServerIds.first);
+    }
+  }
+
   @override
   void dispose() {
-    // Clear active chat so notifications are shown again
+    _isDisposed = true;
     _chatEventService.clearActiveChat();
     _pollTimer?.cancel();
     _chatController.dispose();
@@ -161,7 +169,7 @@ class _ChatPageState extends State<ChatPage> {
 
       // Set up polling for NEW messages (every 2 seconds, uses after_id)
       _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-        if (mounted) {
+        if (mounted && !_isDisposed) {
           _pollNewMessages();
         }
       });
@@ -170,7 +178,7 @@ class _ChatPageState extends State<ChatPage> {
         print('Error initializing conversation: $e');
       }
     } finally {
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         setState(() {
           _isInitializing = false;
         });
@@ -180,7 +188,9 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Poll for NEW messages only using after_id (as per API best practices)
   Future<void> _pollNewMessages() async {
-    if (_serverConversationId == null || _lastMessageId == 0) return;
+    if (_serverConversationId == null || _lastMessageId == 0 || _isDisposed) {
+      return;
+    }
 
     try {
       if (kDebugMode) {
@@ -196,7 +206,7 @@ class _ChatPageState extends State<ChatPage> {
         print('Received ${messages.length} new messages from poll');
       }
 
-      if (mounted && messages.isNotEmpty) {
+      if (mounted && !_isDisposed && messages.isNotEmpty) {
         // Get existing messages
         final existingMessages =
             List<core.Message>.from(_chatController.messages);
@@ -224,6 +234,7 @@ class _ChatPageState extends State<ChatPage> {
           }
 
           _knownServerIds.add(msg.id);
+          _cleanupKnownServerIds();
 
           // Check if this is an incoming message (not from us)
           final isIncoming = !msg.isMine && msg.senderId != widget.studentId;
@@ -289,11 +300,13 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _loadMessages() async {
-    if (_isLoading || _serverConversationId == null) return;
+    if (_isLoading || _serverConversationId == null || _isDisposed) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted && !_isDisposed) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       if (kDebugMode) {
@@ -338,46 +351,52 @@ class _ChatPageState extends State<ChatPage> {
       }
 
       if (serverMessages.isNotEmpty) {
-        setState(() {
-          final coreMessages = serverMessages
-              .map((msg) => core.TextMessage(
-                    id: msg.id,
-                    authorId: msg.isMine ? widget.studentId : msg.senderId,
-                    createdAt: msg.timestamp,
-                    text: msg.content,
-                    status: _getMessageStatus(msg),
-                  ))
-              .toList();
+        if (mounted && !_isDisposed) {
+          setState(() {
+            final coreMessages = serverMessages
+                .map((msg) => core.TextMessage(
+                      id: msg.id,
+                      authorId: msg.isMine ? widget.studentId : msg.senderId,
+                      createdAt: msg.timestamp,
+                      text: msg.content,
+                      status: _getMessageStatus(msg),
+                    ))
+                .toList();
 
-          // Sort by message ID first (sequential from server), then timestamp for temp messages
-          coreMessages.sort((a, b) {
-            final aId = int.tryParse(a.id) ?? 0;
-            final bId = int.tryParse(b.id) ?? 0;
-            // Both have numeric IDs (server messages) - sort by ID
-            if (aId > 0 && bId > 0) {
-              return aId.compareTo(bId);
-            }
-            // At least one is a temp message - use timestamp
-            return a.createdAt!.compareTo(b.createdAt!);
+            // Sort by message ID first (sequential from server), then timestamp for temp messages
+            coreMessages.sort((a, b) {
+              final aId = int.tryParse(a.id) ?? 0;
+              final bId = int.tryParse(b.id) ?? 0;
+              // Both have numeric IDs (server messages) - sort by ID
+              if (aId > 0 && bId > 0) {
+                return aId.compareTo(bId);
+              }
+              // At least one is a temp message - use timestamp
+              return a.createdAt!.compareTo(b.createdAt!);
+            });
+            _chatController.setMessages(coreMessages);
+            _currentPage++;
+            _isLoading = false;
           });
-          _chatController.setMessages(coreMessages);
-          _currentPage++;
-          _isLoading = false;
-        });
+        }
       } else {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
       if (kDebugMode) {
         print('Error loading messages: $e');
       }
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
 
-      if (_chatController.messages.isEmpty && mounted) {
+      if (_chatController.messages.isEmpty && mounted && !_isDisposed) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('خطأ في تحميل الرسائل: $e')),
         );
@@ -432,10 +451,11 @@ class _ChatPageState extends State<ChatPage> {
         message: messageText,
       );
 
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         // Track the mapping from temp ID to server ID
         _pendingToServerIds[tempId] = sentMessage.id;
         _knownServerIds.add(sentMessage.id);
+        _cleanupKnownServerIds();
 
         // Update last message ID for polling
         final sentMsgId = int.tryParse(sentMessage.id) ?? 0;
@@ -463,6 +483,9 @@ class _ChatPageState extends State<ChatPage> {
           _chatController.setMessages(updatedMessages);
         });
 
+        // Cleanup: remove from pending now that it's resolved
+        _pendingToServerIds.remove(tempId);
+
         if (kDebugMode) {
           print('Message sent successfully: ${sentMessage.id}');
         }
@@ -474,7 +497,7 @@ class _ChatPageState extends State<ChatPage> {
         );
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         // Update message status to error
         setState(() {
           final currentMessages =
@@ -769,17 +792,15 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildAppBarAvatar() {
-    // Use detected role or widget role
     final role =
         (_detectedRecipientRole ?? widget.recipientRole)?.toLowerCase() ?? '';
 
-    // Supervisor: Lottie
     if (_isSupervisor) {
       return CircleAvatar(
         radius: 20,
-        backgroundColor: Colors.transparent, // Transparent for Lottie
+        backgroundColor: Colors.transparent,
         child: Transform.scale(
-          scale: 1.5, // Match list page scale
+          scale: 1.5,
           child: Lottie.asset(
             'assets/images/customer.json',
             fit: BoxFit.contain,
@@ -790,7 +811,6 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
 
-    // Check for network image first (unless supervisor which has special lottie)
     if (widget.recipientImage != null && widget.recipientImage!.isNotEmpty) {
       return CircleAvatar(
         radius: 20,
@@ -798,7 +818,6 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
 
-    // Teacher: Gender Asset (Fallback if no image)
     if (role == 'teacher') {
       return CircleAvatar(
         radius: 20,
@@ -808,17 +827,6 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
 
-    // Others: Network Image or Initials
-    if (widget.recipientImage != null && widget.recipientImage!.isNotEmpty) {
-      return CircleAvatar(
-        radius: 20,
-        backgroundImage: NetworkImage(widget.recipientImage!),
-        child:
-            null, // No fallback text if we have logic to ensure valid url ideally
-      );
-    }
-
-    // Default Fallback
     return CircleAvatar(
       radius: 20,
       backgroundColor: AppTheme.primaryColor,

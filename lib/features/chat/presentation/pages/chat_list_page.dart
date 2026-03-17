@@ -59,6 +59,7 @@ class _ChatListPageState extends State<ChatListPage> {
   Map<int, String> _teacherSubjectsById = {};
   bool _isLoading = true;
   bool _hasError = false;
+  bool _isDisposed = false;
   String _errorMessage = '';
   Timer? _refreshTimer;
   StreamSubscription<ChatEvent>? _chatEventSubscription;
@@ -254,16 +255,21 @@ class _ChatListPageState extends State<ChatListPage> {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _refreshTimer?.cancel();
     _chatEventSubscription?.cancel();
     super.dispose();
   }
 
   Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
+    if (_isDisposed) return;
+
+    if (mounted && !_isDisposed) {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+    }
 
     try {
       // Load contacts + conversations in parallel, then resolve family teachers
@@ -277,7 +283,7 @@ class _ChatListPageState extends State<ChatListPage> {
         conversationsFuture,
       ]);
 
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         final authState = context.read<AuthBloc>().state;
         List<Contact> finalContacts;
 
@@ -385,7 +391,7 @@ class _ChatListPageState extends State<ChatListPage> {
         }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         setState(() {
           _isLoading = false;
           _hasError = true;
@@ -399,20 +405,22 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   Future<void> _loadConversations({bool showLoading = true}) async {
-    if (showLoading && mounted) {
+    if (_isDisposed) return;
+
+    if (showLoading && mounted && !_isDisposed) {
       setState(() => _isLoading = true);
     }
 
     try {
       final conversations = await _chatRepository.getConversations();
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         setState(() {
           _conversations = conversations;
           if (showLoading) _isLoading = false;
         });
       }
     } catch (e) {
-      if (mounted && showLoading) {
+      if (mounted && !_isDisposed && showLoading) {
         setState(() => _isLoading = false);
       }
     }
