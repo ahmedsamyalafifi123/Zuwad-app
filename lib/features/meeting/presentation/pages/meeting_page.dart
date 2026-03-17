@@ -750,6 +750,18 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
     }
     _lastRoomUpdate = now;
 
+    // Schedule the setState after the current frame completes to avoid
+    // modifying the participant list mid-paint (causes null crash in
+    // RenderSliverMultiBoxAdaptor.childMainAxisPosition).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _applyRoomUpdate();
+    });
+  }
+
+  void _applyRoomUpdate() {
+    if (!mounted) return;
+
     final room = _liveKitService.room;
     if (room == null) return;
 
