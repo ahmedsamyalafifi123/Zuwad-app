@@ -272,39 +272,75 @@ class _ChatListPageState extends State<ChatListPage> {
     }
 
     try {
-      // Load contacts + conversations in parallel, then resolve family teachers
-      final contactsFuture = _chatRepository.getContacts();
-      final conversationsFuture = _chatRepository.getConversations();
-      final familyMembers = await _authRepository.getFamilyMembers();
-      final resolvedFamilyMembers =
-          await _resolveFamilyMembersWithTeacherData(familyMembers);
+      // Determine auth state first to decide what data to load
+      final authState = context.read<AuthBloc>().state;
+      final isTeacher = authState is AuthTeacherAuthenticated;
+
+      // Load contacts and conversations in parallel
       final results = await Future.wait([
-        contactsFuture,
-        conversationsFuture,
+        _chatRepository.getContacts(),
+        _chatRepository.getConversations(),
       ]);
 
+      // Only load family members for students
+      List<Student> resolvedFamilyMembers = [];
+      if (mounted && !_isDisposed && !isTeacher) {
+        try {
+          final familyMembers = await _authRepository.getFamilyMembers();
+          resolvedFamilyMembers =
+              await _resolveFamilyMembersWithTeacherData(familyMembers);
+        } catch (e) {
+          if (kDebugMode) {
+            print('Could not load family members: $e');
+          }
+          // Continue without family member data
+        }
+      }
+
       if (mounted && !_isDisposed) {
-        final authState = context.read<AuthBloc>().state;
         List<Contact> finalContacts;
 
         // When the logged-in user IS a teacher, we should show their students as contacts
         // The API determines teacher-student relationships using TWO methods:
         // 1. Primary: Checks the `teacher` meta field on students
         // 2. Fallback: Checks if the student's `m_id` starts with the teacher's `m_id`
-        if (authState is AuthTeacherAuthenticated &&
-            authState.teacher != null) {
-          final teacher = authState.teacher!;
-          // Build contacts from teacher's students list
-          finalContacts = _buildTeacherStudentContacts(teacher);
+        if (authState is AuthTeacherAuthenticated) {
+          final teacher = authState.teacher;
+          final apiContacts = results[0] as List<Contact>;
+          final apiConversations = results[1] as List<Conversation>;
+
+          if (teacher != null && teacher.students.isNotEmpty) {
+            // Build contacts from teacher's students list
+            finalContacts = _buildTeacherStudentContacts(teacher);
+          } else {
+            // Fallback: use conversations to build student contacts
+            finalContacts = [];
+            for (final conv in apiConversations) {
+              if (conv.otherUser.id != teacher?.id) {
+                final role = conv.otherUser.role.isNotEmpty
+                    ? conv.otherUser.role
+                    : 'student';
+                finalContacts.add(Contact(
+                  id: conv.otherUser.id,
+                  name: conv.otherUser.name,
+                  role: role,
+                  relation: 'student',
+                  profileImage: conv.otherUser.profileImage,
+                ));
+              }
+            }
+          }
 
           // Add supervisor if available from API contacts
-          final apiContacts = results[0] as List<Contact>;
           final supervisorContact = apiContacts.firstWhere(
             (c) => _isSupervisorContact(c),
             orElse: () => Contact(id: 0, name: '', role: '', relation: ''),
           );
           if (supervisorContact.id > 0) {
-            finalContacts.add(supervisorContact);
+            // Only add if not already in the list
+            if (!finalContacts.any((c) => c.id == supervisorContact.id)) {
+              finalContacts.add(supervisorContact);
+            }
           }
         } else {
           // For students: normalize contacts as usual
