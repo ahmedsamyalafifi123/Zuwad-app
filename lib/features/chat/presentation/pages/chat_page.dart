@@ -64,8 +64,6 @@ class _ChatPageState extends State<ChatPage> {
   int _currentPage = 1;
   Timer? _pollTimer;
 
-  // Track pending messages by their temp ID to prevent duplicates
-  final Map<String, String> _pendingToServerIds = {};
   // Track all server message IDs we've seen (cleanup: keep last 500 to avoid memory bloat)
   final Set<String> _knownServerIds = {};
   static const int _maxKnownIds = 500;
@@ -123,6 +121,8 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Initialize the conversation - create/get it, then load messages
   Future<void> _initializeConversation() async {
+    if (!mounted || _isDisposed) return;
+
     setState(() {
       _isInitializing = true;
     });
@@ -142,9 +142,11 @@ class _ChatPageState extends State<ChatPage> {
             // Extract role from other_user data
             final otherUser = conversationData['other_user'];
             if (otherUser != null && otherUser['role'] != null) {
-              setState(() {
-                _detectedRecipientRole = otherUser['role']?.toString();
-              });
+              if (mounted && !_isDisposed) {
+                setState(() {
+                  _detectedRecipientRole = otherUser['role']?.toString();
+                });
+              }
               if (kDebugMode) {
                 print('Detected recipient role: $_detectedRecipientRole');
               }
@@ -160,7 +162,7 @@ class _ChatPageState extends State<ChatPage> {
       await _loadMessages();
 
       // Mark as read when opening conversation (per API best practices)
-      if (_serverConversationId != null) {
+      if (_serverConversationId != null && !_isDisposed) {
         await _chatRepository.markAsRead(
             conversationId: _serverConversationId!);
         // Notify that messages were read so unread count updates
@@ -168,11 +170,13 @@ class _ChatPageState extends State<ChatPage> {
       }
 
       // Set up polling for NEW messages (every 2 seconds, uses after_id)
-      _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-        if (mounted && !_isDisposed) {
-          _pollNewMessages();
-        }
-      });
+      if (!_isDisposed) {
+        _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+          if (mounted && !_isDisposed) {
+            _pollNewMessages();
+          }
+        });
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Error initializing conversation: $e');
@@ -222,14 +226,9 @@ class _ChatPageState extends State<ChatPage> {
             _lastMessageId = msgId;
           }
 
-          // Skip if we already have this message
+          // Skip if we already have this message or it was sent by us
           if (existingIds.contains(msg.id) ||
               _knownServerIds.contains(msg.id)) {
-            continue;
-          }
-
-          // Skip if this is a message we sent (tracked in pendingToServerIds)
-          if (_pendingToServerIds.values.contains(msg.id)) {
             continue;
           }
 
@@ -268,7 +267,8 @@ class _ChatPageState extends State<ChatPage> {
                 return aId.compareTo(bId);
               }
               // At least one is a temp message - use timestamp
-              return a.createdAt!.compareTo(b.createdAt!);
+              return (a.createdAt ?? DateTime(0))
+                  .compareTo(b.createdAt ?? DateTime(0));
             });
             _chatController.setMessages(allMessages);
           });
@@ -404,36 +404,23 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  void _handleSendPressed(types.PartialText message) async {
-    // Generate a unique temporary ID for the message
+  void _handleSendPressed(types.PartialText message) {
+    if (!mounted || _isDisposed) return;
     final tempId = 'temp_${const Uuid().v4()}';
 
-    // Create message with sending status
-    final textMessage = core.TextMessage(
-      id: tempId,
-      authorId: widget.studentId,
-      createdAt: DateTime.now(),
-      text: message.text,
-      status: core.MessageStatus.sending,
-    );
-
-    // Add the message to the UI immediately (optimistic update)
+    // Optimistic update: append temp message to end (no sort needed)
     setState(() {
       final currentMessages = List<core.Message>.from(_chatController.messages);
-      currentMessages.add(textMessage);
-      // Sort by ID first, then timestamp
-      currentMessages.sort((a, b) {
-        final aId = int.tryParse(a.id) ?? 0;
-        final bId = int.tryParse(b.id) ?? 0;
-        if (aId > 0 && bId > 0) {
-          return aId.compareTo(bId);
-        }
-        return a.createdAt!.compareTo(b.createdAt!);
-      });
+      currentMessages.add(core.TextMessage(
+        id: tempId,
+        authorId: widget.studentId,
+        createdAt: DateTime.now(),
+        text: message.text,
+        status: core.MessageStatus.sending,
+      ));
       _chatController.setMessages(currentMessages);
     });
 
-    // Send to server in background
     _sendMessageToServer(tempId, message.text);
   }
 
@@ -452,45 +439,45 @@ class _ChatPageState extends State<ChatPage> {
       );
 
       if (mounted && !_isDisposed) {
-        // Track the mapping from temp ID to server ID
-        _pendingToServerIds[tempId] = sentMessage.id;
+        // Register server ID BEFORE touching UI so the poll can't sneak in a duplicate
         _knownServerIds.add(sentMessage.id);
         _cleanupKnownServerIds();
 
-        // Update last message ID for polling
+        // Advance the poll cursor
         final sentMsgId = int.tryParse(sentMessage.id) ?? 0;
         if (sentMsgId > _lastMessageId) {
           _lastMessageId = sentMsgId;
         }
 
-        // Update the message: replace temp ID with server ID and mark as sent
-        // IMPORTANT: Use server timestamp to ensure correct ordering
         setState(() {
-          final currentMessages =
-              List<core.Message>.from(_chatController.messages);
-          final updatedMessages = currentMessages.map((msg) {
-            if (msg.id == tempId && msg is core.TextMessage) {
-              return core.TextMessage(
-                id: sentMessage.id, // Use server ID
-                authorId: msg.authorId,
-                createdAt: sentMessage.timestamp, // Use server timestamp!
-                text: msg.text,
-                status: core.MessageStatus.sent, // Single checkmark ✓
-              );
-            }
-            return msg;
-          }).toList();
-          _chatController.setMessages(updatedMessages);
-        });
+          final current = List<core.Message>.from(_chatController.messages);
 
-        // Cleanup: remove from pending now that it's resolved
-        _pendingToServerIds.remove(tempId);
+          // If the 2-second poll already added the server message, just drop the temp.
+          // Otherwise update the temp message's status in-place (keep same ID → no animation glitch).
+          if (current.any((m) => m.id == sentMessage.id)) {
+            _chatController.setMessages(
+              current.where((m) => m.id != tempId).toList(),
+            );
+          } else {
+            _chatController.setMessages(current.map((msg) {
+              if (msg.id == tempId && msg is core.TextMessage) {
+                return core.TextMessage(
+                  id: msg.id, // keep temp ID — avoids replacement animation
+                  authorId: msg.authorId,
+                  createdAt: msg.createdAt,
+                  text: msg.text,
+                  status: core.MessageStatus.sent,
+                );
+              }
+              return msg;
+            }).toList());
+          }
+        });
 
         if (kDebugMode) {
           print('Message sent successfully: ${sentMessage.id}');
         }
 
-        // Notify ChatListPage to refresh
         _chatEventService.notifyMessageSent(
           recipientId: widget.recipientId,
           message: messageText,
@@ -627,7 +614,6 @@ class _ChatPageState extends State<ChatPage> {
                             _currentPage = 1;
                             _lastMessageId = 0;
                             _knownServerIds.clear();
-                            _pendingToServerIds.clear();
                           });
                           _chatController.setMessages([]);
                           _loadMessages();
