@@ -821,16 +821,73 @@ Future<void> joinMeeting(String roomName, String studentName) async {
 
 ## 👨‍🏫 Teachers API
 
-### List Teachers
+### Overview
+
+Teachers have access to a comprehensive set of API endpoints for managing their students, schedules, and reports. This section details all endpoints available to teachers.
+
+### Authentication
+
+Teachers authenticate using the standard login endpoint or the dedicated teacher-login endpoint that returns their profile along with all assigned students in a single call.
+
+**Teacher Login (Recommended - Returns students list):**
 
 ```http
-GET /teachers?page=1&per_page=20&supervisor_id=3
+POST /auth/teacher-login
+Content-Type: application/json
+
+{
+  "phone": "01234567890",
+  "password": "teacher_password"
+}
 ```
 
-### Get Teacher
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expires_in": 604800,
+    "token_type": "Bearer",
+    "user": {
+      "id": 42,
+      "name": "أحمد المعلم",
+      "phone": "01234567890",
+      "role": "teacher",
+      "m_id": "0103",
+      "gender": "ذكر",
+      "profile_image_url": "https://example.com/uploads/profile.jpg",
+      "students": [
+        {
+          "id": 101,
+          "m_id": "010301",
+          "display_name": "محمد أحمد",
+          "phone": "01012345678",
+          "gender": "ذكر",
+          "lessons_name": "تحفيظ قرآن",
+          "lesson_duration": 30,
+          "amount": "200",
+          "currency": "EGP",
+          "payment_status": "نشط",
+          "profile_image_url": null
+        }
+      ]
+    }
+  }
+}
+```
+
+> **Note:** Students with `payment_status: متوقف` are **not included** in the students list.
+
+### Teacher Profile Endpoints
+
+#### Get Teacher Profile
 
 ```http
 GET /teachers/{id}
+Authorization: Bearer {token}
 ```
 
 **Response:**
@@ -840,17 +897,763 @@ GET /teachers/{id}
   "success": true,
   "data": {
     "id": 5,
+    "m_id": "0103",
     "display_name": "أحمد محمد",
     "email": "ahmed@example.com",
     "phone": "01234567890",
     "gender": "ذكر",
+    "country": "مصر",
+    "lessons_name": "تحفيظ قرآن",
     "supervisor_id": 3,
+    "supervisor_name": "المشرف أحمد",
+    "teacher_classification": ["تحفيظ", "تجويد"],
     "teacher_status": "نشط عدد كامل",
+    "required_students": 20,
     "qualification": "ليسانس لغة عربية",
     "experience_years": 5,
-    "courses": "دورة تحفيظ القرآن الكريم"
+    "courses": "دورة تحفيظ القرآن الكريم",
+    "profile_image_url": "https://example.com/uploads/profile.jpg",
+    "created_at": "2024-01-01 10:00:00"
   }
 }
+```
+
+#### Update Teacher Profile
+
+Teachers can update their own profile information.
+
+```http
+PUT /teachers/{id}
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "display_name": "أحمد محمد علي",
+  "phone": "01234567890",
+  "gender": "ذكر",
+  "qualification": "ماجستير لغة عربية"
+}
+```
+
+#### Upload Teacher Profile Image
+
+```http
+POST /teachers/{id}/upload-image
+Authorization: Bearer {token}
+Content-Type: multipart/form-data
+
+image: [file]
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "profile_image_url": "https://example.com/wp-content/uploads/2024/01/profile.jpg"
+  }
+}
+```
+
+#### Delete Teacher Profile Image
+
+```http
+DELETE /teachers/{id}/profile-image
+Authorization: Bearer {token}
+```
+
+### Students Management
+
+#### Get Teacher's Students
+
+Returns all students assigned to the teacher. Teachers can only see their own students.
+
+```http
+GET /teachers/{id}/students
+Authorization: Bearer {token}
+```
+
+**Query Parameters:**
+
+| Parameter        | Type    | Default | Description                    |
+| ---------------- | ------- | ------- | ------------------------------ |
+| `page`           | integer | 1       | Page number                    |
+| `per_page`       | integer | 20      | Items per page                 |
+| `payment_status` | string  | -       | Filter by payment status       |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 101,
+      "m_id": "010301",
+      "display_name": "محمد أحمد",
+      "phone": "01012345678",
+      "payment_phone": "01012345678",
+      "gender": "ذكر",
+      "age": 12,
+      "country": "مصر",
+      "lessons_name": "تحفيظ قرآن",
+      "lessons_number": 8,
+      "lesson_duration": 30,
+      "amount": "200",
+      "currency": "EGP",
+      "payment_status": "نشط",
+      "profile_image_url": null
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 20,
+    "total": 15,
+    "total_pages": 1
+  }
+}
+```
+
+### Schedules Management
+
+#### Get Teacher Schedules
+
+Returns all schedules for students assigned to the teacher.
+
+```http
+GET /schedules/teacher/{teacher_id}
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "student_id": 101,
+      "student_name": "محمد أحمد",
+      "student_m_id": "010301",
+      "teacher_id": 42,
+      "teacher_name": "أحمد المعلم",
+      "lesson_duration": 30,
+      "is_postponed": false,
+      "is_recurring": true,
+      "schedules": [
+        {"day": "الأحد", "hour": "2:00 PM"},
+        {"day": "الثلاثاء", "hour": "4:00 PM"}
+      ]
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 50,
+    "total": 10,
+    "total_pages": 1
+  }
+}
+```
+
+#### Get Teacher Calendar
+
+Returns the teacher's calendar with schedules and reports for a date range.
+
+```http
+GET /teachers/{id}/calendar?start_date=2024-01-01&end_date=2024-01-31&view=week
+Authorization: Bearer {token}
+```
+
+**Query Parameters:**
+
+| Parameter    | Type   | Default | Description                           |
+| ------------ | ------ | ------- | ------------------------------------- |
+| `start_date` | string | today   | Start date (Y-m-d)                    |
+| `end_date`   | string | +7 days | End date (Y-m-d)                      |
+| `view`       | string | week    | View type: `week` or `month`          |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "schedules": [
+      {
+        "id": 1,
+        "student_id": 101,
+        "student_name": "محمد أحمد",
+        "lesson_duration": 30,
+        "is_postponed": false,
+        "slots": [
+          {"day": "الأحد", "hour": "2:00 PM"}
+        ]
+      }
+    ],
+    "reports": [
+      {
+        "id": 1,
+        "student_id": 101,
+        "student_name": "محمد أحمد",
+        "date": "2024-01-15",
+        "time": "14:00:00",
+        "attendance": "حضور",
+        "session_number": 5
+      }
+    ],
+    "start_date": "2024-01-01",
+    "end_date": "2024-01-31"
+  }
+}
+```
+
+#### Get Free Slots
+
+Returns teacher's available time slots, excluding times with scheduled postponed lessons.
+
+```http
+GET /teachers/{id}/free-slots
+GET /teachers/{id}/free-slots?student_id=123
+Authorization: Bearer {token}
+```
+
+**Response (without student_id):**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "teacher_id": 42,
+      "day_of_week": 0,
+      "start_time": "14:00:00",
+      "end_time": "18:00:00"
+    }
+  ]
+}
+```
+
+**Response (with student_id):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "slots": [...],
+    "lesson_duration": 30
+  }
+}
+```
+
+> **Note:** `day_of_week` uses 0=Sunday, 1=Monday, ..., 6=Saturday
+
+#### Add Free Slot
+
+```http
+POST /teachers/{id}/free-slots
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "day": "الأحد",
+  "time": "14:00",
+  "end_time": "18:00"
+}
+```
+
+> **Note:** `day` can be integer (0-6) or Arabic day name. `end_time` is optional (defaults to 1 hour after start).
+
+#### Delete Free Slot
+
+```http
+DELETE /teachers/{id}/free-slots/{slot_id}
+Authorization: Bearer {token}
+```
+
+#### Check Schedule Conflicts
+
+Check if proposed schedule times conflict with existing student schedules.
+
+```http
+POST /schedules/check-conflicts
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "teacher_id": 42,
+  "schedules": [
+    {"day": "الأحد", "hour": "14:00"}
+  ],
+  "lesson_duration": 30,
+  "exclude_student_id": 101
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "has_conflicts": false,
+    "conflicts": []
+  }
+}
+```
+
+**With conflicts:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "has_conflicts": true,
+    "conflicts": [
+      {
+        "day": "الأحد",
+        "time": "14:00",
+        "conflicts_with": {
+          "student_id": 102,
+          "student_name": "علي محمد",
+          "time": "14:00"
+        }
+      }
+    ]
+  }
+}
+```
+
+### Reports Management
+
+#### List Reports
+
+Teachers can view reports for their students.
+
+```http
+GET /reports?student_id=101&start_date=2024-01-01&end_date=2024-01-31
+Authorization: Bearer {token}
+```
+
+**Note:** Teachers are automatically filtered to only see reports for their students.
+
+#### Get Reports by Teacher
+
+Get all reports created by a specific teacher.
+
+```http
+GET /reports/teacher/{teacher_id}?start_date=2024-01-01&end_date=2024-01-31
+Authorization: Bearer {token}
+```
+
+#### Create Report
+
+Teachers create lesson reports for their students.
+
+```http
+POST /reports
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "student_id": 101,
+  "date": "2024-01-15",
+  "time": "14:00",
+  "attendance": "حضور",
+  "lesson_duration": 30,
+  "tasmii": "سورة البقرة",
+  "tahfiz": "الآيات 1-20",
+  "mourajah": "سورة الفاتحة",
+  "evaluation": "ممتاز",
+  "grade": 95,
+  "notes": "أداء ممتاز"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 500,
+    "student_id": 101,
+    "student_name": "محمد أحمد",
+    "teacher_id": 42,
+    "teacher_name": "أحمد المعلم",
+    "session_number": 5,
+    "date": "2024-01-15",
+    "time": "14:00:00",
+    "attendance": "حضور",
+    "lesson_duration": 30,
+    "tasmii": "سورة البقرة",
+    "tahfiz": "الآيات 1-20",
+    "notes": "أداء ممتاز",
+    "is_postponed": false,
+    "created_at": "2024-01-15 14:30:00"
+  },
+  "meta": {
+    "session_number": 5
+  },
+  "statusCode": 201
+}
+```
+
+#### Update Report
+
+```http
+PUT /reports/{id}
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "evaluation": "جيد جداً",
+  "notes": "تحسن ملحوظ"
+}
+```
+
+#### Get Session Number
+
+Calculate the expected session number before creating a report.
+
+```http
+GET /reports/session-number?student_id=101&attendance=حضور
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "session_number": 5,
+    "lessons_number": 8,
+    "is_last_session": false
+  }
+}
+```
+
+#### Get Last Report
+
+Get the most recent report for a student.
+
+```http
+GET /reports/last-report?student_id=101
+Authorization: Bearer {token}
+```
+
+### Chat System
+
+Teachers can chat with their students and supervisors.
+
+#### Get Available Contacts
+
+Returns list of users the teacher can chat with (their students + their supervisor).
+
+```http
+GET /chat/contacts
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 101,
+      "name": "محمد أحمد",
+      "role": "student",
+      "relation": "student",
+      "profile_image": null
+    },
+    {
+      "id": 102,
+      "name": "فاطمة علي",
+      "role": "student",
+      "relation": "student",
+      "profile_image": "https://example.com/uploads/profile.jpg"
+    },
+    {
+      "id": 10,
+      "name": "المشرف أحمد",
+      "role": "supervisor",
+      "relation": "supervisor",
+      "profile_image": null
+    }
+  ]
+}
+```
+
+#### Get Conversations
+
+```http
+GET /chat/conversations?page=1
+Authorization: Bearer {token}
+```
+
+#### Send Message
+
+```http
+POST /chat/conversations/{id}/messages
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "message": "مرحباً، كيف حالك؟"
+}
+```
+
+### Teacher Notifications
+
+Teachers receive notifications about events related to their students.
+
+#### Get Notifications
+
+```http
+GET /teacher/notifications?page=1
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "type": "new_student",
+      "message": "تم إضافة طالب جديد: محمد أحمد",
+      "student_id": 101,
+      "student_name": "محمد أحمد",
+      "is_read": false,
+      "created_at": "2024-01-15 14:30:00"
+    },
+    {
+      "id": 2,
+      "type": "lesson_change",
+      "message": "تم تغيير عدد الحصص للطالب محمد أحمد من \"8\" إلى \"4\"",
+      "student_id": 101,
+      "student_name": "محمد أحمد",
+      "old_value": "8",
+      "new_value": "4",
+      "is_read": true,
+      "created_at": "2024-01-15 15:00:00"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 50,
+    "total": 2
+  }
+}
+```
+
+#### Notification Types for Teachers
+
+| Type                    | Arabic Name        | Trigger                                    |
+| ----------------------- | ------------------ | ------------------------------------------ |
+| `new_student`           | طالب جديد          | New student assigned to teacher            |
+| `lesson_change`         | تغيير الحصص        | Student's lessons_number changed           |
+| `student_stopped`       | ايقاف طالب         | Student payment status changed to متوقف   |
+| `lesson_postponed_parent`| تأجيل حصة         | Lesson postponed by parent/teacher         |
+
+#### Mark Notification as Read
+
+```http
+POST /teacher/notifications/{id}/read
+Authorization: Bearer {token}
+```
+
+#### Mark All Notifications as Read
+
+```http
+POST /teacher/notifications/mark-all-read
+Authorization: Bearer {token}
+```
+
+#### Get Unread Notification Count
+
+```http
+GET /teacher/notifications/count
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "unread_count": 5
+  }
+}
+```
+
+### Postponed Lessons
+
+Teachers can create postponed lesson events.
+
+#### Create Postponed Event
+
+```http
+POST /schedules/postpone
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "student_id": 101,
+  "teacher_id": 42,
+  "original_date": "2024-01-15",
+  "original_time": "14:00",
+  "new_date": "2024-01-17",
+  "new_time": "16:00",
+  "lesson_duration": 30
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 50,
+    "student_id": 101,
+    "teacher_id": 42,
+    "lesson_duration": 30,
+    "is_postponed": true,
+    "postponed_date": "2024-01-17",
+    "postponed_time": "16:00",
+    "schedules": [
+      {
+        "day": "الأربعاء",
+        "hour": "4:00 PM",
+        "is_postponed": true
+      }
+    ]
+  },
+  "statusCode": 201
+}
+```
+
+### Flutter Implementation for Teacher App
+
+#### Login Flow
+
+```dart
+Future<TeacherLoginResponse> login(String phone, String password) async {
+  final response = await _api.post('/auth/teacher-login', {
+    'phone': phone,
+    'password': password,
+  });
+  
+  if (response.success) {
+    // Store tokens
+    await storage.write('access_token', response.data['token']);
+    await storage.write('refresh_token', response.data['refresh_token']);
+    
+    // Parse teacher profile with students
+    return TeacherLoginResponse.fromJson(response.data);
+  }
+  
+  throw ApiException(response.error);
+}
+```
+
+#### Teacher Dashboard Data Loading
+
+```dart
+Future<TeacherDashboard> loadDashboard(int teacherId) async {
+  final results = await Future.wait([
+    _api.get('/teachers/$teacherId'),
+    _api.get('/teachers/$teacherId/students'),
+    _api.get('/teachers/$teacherId/calendar'),
+    _api.get('/teacher/notifications/count'),
+  ]);
+  
+  return TeacherDashboard(
+    profile: Teacher.fromJson(results[0]['data']),
+    students: (results[1]['data'] as List).map((s) => Student.fromJson(s)).toList(),
+    calendar: CalendarData.fromJson(results[2]['data']),
+    unreadNotifications: results[3]['data']['unread_count'],
+  );
+}
+```
+
+#### Creating a Report
+
+```dart
+Future<Report> createReport(CreateReportRequest request) async {
+  // First get session number
+  final sessionResponse = await _api.get('/reports/session-number', queryParameters: {
+    'student_id': request.studentId,
+    'attendance': request.attendance,
+  });
+  
+  final sessionNumber = sessionResponse.data['session_number'];
+  
+  // Create report
+  final response = await _api.post('/reports', {
+    'student_id': request.studentId,
+    'teacher_id': request.teacherId,
+    'date': request.date,
+    'time': request.time,
+    'attendance': request.attendance,
+    'lesson_duration': request.lessonDuration,
+    'tasmii': request.tasmii,
+    'tahfiz': request.tahfiz,
+    'mourajah': request.mourajah,
+    'evaluation': request.evaluation,
+    'grade': request.grade,
+    'notes': request.notes,
+  });
+  
+  return Report.fromJson(response.data);
+}
+```
+
+---
+
+### Admin Endpoints
+
+#### List Teachers
+
+```http
+GET /teachers?page=1&per_page=20&supervisor_id=3
+Authorization: Bearer {token}
+```
+
+#### Create Teacher
+
+```http
+POST /teachers
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "display_name": "New Teacher",
+  "phone": "01234567890",
+  "email": "teacher@example.com",
+  "supervisor_id": 3,
+  "gender": "ذكر",
+  "teacher_status": "نشط عدد كامل",
+  "qualification": "ليسانس لغة عربية",
+  "experience_years": 5,
+  "courses": "دورة تحفيظ القرآن الكريم"
+}
+```
+
+#### Get Teacher Statistics
+
+```http
+GET /teachers/{id}/statistics?start_date=2024-01-01&end_date=2024-01-31
+Authorization: Bearer {token}
 ```
 
 ### Create Teacher
