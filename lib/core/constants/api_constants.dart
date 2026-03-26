@@ -56,6 +56,10 @@ class ApiConstants {
       '$v2BaseUrl/teachers/$teacherId/free-slots';
   static String teacherStatisticsEndpoint(int teacherId) =>
       '$v2BaseUrl/teachers/$teacherId/statistics';
+  static String teacherSchedulesEndpoint(int teacherId) =>
+      '$v2BaseUrl/schedules/teacher/$teacherId';
+  static String teacherReportsEndpoint(int teacherId) =>
+      '$v2BaseUrl/reports/teacher/$teacherId';
 
   // ============================================
   // Schedules Endpoints

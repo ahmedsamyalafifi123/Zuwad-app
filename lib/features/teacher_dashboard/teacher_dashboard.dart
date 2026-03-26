@@ -1,0 +1,10 @@
+export 'presentation/pages/teacher_dashboard_page.dart';
+export 'presentation/pages/teacher_home_page.dart';
+export 'presentation/pages/teacher_schedules_page.dart';
+export 'presentation/pages/teacher_reports_history_page.dart';
+export 'presentation/widgets/teacher_schedule_card.dart';
+export 'presentation/widgets/report_form_dialog.dart';
+export 'domain/models/teacher_schedule.dart';
+export 'domain/models/teacher_report.dart';
+export 'data/repositories/teacher_schedule_repository.dart';
+export 'data/repositories/teacher_report_repository.dart';

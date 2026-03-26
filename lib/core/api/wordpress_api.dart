@@ -528,6 +528,30 @@ class WordPressApi {
     }
   }
 
+  /// Get teacher students.
+  Future<List<dynamic>> getTeacherStudents(int teacherId) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.teacherStudentsEndpoint(teacherId),
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'] as List<dynamic>;
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to get teacher students');
+      }
+      throw Exception('Failed to get teacher students: ${response.statusCode}');
+    } catch (e) {
+      if (kDebugMode) {
+        print('Get teacher students failed: $e');
+      }
+      return []; // Return empty list instead of throwing
+    }
+  }
+
   /// Get teacher free slots.
   Future<List<dynamic>> getTeacherFreeSlots(int teacherId) async {
     try {
@@ -569,6 +593,92 @@ class WordPressApi {
         print('Error getting free slots: $e');
       }
       return []; // Return empty list instead of throwing
+    }
+  }
+
+  /// Get teacher schedules (all schedules for teacher's students).
+  Future<List<dynamic>> getTeacherSchedules(int teacherId) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.teacherSchedulesEndpoint(teacherId),
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'] as List<dynamic>;
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to get teacher schedules');
+      }
+      throw Exception(
+          'Failed to get teacher schedules: ${response.statusCode}');
+    } catch (e) {
+      if (kDebugMode) {
+        print('Get teacher schedules failed: $e');
+      }
+      throw Exception('Get teacher schedules failed: ${e.toString()}');
+    }
+  }
+
+  /// Get teacher reports (all reports created by teacher).
+  Future<List<dynamic>> getTeacherReports(
+    int teacherId, {
+    String? startDate,
+    String? endDate,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (startDate != null) queryParams['start_date'] = startDate;
+      if (endDate != null) queryParams['end_date'] = endDate;
+
+      final response = await _dio.get(
+        ApiConstants.teacherReportsEndpoint(teacherId),
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'] as List<dynamic>;
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to get teacher reports');
+      }
+      throw Exception('Failed to get teacher reports: ${response.statusCode}');
+    } catch (e) {
+      if (kDebugMode) {
+        print('Get teacher reports failed: $e');
+      }
+      throw Exception('Get teacher reports failed: ${e.toString()}');
+    }
+  }
+
+  /// Get session number for a student before creating report.
+  Future<Map<String, dynamic>> getSessionNumber({
+    required int studentId,
+    required String attendance,
+  }) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.sessionNumberEndpoint,
+        queryParameters: {
+          'student_id': studentId,
+          'attendance': attendance,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return jsonData['data'];
+        }
+        throw Exception(
+            jsonData['error']?['message'] ?? 'Failed to get session number');
+      }
+      throw Exception('Failed to get session number: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Get session number failed: ${e.toString()}');
     }
   }
 

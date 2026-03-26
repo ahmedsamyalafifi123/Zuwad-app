@@ -1,22 +1,75 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../features/auth/domain/models/teacher.dart';
-import '../../../../features/auth/presentation/bloc/auth_bloc.dart';
-import '../../../../features/auth/presentation/bloc/auth_event.dart';
-import '../../../../features/auth/presentation/pages/login_page.dart';
-import '../../../../features/chat/presentation/pages/chat_list_page.dart';
-import '../../../../core/utils/gender_helper.dart';
 import 'package:lottie/lottie.dart';
-import 'dart:async';
-import '../../../../features/notifications/presentation/pages/notifications_page.dart';
-import '../../../../features/notifications/data/repositories/notification_repository.dart';
+import '../../../auth/domain/models/teacher.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_event.dart';
+import '../../../auth/presentation/pages/login_page.dart';
+import '../../../chat/presentation/pages/chat_list_page.dart';
+import '../../../../core/utils/gender_helper.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../notifications/presentation/pages/notifications_page.dart';
+import '../../../notifications/data/repositories/notification_repository.dart';
+import 'teacher_home_page.dart';
+import 'teacher_schedules_page.dart';
+import 'teacher_reports_history_page.dart';
+import 'dart:async';
 
-class TeacherDashboardPage extends StatelessWidget {
+class TeacherDashboardPage extends StatefulWidget {
   final Teacher? teacher;
 
   const TeacherDashboardPage({super.key, this.teacher});
+
+  @override
+  State<TeacherDashboardPage> createState() => _TeacherDashboardPageState();
+}
+
+class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
+  int _currentIndex = 0;
+
+  final NotificationRepository _notificationRepo = NotificationRepository();
+  final NotificationService _notificationService = NotificationService();
+  StreamSubscription? _notificationSubscription;
+  int _notificationCount = 0;
+
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _pages = [
+      TeacherHomePage(teacher: widget.teacher!),
+      TeacherSchedulesPage(teacher: widget.teacher!),
+      _TeacherMessagesAndReportsPage(teacher: widget.teacher!),
+    ];
+
+    _loadNotificationCount();
+    _notificationSubscription =
+        _notificationService.onNotificationReceived.listen((_) {
+      _loadNotificationCount();
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadNotificationCount() async {
+    try {
+      final count = await _notificationRepo.getUnreadCount(isTeacher: true);
+      if (mounted) {
+        setState(() {
+          _notificationCount = count;
+        });
+      }
+    } catch (e) {
+      // Silently fail
+    }
+  }
 
   void _showLogoutDialog(BuildContext context) {
     showDialog(
@@ -87,10 +140,10 @@ class TeacherDashboardPage extends StatelessWidget {
       ),
     );
 
-    final teacherName = teacher?.name ?? '';
-    final teacherMId = teacher?.mId ?? '';
-    final profileImage = teacher?.profileImage;
-    final isFemale = GenderHelper.isFemale(teacher?.gender);
+    final teacherName = widget.teacher?.name ?? '';
+    final teacherMId = widget.teacher?.mId ?? '';
+    final profileImage = widget.teacher?.profileImage;
+    final isFemale = GenderHelper.isFemale(widget.teacher?.gender);
     final fallbackAvatar =
         isFemale ? 'assets/images/woman.png' : 'assets/images/man.png';
 
@@ -126,9 +179,9 @@ class TeacherDashboardPage extends StatelessWidget {
                 alignment: Alignment.center,
                 children: [
                   // Center: title
-                  const Text(
-                    'المراسلة',
-                    style: TextStyle(
+                  Text(
+                    _getTitleForIndex(_currentIndex),
+                    style: const TextStyle(
                       fontFamily: 'Qatar',
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -136,13 +189,64 @@ class TeacherDashboardPage extends StatelessWidget {
                     ),
                   ),
 
-                  // Left: avatar with popup menu
+                  // Left: notification + avatar
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _TeacherNotificationButton(),
+                        GestureDetector(
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const NotificationsPage(isTeacher: true),
+                              ),
+                            );
+                            _loadNotificationCount();
+                          },
+                          child: Transform.translate(
+                            offset: const Offset(0, -6),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Lottie.asset(
+                                  'assets/images/Bell.json',
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                  animate: _notificationCount > 0,
+                                ),
+                                if (_notificationCount > 0)
+                                  Positioned(
+                                    top: 0,
+                                    right: 10,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF820c22),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color: Colors.white, width: 1.5),
+                                      ),
+                                      child: Text(
+                                        _notificationCount > 99
+                                            ? '99+'
+                                            : '$_notificationCount',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          fontFamily: 'Qatar',
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
                         const SizedBox(width: 4),
                         PopupMenuButton<String>(
                           offset: const Offset(0, 45),
@@ -221,8 +325,8 @@ class TeacherDashboardPage extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerRight,
                     child: Icon(
-                      Icons.chat_bubble_outline_rounded,
-                      color: Colors.black.withValues(alpha: 0.30),
+                      _getIconForIndex(_currentIndex),
+                      color: Colors.black.withOpacity(0.30),
                       size: 28,
                     ),
                   ),
@@ -232,109 +336,253 @@ class TeacherDashboardPage extends StatelessWidget {
           ),
         ),
       ),
-      body: ChatListPage(
-        studentId: teacherMId,
-        studentName: teacherName,
-        teacherId: '',
-        teacherName: '',
-        supervisorId: '',
-        supervisorName: '',
+      body: _pages[_currentIndex],
+      extendBody: true,
+      extendBodyBehindAppBar: true,
+      bottomNavigationBar: _TeacherBottomNavBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+      ),
+    );
+  }
+
+  String _getTitleForIndex(int index) {
+    switch (index) {
+      case 0:
+        return 'الرئيسة';
+      case 1:
+        return 'الجداول';
+      case 2:
+        return 'المراسلة';
+      default:
+        return '';
+    }
+  }
+
+  IconData _getIconForIndex(int index) {
+    switch (index) {
+      case 0:
+        return Icons.home_rounded;
+      case 1:
+        return Icons.calendar_month_rounded;
+      case 2:
+        return Icons.chat_bubble_rounded;
+      default:
+        return Icons.home_rounded;
+    }
+  }
+}
+
+class _TeacherBottomNavBar extends StatelessWidget {
+  final int currentIndex;
+  final Function(int) onTap;
+
+  const _TeacherBottomNavBar({
+    required this.currentIndex,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      heightFactor: 1.0,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 28),
+          child: Stack(
+            alignment: Alignment.topCenter,
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 25),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color.fromARGB(255, 255, 255, 255),
+                      Color.fromARGB(255, 234, 234, 234),
+                    ],
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 10,
+                      offset: Offset(0, 2),
+                    ),
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildNavItem(0, Icons.home_rounded, 'الرئيسة'),
+                            _buildNavItem(
+                                1, Icons.calendar_month_rounded, 'الجداول'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 70),
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildNavItem(
+                                2, Icons.chat_bubble_rounded, 'المراسلة'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                top: -15,
+                child: SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: Image.asset(
+                    'assets/images/zuwad.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    final isSelected = currentIndex == index;
+
+    return GestureDetector(
+      onTap: () => onTap(index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: isSelected ? 22 : 20,
+              color: isSelected
+                  ? const Color.fromARGB(255, 224, 173, 5)
+                  : const Color(0xFF8B0628),
+            ),
+            const SizedBox(height: 2),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                fontFamily: 'Qatar',
+                fontSize: isSelected ? 10 : 9,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected
+                    ? const Color.fromARGB(255, 0, 0, 0)
+                    : const Color(0xFF8B0628),
+              ),
+              child: Text(label),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _TeacherNotificationButton extends StatefulWidget {
+class _TeacherMessagesAndReportsPage extends StatefulWidget {
+  final Teacher teacher;
+
+  const _TeacherMessagesAndReportsPage({required this.teacher});
+
   @override
-  State<_TeacherNotificationButton> createState() =>
-      _TeacherNotificationButtonState();
+  State<_TeacherMessagesAndReportsPage> createState() =>
+      _TeacherMessagesAndReportsPageState();
 }
 
-class _TeacherNotificationButtonState
-    extends State<_TeacherNotificationButton> {
-  final NotificationRepository _repository = NotificationRepository();
-  int _notificationCount = 0;
-
-  StreamSubscription? _subscription;
-  final NotificationService _notificationService = NotificationService();
+class _TeacherMessagesAndReportsPageState
+    extends State<_TeacherMessagesAndReportsPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _loadUnreadCount();
-    _subscription = _notificationService.onNotificationReceived.listen((_) {
-      _loadUnreadCount();
-    });
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    _tabController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadUnreadCount() async {
-    try {
-      final count = await _repository.getUnreadCount(isTeacher: true);
-      if (mounted) {
-        setState(() {
-          _notificationCount = count;
-        });
-      }
-    } catch (e) {
-      // Silently fail
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const NotificationsPage(isTeacher: true),
-          ),
-        );
-        _loadUnreadCount();
-      },
-      child: Transform.translate(
-        offset: const Offset(0, -6),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Lottie.asset(
-              'assets/images/Bell.json',
-              width: 60,
-              height: 60,
-              fit: BoxFit.cover,
-              animate: _notificationCount > 0,
-            ),
-            if (_notificationCount > 0)
-              Positioned(
-                top: 0,
-                right: 10,
-                child: Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF820c22),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1.5),
-                  ),
-                  child: Text(
-                    _notificationCount > 99 ? '99+' : '$_notificationCount',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Qatar',
-                    ),
-                  ),
-                ),
+    return Column(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
               ),
-          ],
+            ],
+          ),
+          child: TabBar(
+            controller: _tabController,
+            labelColor: const Color(0xFF820c22),
+            unselectedLabelColor: Colors.grey,
+            labelStyle: const TextStyle(
+              fontFamily: 'Qatar',
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+            indicatorColor: const Color(0xFFD4AF37),
+            indicatorWeight: 3,
+            tabs: const [
+              Tab(text: 'المراسلة'),
+              Tab(text: 'التقارير'),
+            ],
+          ),
         ),
-      ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              ChatListPage(
+                studentId: widget.teacher.mId,
+                studentName: widget.teacher.name,
+                teacherId: '',
+                teacherName: '',
+                supervisorId: '',
+                supervisorName: '',
+              ),
+              TeacherReportsHistoryPage(teacher: widget.teacher),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

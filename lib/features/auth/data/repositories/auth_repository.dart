@@ -219,11 +219,40 @@ class AuthRepository {
   /// Get teacher profile on app restart using stored user ID.
   Future<Teacher> getTeacherProfile() async {
     final userId = await getCurrentUserId();
+    if (kDebugMode) {
+      print('AuthRepository.getTeacherProfile: userId = $userId');
+    }
     if (userId == null) {
       throw Exception('User not logged in');
     }
     final teacherData = await _api.getTeacherData(userId);
-    return Teacher.fromApiResponse(teacherData);
+
+    if (kDebugMode) {
+      print('AuthRepository.getTeacherProfile: teacherData = $teacherData');
+    }
+
+    // Also fetch students for this teacher
+    try {
+      final studentsData = await _api.getTeacherStudents(userId);
+      if (kDebugMode) {
+        print(
+            'AuthRepository.getTeacherProfile: Found ${studentsData.length} students');
+      }
+      teacherData['students'] = studentsData;
+    } catch (e) {
+      if (kDebugMode) {
+        print(
+            'AuthRepository.getTeacherProfile: Failed to fetch teacher students: $e');
+      }
+      // Continue without students if fetch fails
+    }
+
+    final teacher = Teacher.fromApiResponse(teacherData);
+    if (kDebugMode) {
+      print(
+          'AuthRepository.getTeacherProfile: Teacher name = ${teacher.name}, students count = ${teacher.students.length}');
+    }
+    return teacher;
   }
 
   /// Change the user's password.

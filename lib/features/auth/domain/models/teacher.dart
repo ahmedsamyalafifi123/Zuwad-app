@@ -58,7 +58,7 @@ class Teacher {
           ? json['id']
           : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       mId: json['m_id']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
+      name: json['name']?.toString() ?? json['display_name']?.toString() ?? '',
       gender: json['gender']?.toString(),
       profileImage: json['profile_image_url']?.toString(),
       phone: json['phone']?.toString(),
