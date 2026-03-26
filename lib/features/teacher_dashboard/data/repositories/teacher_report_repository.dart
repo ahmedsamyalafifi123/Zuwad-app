@@ -87,6 +87,7 @@ class TeacherReportRepository {
     String? nextTasmii,
     String? nextMourajah,
     String? notes,
+    String? zoomImageUrl,
   }) async {
     try {
       if (kDebugMode) {

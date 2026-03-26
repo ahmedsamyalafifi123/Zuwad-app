@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../../../auth/domain/models/teacher.dart';
 import '../../domain/models/teacher_schedule.dart';
+import '../../domain/models/teacher_report.dart';
 import '../../data/repositories/teacher_schedule_repository.dart';
 import '../../data/repositories/teacher_report_repository.dart';
 import '../widgets/teacher_schedule_card.dart';
 import '../widgets/report_form_dialog.dart';
 import '../../../student_dashboard/domain/models/schedule.dart';
+
+enum LessonStatus { upcoming, inProgress, ended, completed }
 
 class TeacherSchedulesPage extends StatefulWidget {
   final Teacher teacher;
@@ -22,6 +25,7 @@ class _TeacherSchedulesPageState extends State<TeacherSchedulesPage> {
   final TeacherReportRepository _reportRepo = TeacherReportRepository();
 
   List<TeacherSchedule> _schedules = [];
+  List<TeacherReport> _reports = [];
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -38,14 +42,33 @@ class _TeacherSchedulesPageState extends State<TeacherSchedulesPage> {
     });
 
     try {
-      final schedules = await _scheduleRepo.getTeacherSchedules(
-        widget.teacher.id,
-        forceRefresh: forceRefresh,
-      );
+      final now = DateTime.now();
+      final today =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final tomorrow = now.add(const Duration(days: 1));
+      final tomorrowStr =
+          '${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}';
+
+      final results = await Future.wait([
+        _scheduleRepo.getTeacherSchedules(
+          widget.teacher.id,
+          forceRefresh: forceRefresh,
+        ),
+        _reportRepo.getTeacherReports(
+          widget.teacher.id,
+          startDate: today,
+          endDate: tomorrowStr,
+          forceRefresh: forceRefresh,
+        ),
+      ]);
+
+      final schedules = results[0] as List<TeacherSchedule>;
+      final reports = results[1] as List<TeacherReport>;
 
       if (mounted) {
         setState(() {
           _schedules = schedules;
+          _reports = reports;
           _isLoading = false;
         });
       }
@@ -101,6 +124,7 @@ class _TeacherSchedulesPageState extends State<TeacherSchedulesPage> {
           String? nextTasmii,
           String? nextMourajah,
           String? notes,
+          String? zoomImageUrl,
         }) async {
           await _reportRepo.createReport(
             studentId: studentId,
@@ -128,26 +152,23 @@ class _TeacherSchedulesPageState extends State<TeacherSchedulesPage> {
     }
   }
 
-  bool _canAddReport(Schedule schedule) {
+  LessonStatus _getLessonStatus(Schedule schedule, int lessonDuration) {
     try {
       final now = DateTime.now();
 
-      // Parse time from schedule (e.g., "2:00 PM")
       final timeParts = schedule.hour.trim().split(' ');
-      if (timeParts.length != 2) return false;
+      if (timeParts.length != 2) return LessonStatus.upcoming;
 
       final hourMinute = timeParts[0].split(':');
-      if (hourMinute.length != 2) return false;
+      if (hourMinute.length != 2) return LessonStatus.upcoming;
 
       int hour = int.tryParse(hourMinute[0]) ?? 0;
       final int minute = int.tryParse(hourMinute[1]) ?? 0;
       final String ampm = timeParts[1].toUpperCase();
 
-      // Convert to 24-hour format
       if (ampm == 'PM' && hour < 12) hour += 12;
       if (ampm == 'AM' && hour == 12) hour = 0;
 
-      // Get day of week from schedule
       final dayMap = {
         'الأحد': DateTime.sunday,
         'الاثنين': DateTime.monday,
@@ -159,27 +180,57 @@ class _TeacherSchedulesPageState extends State<TeacherSchedulesPage> {
       };
 
       final scheduledDay = dayMap[schedule.day];
-      if (scheduledDay == null) return false;
+      if (scheduledDay == null) return LessonStatus.upcoming;
 
-      // Check if today matches the scheduled day
-      if (now.weekday != scheduledDay) return false;
+      if (now.weekday != scheduledDay) return LessonStatus.upcoming;
 
-      // Check if current time is within lesson window (15 min before until end)
       final scheduledTime =
           DateTime(now.year, now.month, now.day, hour, minute);
-      final lessonEnd = scheduledTime.add(const Duration(minutes: 30));
-
-      // Can add report from 15 min before lesson until lesson ends
+      final lessonEnd = scheduledTime.add(Duration(minutes: lessonDuration));
       final windowStart = scheduledTime.subtract(const Duration(minutes: 15));
 
-      return now.isAfter(windowStart) &&
-          now.isBefore(lessonEnd.add(const Duration(minutes: 60)));
+      if (now.isBefore(windowStart)) {
+        return LessonStatus.upcoming;
+      } else if (now.isAfter(windowStart) && now.isBefore(lessonEnd)) {
+        return LessonStatus.inProgress;
+      } else {
+        return LessonStatus.ended;
+      }
     } catch (e) {
       if (kDebugMode) {
-        print('Error checking report window: $e');
+        print('Error checking lesson status: $e');
       }
-      return false;
+      return LessonStatus.upcoming;
     }
+  }
+
+  TeacherReport? _findReportForSchedule(
+      int studentId, String date, String time) {
+    try {
+      final normalizedTime = time.replaceAll(' ', '').toUpperCase();
+      for (final report in _reports) {
+        if (report.studentId == studentId && report.date == date) {
+          final reportTime = report.time.replaceAll(' ', '').toUpperCase();
+          if (reportTime.contains(
+                  normalizedTime.substring(0, normalizedTime.length - 2)) ||
+              normalizedTime
+                  .contains(reportTime.substring(0, reportTime.length - 2))) {
+            return report;
+          }
+        }
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error finding report: $e');
+      }
+      return null;
+    }
+  }
+
+  bool _canAddReport(Schedule schedule, int lessonDuration) {
+    final status = _getLessonStatus(schedule, lessonDuration);
+    return status == LessonStatus.inProgress || status == LessonStatus.ended;
   }
 
   String _getDateForSchedule(Schedule schedule) {
@@ -416,8 +467,16 @@ class _TeacherSchedulesPageState extends State<TeacherSchedulesPage> {
                   item['teacherSchedule'] as TeacherSchedule;
               final schedule = item['schedule'] as Schedule;
 
-              final canAddReport = _canAddReport(schedule);
+              final lessonDuration =
+                  int.tryParse(teacherSchedule.lessonDuration) ?? 30;
               final date = _getDateForSchedule(schedule);
+              final canAddReport = _canAddReport(schedule, lessonDuration);
+              final existingReport = _findReportForSchedule(
+                teacherSchedule.studentId,
+                date,
+                schedule.hour,
+              );
+              final lessonStatus = _getLessonStatus(schedule, lessonDuration);
 
               return TeacherScheduleCard(
                 studentId: teacherSchedule.studentId,
@@ -426,14 +485,16 @@ class _TeacherSchedulesPageState extends State<TeacherSchedulesPage> {
                 schedule: schedule,
                 lessonDuration: teacherSchedule.lessonDuration,
                 canAddReport: canAddReport,
-                hasReport: false,
-                onAddReport: canAddReport
+                hasReport: existingReport != null,
+                lessonStatus: lessonStatus,
+                existingReport: existingReport,
+                onAddReport: canAddReport && existingReport == null
                     ? () => _onAddReport(
                           teacherSchedule.studentId,
                           teacherSchedule.studentName,
                           date,
                           schedule.hour,
-                          int.tryParse(teacherSchedule.lessonDuration) ?? 30,
+                          lessonDuration,
                         )
                     : null,
               );

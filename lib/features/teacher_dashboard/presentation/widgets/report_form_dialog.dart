@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ReportFormDialog extends StatefulWidget {
   final int studentId;
@@ -25,6 +27,7 @@ class ReportFormDialog extends StatefulWidget {
     String? nextTasmii,
     String? nextMourajah,
     String? notes,
+    String? zoomImageUrl,
   }) onSubmit;
 
   const ReportFormDialog({
@@ -57,6 +60,10 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
   final _nextTasmiiController = TextEditingController();
   final _nextMourajahController = TextEditingController();
   final _notesController = TextEditingController();
+
+  File? _selectedImage;
+  String? _selectedImageUrl;
+  final ImagePicker _picker = ImagePicker();
 
   final List<String> _attendanceOptions = [
     'حضور',
@@ -107,6 +114,32 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
     }
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        setState(() {
+          _selectedImage = File(image.path);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ في اختيار الصورة: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _submitReport(int teacherId) async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -139,6 +172,7 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
             ? _nextMourajahController.text
             : null,
         notes: _notesController.text.isNotEmpty ? _notesController.text : null,
+        zoomImageUrl: _selectedImageUrl,
       );
 
       if (mounted) {
@@ -164,6 +198,47 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  Widget _buildTwoFieldRow({
+    required String label1,
+    required String label2,
+    required TextEditingController controller1,
+    required TextEditingController controller2,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextFormField(
+            controller: controller1,
+            decoration: InputDecoration(
+              labelText: label1,
+              labelStyle: const TextStyle(fontFamily: 'Qatar', fontSize: 13),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextFormField(
+            controller: controller2,
+            decoration: InputDecoration(
+              labelText: label2,
+              labelStyle: const TextStyle(fontFamily: 'Qatar', fontSize: 13),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -303,58 +378,72 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                 ),
               const SizedBox(height: 16),
 
-              // Attendance Dropdown
-              DropdownButtonFormField<String>(
-                value: _selectedAttendance,
-                decoration: InputDecoration(
-                  labelText: 'الحضور',
-                  labelStyle: const TextStyle(fontFamily: 'Qatar'),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                items: _attendanceOptions.map((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(
-                      value,
-                      style: const TextStyle(fontFamily: 'Qatar'),
+              // Attendance and Evaluation Row
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedAttendance,
+                      decoration: InputDecoration(
+                        labelText: 'الحضور',
+                        labelStyle:
+                            const TextStyle(fontFamily: 'Qatar', fontSize: 13),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
+                      ),
+                      items: _attendanceOptions.map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(
+                            value,
+                            style: const TextStyle(
+                                fontFamily: 'Qatar', fontSize: 12),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() => _selectedAttendance = newValue);
+                          _loadSessionNumber();
+                        }
+                      },
                     ),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  if (newValue != null) {
-                    setState(() => _selectedAttendance = newValue);
-                    _loadSessionNumber();
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Evaluation Dropdown
-              DropdownButtonFormField<String>(
-                value: _selectedEvaluation,
-                decoration: InputDecoration(
-                  labelText: 'التقييم',
-                  labelStyle: const TextStyle(fontFamily: 'Qatar'),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-                items: _evaluationOptions.map((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(
-                      value,
-                      style: const TextStyle(fontFamily: 'Qatar'),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedEvaluation,
+                      decoration: InputDecoration(
+                        labelText: 'التقييم',
+                        labelStyle:
+                            const TextStyle(fontFamily: 'Qatar', fontSize: 13),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
+                      ),
+                      items: _evaluationOptions.map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(
+                            value,
+                            style: const TextStyle(
+                                fontFamily: 'Qatar', fontSize: 12),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() => _selectedEvaluation = newValue);
+                        }
+                      },
                     ),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  if (newValue != null) {
-                    setState(() => _selectedEvaluation = newValue);
-                  }
-                },
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 
@@ -373,29 +462,12 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
               ),
               const SizedBox(height: 16),
 
-              // Tasmii
-              TextFormField(
-                controller: _tasmiiController,
-                decoration: InputDecoration(
-                  labelText: 'التصميل',
-                  labelStyle: const TextStyle(fontFamily: 'Qatar'),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Tahfiz
-              TextFormField(
-                controller: _tahfizController,
-                decoration: InputDecoration(
-                  labelText: 'التحفيظ',
-                  labelStyle: const TextStyle(fontFamily: 'Qatar'),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+              // Tasmii and Tahfiz Row
+              _buildTwoFieldRow(
+                label1: 'التسميع',
+                label2: 'التحفيظ',
+                controller1: _tasmiiController,
+                controller2: _tahfizController,
               ),
               const SizedBox(height: 16),
 
@@ -412,43 +484,119 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
               ),
               const SizedBox(height: 16),
 
-              // Next Tasmii
-              TextFormField(
-                controller: _nextTasmiiController,
-                decoration: InputDecoration(
-                  labelText: 'التصميل القادم',
-                  labelStyle: const TextStyle(fontFamily: 'Qatar'),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+              // Next Tasmii and Next Mourajah Row
+              _buildTwoFieldRow(
+                label1: 'التسميع القادم',
+                label2: 'المراجعة القادمة',
+                controller1: _nextTasmiiController,
+                controller2: _nextMourajahController,
               ),
               const SizedBox(height: 16),
 
-              // Next Mourajah
-              TextFormField(
-                controller: _nextMourajahController,
-                decoration: InputDecoration(
-                  labelText: 'المراجعة القادمة',
-                  labelStyle: const TextStyle(fontFamily: 'Qatar'),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+              // Notes and Image Row
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      controller: _notesController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: 'ملاحظات',
+                        labelStyle: const TextStyle(fontFamily: 'Qatar'),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Notes
-              TextFormField(
-                controller: _notesController,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: 'ملاحظات',
-                  labelStyle: const TextStyle(fontFamily: 'Qatar'),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'صورة الحصة',
+                          style: TextStyle(
+                            fontFamily: 'Qatar',
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: _pickImage,
+                          child: Container(
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: _selectedImage != null
+                                ? Stack(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          _selectedImage!,
+                                          width: double.infinity,
+                                          height: double.infinity,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 4,
+                                        right: 4,
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              _selectedImage = null;
+                                            });
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black54,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: const Icon(
+                                              Icons.close,
+                                              color: Colors.white,
+                                              size: 14,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.add_photo_alternate,
+                                        color: Colors.grey[400],
+                                        size: 28,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'اختر صورة',
+                                        style: TextStyle(
+                                          fontFamily: 'Qatar',
+                                          fontSize: 10,
+                                          color: Colors.grey[500],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
               const SizedBox(height: 24),
 

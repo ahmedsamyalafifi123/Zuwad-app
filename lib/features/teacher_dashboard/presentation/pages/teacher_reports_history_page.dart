@@ -164,13 +164,13 @@ class _TeacherReportsHistoryPageState extends State<TeacherReportsHistoryPage> {
               if (report.grade > 0)
                 _buildDetailRow('الدرجة', '${report.grade}'),
               if (report.tasmii.isNotEmpty)
-                _buildDetailRow('التصميل', report.tasmii),
+                _buildDetailRow('التسميع', report.tasmii),
               if (report.tahfiz.isNotEmpty)
                 _buildDetailRow('التحفيظ', report.tahfiz),
               if (report.mourajah.isNotEmpty)
                 _buildDetailRow('المراجعة', report.mourajah),
               if (report.nextTasmii.isNotEmpty)
-                _buildDetailRow('التصميل القادم', report.nextTasmii),
+                _buildDetailRow('التسميع القادم', report.nextTasmii),
               if (report.nextMourajah.isNotEmpty)
                 _buildDetailRow('المراجعة القادمة', report.nextMourajah),
               if (report.notes.isNotEmpty)
