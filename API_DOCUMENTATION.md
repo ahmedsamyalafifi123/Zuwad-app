@@ -1380,6 +1380,9 @@ Content-Type: application/json
 | `mourajah`      | string  | No       | Review completed (تم مراجعة)                                     |
 | `next_tasmii`   | string  | No       | Next recitation plan (سيتم تسميع)                                |
 | `next_mourajah` | string  | No       | Next review plan (سيتم مراجعة)                                   |
+| `notes`         | string  | No       | Teacher notes                                                    |
+| `zoom_image_url` | string or array | No | URL or array of URLs for lesson screenshots                    |
+| `is_postponed`  | boolean | No       | Whether this is a postponed lesson (default: false)              |
 
 **Field Sections:**
 
@@ -1395,9 +1398,6 @@ The report fields are organized into two logical sections:
 - `next_mourajah`: What will be reviewed in the next lesson (سيتم مراجعة)
 
 > **Note for Flutter developers:** These fields should be displayed in two separate sections in the UI, mirroring the web interface. The `next_tasmii` field often includes Quran verse ranges (e.g., "سورة البقرة الآيات 1-20").
-| `notes`         | string  | No       | Teacher notes                                                    |
-| `zoom_image_url` | string | No       | URL to lesson screenshot image                                    |
-| `is_postponed`  | boolean | No       | Whether this is a postponed lesson (default: false)              |
 
 **Attendance Types:**
 
@@ -1600,19 +1600,28 @@ For multiple images, use a JSON-encoded array of URLs:
 }
 ```
 
-> **Important:** When reading reports, the `zoom_image_url` field can be:
-> - A plain string URL (single image): `"https://example.com/image.jpg"`
-> - A JSON-encoded array (multiple images): `"[\"url1\", \"url2\"]"`
+> **Important - Storage Format:** The `zoom_image_url` field is **ALWAYS stored as a JSON array** in the database and **returned as a JSON array** in API responses:
+> - **Database storage:** `[]`, `["url1"]`, or `["url1","url2"]`
+> - **API response:** Returns `zoom_image_url` as a **JSON array** (not string)
+> 
+> **Creating/Updating via API:**
+> - Send single URL: `"zoom_image_url": "https://example.com/image.jpg"` → auto-converts to `["https://example.com/image.jpg"]`
+> - Send array: `"zoom_image_url": ["https://example.com/image1.jpg", "https://example.com/image2.jpg"]`
+> - Send JSON string: `"zoom_image_url": "[\"https://example.com/image.jpg\"]"` → stored as-is
 >
-> **Flutter parsing tip:** Check if the value starts with `[` to determine if it's an array:
+> **API Response Format:**
+> ```json
+> {
+>   "zoom_image_url": ["https://example.com/image1.jpg", "https://example.com/image2.jpg"]
+> }
+> ```
+>
+> **Flutter parsing (simplified):**
 > ```dart
-> List<String> imageUrls;
-> if (zoomImageUrl.startsWith('[')) {
->   imageUrls = List<String>.from(jsonDecode(zoomImageUrl));
-> } else if (zoomImageUrl.isNotEmpty) {
->   imageUrls = [zoomImageUrl];
-> } else {
->   imageUrls = [];
+> // API returns zoom_image_url as a List<dynamic>
+> List<String> imageUrls = [];
+> if (report['zoom_image_url'] != null) {
+>   imageUrls = List<String>.from(report['zoom_image_url']);
 > }
 > ```
 
@@ -1675,9 +1684,14 @@ Future<void> createReportWithImage() async {
     "student_id": 101,
     "student_name": "محمد أحمد",
     "student_m_id": "010301",
+    "student_phone": "01234567890",
     "teacher_id": 42,
     "teacher_name": "أحمد المعلم",
     "session_number": 5,
+    "lessons_number": 8,
+    "amount": "200",
+    "currency": "EGP",
+    "payment_status": "نشط",
     "date": "2024-01-15",
     "time": "14:00:00",
     "attendance": "حضور",
@@ -1690,7 +1704,7 @@ Future<void> createReportWithImage() async {
     "next_tasmii": "سورة البقرة الآيات 21-40",
     "next_mourajah": "سورة البقرة",
     "notes": "أداء ممتاز",
-    "zoom_image_url": "https://example.com/images/report_500.jpg",
+    "zoom_image_url": ["https://example.com/images/report_500.jpg"],
     "is_postponed": false,
     "created_at": "2024-01-15 14:30:00"
   },
@@ -1701,6 +1715,16 @@ Future<void> createReportWithImage() async {
 }
 ```
 
+> **Note - Student Snapshot Fields:** The following fields are automatically populated from the student's current metadata at report creation time and stored as a snapshot:
+> - `student_m_id`: Student's hierarchical ID
+> - `student_phone`: Student's phone number
+> - `lessons_number`: Number of lessons in package
+> - `amount`: Package price
+> - `currency`: Currency (EGP, USD, etc.)
+> - `payment_status`: Payment status at report creation
+>
+> These fields preserve the student's state at the time of the report and don't change even if the student's data is updated later.
+
 **Response Fields:**
 
 | Field           | Type    | Description                                    |
@@ -1708,10 +1732,15 @@ Future<void> createReportWithImage() async {
 | `id`            | integer | Report ID                                      |
 | `student_id`    | integer | Student ID                                     |
 | `student_name`  | string  | Student display name                           |
-| `student_m_id`  | string  | Student hierarchical ID (e.g., "010301")       |
+| `student_m_id`  | string  | Student hierarchical ID (snapshot at creation)  |
+| `student_phone` | string  | Student phone number (snapshot at creation)    |
 | `teacher_id`    | integer | Teacher ID                                     |
 | `teacher_name`  | string  | Teacher display name                           |
 | `session_number`| integer | Session/lesson number in package               |
+| `lessons_number`| integer | Total lessons in package (snapshot at creation)|
+| `amount`        | string  | Package price (snapshot at creation)           |
+| `currency`      | string  | Currency - EGP, USD, etc. (snapshot at creation)|
+| `payment_status`| string  | Payment status (snapshot at creation)          |
 | `date`          | string  | Report date (YYYY-MM-DD)                       |
 | `time`          | string  | Report time (HH:MM:SS)                         |
 | `attendance`    | string  | Attendance status                              |

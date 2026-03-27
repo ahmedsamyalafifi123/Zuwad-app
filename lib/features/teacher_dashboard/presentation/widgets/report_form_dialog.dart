@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -301,11 +300,10 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
           final uploadedUrl = await widget.onUploadImage!(_selectedImage!);
           debugPrint('ReportFormDialog: Image uploaded, URL: $uploadedUrl');
 
-          // Encode as JSON array string for API
           if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
-            zoomImageUrl = jsonEncode([uploadedUrl]);
+            zoomImageUrl = uploadedUrl;
             debugPrint(
-                'ReportFormDialog: Encoded as JSON array: $zoomImageUrl');
+                'ReportFormDialog: Image URL: $zoomImageUrl');
           }
         } catch (e) {
           debugPrint('ReportFormDialog: Image upload error: $e');
