@@ -129,20 +129,21 @@ class TeacherReportRepository {
   Future<String?> uploadReportImage(File imageFile) async {
     try {
       if (kDebugMode) {
-        print('Uploading report image');
+        print('TeacherReportRepository: Uploading report image...');
+        print('Image path: ${imageFile.path}');
       }
 
-      // Upload image - use report_id 0 for temporary upload
-      final imageUrl = await _api.uploadReportImage(0, imageFile.path);
+      final imageUrl = await _api.uploadReportImage(imageFile.path);
 
       if (kDebugMode) {
-        print('Report image uploaded: $imageUrl');
+        print(
+            'TeacherReportRepository: Image uploaded successfully: $imageUrl');
       }
 
       return imageUrl;
     } catch (e) {
       if (kDebugMode) {
-        print('Error uploading report image: $e');
+        print('TeacherReportRepository: Error uploading report image: $e');
       }
       return null;
     }

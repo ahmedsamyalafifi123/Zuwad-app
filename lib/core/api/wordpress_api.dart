@@ -937,12 +937,15 @@ class WordPressApi {
   }
 
   /// Upload report image.
-  Future<String> uploadReportImage(int reportId, String imagePath) async {
+  Future<String> uploadReportImage(String imagePath) async {
     try {
+      if (kDebugMode) {
+        print('WordPressApi: Uploading report image from $imagePath');
+      }
+
       String fileName = imagePath.split('/').last;
       FormData formData = FormData.fromMap({
         'image': await MultipartFile.fromFile(imagePath, filename: fileName),
-        'report_id': reportId,
       });
 
       final response = await _dio.post(
@@ -950,16 +953,29 @@ class WordPressApi {
         data: formData,
       );
 
+      if (kDebugMode) {
+        print('WordPressApi: Upload response status: ${response.statusCode}');
+        print('WordPressApi: Upload response data: ${response.data}');
+      }
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         final jsonData = response.data;
         if (jsonData['success'] == true) {
-          return jsonData['data']['image_url'] ?? '';
+          final url =
+              jsonData['data']['image_url'] ?? jsonData['data']['url'] ?? '';
+          if (kDebugMode) {
+            print('WordPressApi: Image uploaded successfully: $url');
+          }
+          return url;
         }
         throw Exception(
             jsonData['error']?['message'] ?? 'Failed to upload image');
       }
       throw Exception('Failed to upload image: ${response.statusCode}');
     } catch (e) {
+      if (kDebugMode) {
+        print('WordPressApi: Upload image error: $e');
+      }
       throw Exception('Upload image failed: ${e.toString()}');
     }
   }

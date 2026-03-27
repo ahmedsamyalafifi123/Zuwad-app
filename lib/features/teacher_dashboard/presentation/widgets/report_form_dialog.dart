@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -262,16 +263,16 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
 
   String _buildNextTasmiiValue() {
     if (_selectedSurahId == null) return '';
-    
+
     final surah = QURAN_SURAH.firstWhere((s) => s['id'] == _selectedSurahId);
     String result = surah['name'] as String;
-    
+
     if (_selectedAyahFrom != null && _selectedAyahTo != null) {
       result += ' $_selectedAyahFrom-$_selectedAyahTo';
     } else if (_selectedAyahFrom != null) {
       result += ' $_selectedAyahFrom';
     }
-    
+
     return result;
   }
 
@@ -287,13 +288,27 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
     setState(() => _isSubmitting = true);
 
     try {
-      String? imageUrl;
-      
+      String? zoomImageUrl;
+
+      debugPrint('=== ReportFormDialog: Starting submission ===');
+      debugPrint('Selected image: ${_selectedImage?.path}');
+      debugPrint('Has onUploadImage callback: ${widget.onUploadImage != null}');
+
       if (_selectedImage != null && widget.onUploadImage != null) {
         setState(() => _isUploadingImage = true);
+        debugPrint('ReportFormDialog: Uploading image...');
         try {
-          imageUrl = await widget.onUploadImage!(_selectedImage!);
+          final uploadedUrl = await widget.onUploadImage!(_selectedImage!);
+          debugPrint('ReportFormDialog: Image uploaded, URL: $uploadedUrl');
+
+          // Encode as JSON array string for API
+          if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+            zoomImageUrl = jsonEncode([uploadedUrl]);
+            debugPrint(
+                'ReportFormDialog: Encoded as JSON array: $zoomImageUrl');
+          }
         } catch (e) {
+          debugPrint('ReportFormDialog: Image upload error: $e');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -305,9 +320,15 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
         }
         setState(() => _isUploadingImage = false);
       }
-      
+
       final nextTasmiiValue = _buildNextTasmiiValue();
-      
+
+      debugPrint('ReportFormDialog: Submitting report with:');
+      debugPrint('  studentId: ${widget.studentId}');
+      debugPrint('  evaluation: $_selectedEvaluation');
+      debugPrint('  nextTasmii: $nextTasmiiValue');
+      debugPrint('  zoomImageUrl: $zoomImageUrl');
+
       await widget.onSubmit(
         studentId: widget.studentId,
         teacherId: teacherId,
@@ -317,14 +338,22 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
         lessonDuration: widget.lessonDuration,
         sessionNumber: _sessionNumber,
         evaluation: _selectedEvaluation,
-        tasmii: _tasmiiController.text.isNotEmpty ? _tasmiiController.text : null,
-        tahfiz: _tahfizController.text.isNotEmpty ? _tahfizController.text : null,
-        mourajah: _mourajahController.text.isNotEmpty ? _mourajahController.text : null,
+        tasmii:
+            _tasmiiController.text.isNotEmpty ? _tasmiiController.text : null,
+        tahfiz:
+            _tahfizController.text.isNotEmpty ? _tahfizController.text : null,
+        mourajah: _mourajahController.text.isNotEmpty
+            ? _mourajahController.text
+            : null,
         nextTasmii: nextTasmiiValue.isNotEmpty ? nextTasmiiValue : null,
-        nextMourajah: _nextMourajahController.text.isNotEmpty ? _nextMourajahController.text : null,
+        nextMourajah: _nextMourajahController.text.isNotEmpty
+            ? _nextMourajahController.text
+            : null,
         notes: _notesController.text.isNotEmpty ? _notesController.text : null,
-        zoomImageUrl: imageUrl,
+        zoomImageUrl: zoomImageUrl,
       );
+
+      debugPrint('ReportFormDialog: Report submitted successfully');
 
       if (mounted) {
         Navigator.of(context).pop(true);
@@ -336,6 +365,7 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
         );
       }
     } catch (e) {
+      debugPrint('ReportFormDialog: Error submitting report: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -401,7 +431,6 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                 ),
               ),
               const SizedBox(height: 20),
-
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -429,22 +458,24 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                       children: [
                         const Icon(Icons.calendar_today, size: 16),
                         const SizedBox(width: 8),
-                        Text(widget.date, style: const TextStyle(fontFamily: 'Qatar')),
+                        Text(widget.date,
+                            style: const TextStyle(fontFamily: 'Qatar')),
                         const SizedBox(width: 16),
                         const Icon(Icons.access_time, size: 16),
                         const SizedBox(width: 8),
-                        Text(widget.time, style: const TextStyle(fontFamily: 'Qatar')),
+                        Text(widget.time,
+                            style: const TextStyle(fontFamily: 'Qatar')),
                         const SizedBox(width: 16),
                         const Icon(Icons.timer, size: 16),
                         const SizedBox(width: 8),
-                        Text('${widget.lessonDuration} د', style: const TextStyle(fontFamily: 'Qatar')),
+                        Text('${widget.lessonDuration} د',
+                            style: const TextStyle(fontFamily: 'Qatar')),
                       ],
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
-
               if (_isLoading)
                 const Center(child: CircularProgressIndicator())
               else
@@ -458,7 +489,8 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.confirmation_number, color: Color(0xFFD4AF37)),
+                      const Icon(Icons.confirmation_number,
+                          color: Color(0xFFD4AF37)),
                       const SizedBox(width: 8),
                       Text(
                         'الحصة رقم: ${_sessionNumber ?? widget.sessionNumber}',
@@ -473,7 +505,6 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                   ),
                 ),
               const SizedBox(height: 16),
-
               Row(
                 children: [
                   Expanded(
@@ -481,14 +512,19 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                       value: _selectedAttendance,
                       decoration: InputDecoration(
                         labelText: 'الحضور',
-                        labelStyle: const TextStyle(fontFamily: 'Qatar', fontSize: 13),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        labelStyle:
+                            const TextStyle(fontFamily: 'Qatar', fontSize: 13),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
                       ),
                       items: _attendanceOptions.map((String value) {
                         return DropdownMenuItem<String>(
                           value: value,
-                          child: Text(value, style: const TextStyle(fontFamily: 'Qatar', fontSize: 12)),
+                          child: Text(value,
+                              style: const TextStyle(
+                                  fontFamily: 'Qatar', fontSize: 12)),
                         );
                       }).toList(),
                       onChanged: (String? newValue) {
@@ -505,14 +541,20 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                       value: _selectedEvaluation,
                       decoration: InputDecoration(
                         labelText: 'التقييم',
-                        labelStyle: const TextStyle(fontFamily: 'Qatar', fontSize: 13),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        labelStyle:
+                            const TextStyle(fontFamily: 'Qatar', fontSize: 13),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
                       ),
                       items: _evaluationOptions.map((String value) {
                         return DropdownMenuItem<String>(
                           value: value,
-                          child: Text(value, style: const TextStyle(fontFamily: 'Qatar', fontSize: 11), overflow: TextOverflow.ellipsis),
+                          child: Text(value,
+                              style: const TextStyle(
+                                  fontFamily: 'Qatar', fontSize: 11),
+                              overflow: TextOverflow.ellipsis),
                         );
                       }).toList(),
                       onChanged: (String? newValue) {
@@ -525,7 +567,6 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                 ],
               ),
               const SizedBox(height: 16),
-
               Row(
                 children: [
                   Expanded(
@@ -533,9 +574,12 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                       controller: _tasmiiController,
                       decoration: InputDecoration(
                         labelText: 'التسميع',
-                        labelStyle: const TextStyle(fontFamily: 'Qatar', fontSize: 13),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        labelStyle:
+                            const TextStyle(fontFamily: 'Qatar', fontSize: 13),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
                       ),
                     ),
                   ),
@@ -545,26 +589,28 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                       controller: _tahfizController,
                       decoration: InputDecoration(
                         labelText: 'التحفيظ',
-                        labelStyle: const TextStyle(fontFamily: 'Qatar', fontSize: 13),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        labelStyle:
+                            const TextStyle(fontFamily: 'Qatar', fontSize: 13),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-
               TextFormField(
                 controller: _mourajahController,
                 decoration: InputDecoration(
                   labelText: 'المراجعة',
                   labelStyle: const TextStyle(fontFamily: 'Qatar'),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
               ),
               const SizedBox(height: 16),
-
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -574,20 +620,30 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('سيتم تسميع', style: TextStyle(fontFamily: 'Qatar', fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                    Text('سيتم تسميع',
+                        style: TextStyle(
+                            fontFamily: 'Qatar',
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[700])),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<int>(
                       value: _selectedSurahId,
                       decoration: InputDecoration(
                         labelText: 'السورة',
-                        labelStyle: const TextStyle(fontFamily: 'Qatar', fontSize: 13),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        labelStyle:
+                            const TextStyle(fontFamily: 'Qatar', fontSize: 13),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
                       ),
                       items: QURAN_SURAH.map((surah) {
                         return DropdownMenuItem<int>(
                           value: surah['id'] as int,
-                          child: Text('${surah['id']}. ${surah['name']}', style: const TextStyle(fontFamily: 'Qatar', fontSize: 12)),
+                          child: Text('${surah['id']}. ${surah['name']}',
+                              style: const TextStyle(
+                                  fontFamily: 'Qatar', fontSize: 12)),
                         );
                       }).toList(),
                       onChanged: (value) {
@@ -607,12 +663,23 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                               value: _selectedAyahFrom,
                               decoration: InputDecoration(
                                 labelText: 'من آية',
-                                labelStyle: const TextStyle(fontFamily: 'Qatar', fontSize: 12),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                labelStyle: const TextStyle(
+                                    fontFamily: 'Qatar', fontSize: 12),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8)),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
                               ),
-                              items: List.generate(_getSurahAyatCount(_selectedSurahId), (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}', style: const TextStyle(fontFamily: 'Qatar', fontSize: 12)))),
-                              onChanged: (value) => setState(() => _selectedAyahFrom = value),
+                              items: List.generate(
+                                  _getSurahAyatCount(_selectedSurahId),
+                                  (i) => DropdownMenuItem(
+                                      value: i + 1,
+                                      child: Text('${i + 1}',
+                                          style: const TextStyle(
+                                              fontFamily: 'Qatar',
+                                              fontSize: 12)))),
+                              onChanged: (value) =>
+                                  setState(() => _selectedAyahFrom = value),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -621,12 +688,23 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                               value: _selectedAyahTo,
                               decoration: InputDecoration(
                                 labelText: 'إلى آية',
-                                labelStyle: const TextStyle(fontFamily: 'Qatar', fontSize: 12),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                labelStyle: const TextStyle(
+                                    fontFamily: 'Qatar', fontSize: 12),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8)),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
                               ),
-                              items: List.generate(_getSurahAyatCount(_selectedSurahId), (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}', style: const TextStyle(fontFamily: 'Qatar', fontSize: 12)))),
-                              onChanged: (value) => setState(() => _selectedAyahTo = value),
+                              items: List.generate(
+                                  _getSurahAyatCount(_selectedSurahId),
+                                  (i) => DropdownMenuItem(
+                                      value: i + 1,
+                                      child: Text('${i + 1}',
+                                          style: const TextStyle(
+                                              fontFamily: 'Qatar',
+                                              fontSize: 12)))),
+                              onChanged: (value) =>
+                                  setState(() => _selectedAyahTo = value),
                             ),
                           ),
                         ],
@@ -636,17 +714,16 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                 ),
               ),
               const SizedBox(height: 16),
-
               TextFormField(
                 controller: _nextMourajahController,
                 decoration: InputDecoration(
                   labelText: 'المراجعة القادمة',
                   labelStyle: const TextStyle(fontFamily: 'Qatar'),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
               ),
               const SizedBox(height: 16),
-
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -658,7 +735,8 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                       decoration: InputDecoration(
                         labelText: 'ملاحظات',
                         labelStyle: const TextStyle(fontFamily: 'Qatar'),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
                   ),
@@ -667,7 +745,11 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('صورة الحصة', style: TextStyle(fontFamily: 'Qatar', fontSize: 12, color: Colors.grey[600])),
+                        Text('صورة الحصة',
+                            style: TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: 12,
+                                color: Colors.grey[600])),
                         const SizedBox(height: 8),
                         GestureDetector(
                           onTap: _isUploadingImage ? null : _pickImage,
@@ -679,34 +761,57 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                               border: Border.all(color: Colors.grey[300]!),
                             ),
                             child: _isUploadingImage
-                                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                                ? const Center(
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2))
                                 : _selectedImage != null
                                     ? Stack(
                                         children: [
                                           ClipRRect(
-                                            borderRadius: BorderRadius.circular(8),
-                                            child: Image.file(_selectedImage!, width: double.infinity, height: double.infinity, fit: BoxFit.cover),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            child: Image.file(_selectedImage!,
+                                                width: double.infinity,
+                                                height: double.infinity,
+                                                fit: BoxFit.cover),
                                           ),
                                           Positioned(
                                             top: 4,
                                             right: 4,
                                             child: GestureDetector(
-                                              onTap: () => setState(() { _selectedImage = null; _uploadedImageUrl = null; }),
+                                              onTap: () => setState(() {
+                                                _selectedImage = null;
+                                                _uploadedImageUrl = null;
+                                              }),
                                               child: Container(
-                                                padding: const EdgeInsets.all(4),
-                                                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
-                                                child: const Icon(Icons.close, color: Colors.white, size: 14),
+                                                padding:
+                                                    const EdgeInsets.all(4),
+                                                decoration: BoxDecoration(
+                                                    color: Colors.black54,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            12)),
+                                                child: const Icon(Icons.close,
+                                                    color: Colors.white,
+                                                    size: 14),
                                               ),
                                             ),
                                           ),
                                         ],
                                       )
                                     : Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
-                                          Icon(Icons.add_photo_alternate, color: Colors.grey[400], size: 28),
+                                          Icon(Icons.add_photo_alternate,
+                                              color: Colors.grey[400],
+                                              size: 28),
                                           const SizedBox(height: 4),
-                                          Text('اختر صورة', style: TextStyle(fontFamily: 'Qatar', fontSize: 10, color: Colors.grey[500])),
+                                          Text('اختر صورة',
+                                              style: TextStyle(
+                                                  fontFamily: 'Qatar',
+                                                  fontSize: 10,
+                                                  color: Colors.grey[500])),
                                         ],
                                       ),
                           ),
@@ -717,20 +822,30 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                 ],
               ),
               const SizedBox(height: 24),
-
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isSubmitting || _isUploadingImage ? null : () => _submitReport(0),
+                  onPressed: _isSubmitting || _isUploadingImage
+                      ? null
+                      : () => _submitReport(0),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF820c22),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                   child: _isSubmitting
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('حفظ التقرير', style: TextStyle(fontFamily: 'Qatar', fontSize: 16, fontWeight: FontWeight.bold)),
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
+                      : const Text('حفظ التقرير',
+                          style: TextStyle(
+                              fontFamily: 'Qatar',
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
