@@ -44,26 +44,24 @@ class StudentReport {
   factory StudentReport.fromJson(Map<String, dynamic> json) {
     // Parse zoom image URL from array - handle empty strings
     String imageUrl = '';
-    final zoomData = json['zoomImageUrl'] ?? json['zoom_image_url'];
+    final zoomData = json['zoom_image_url'] ?? json['zoomImageUrl'];
     if (zoomData != null && zoomData.toString().isNotEmpty) {
       try {
-        if (zoomData is String) {
-          // Skip if empty string
-          if (zoomData.trim().isEmpty) {
-            imageUrl = '';
-          } else {
+        if (zoomData is List) {
+          if (zoomData.isNotEmpty) {
+            imageUrl = zoomData[0].toString();
+          }
+        } else if (zoomData is String && zoomData.trim().isNotEmpty) {
+          if (zoomData.trim().startsWith('[')) {
             final List<dynamic> images = jsonDecode(zoomData);
             if (images.isNotEmpty) {
-              imageUrl = images[0].toString().replaceAll(r'\\', '');
+              imageUrl = images[0].toString();
             }
-          }
-        } else if (zoomData is List) {
-          if (zoomData.isNotEmpty) {
-            imageUrl = zoomData[0].toString().replaceAll(r'\\', '');
+          } else {
+            imageUrl = zoomData;
           }
         }
       } catch (e) {
-        // Silently handle parsing errors for zoomImageUrl
         imageUrl = '';
       }
     }
@@ -123,24 +121,24 @@ class StudentReport {
 
   Map<String, dynamic> toJson() {
     return {
-      'studentId': studentId,
-      'teacherId': teacherId,
-      'teacherName': teacherName,
-      'sessionNumber': sessionNumber,
+      'student_id': studentId,
+      'teacher_id': teacherId,
+      'teacher_name': teacherName,
+      'session_number': sessionNumber,
       'date': date,
       'time': time,
       'attendance': attendance,
       'evaluation': evaluation,
       'grade': grade,
-      'lessonDuration': lessonDuration,
+      'lesson_duration': lessonDuration,
       'tasmii': tasmii,
       'tahfiz': tahfiz,
       'mourajah': mourajah,
-      'nextTasmii': nextTasmii,
-      'nextMourajah': nextMourajah,
+      'next_tasmii': nextTasmii,
+      'next_mourajah': nextMourajah,
       'notes': notes,
-      'zoomImageUrl': zoomImageUrl,
-      'isPostponed': isPostponed,
+      'zoom_image_url': zoomImageUrl,
+      'is_postponed': isPostponed,
     };
   }
 }

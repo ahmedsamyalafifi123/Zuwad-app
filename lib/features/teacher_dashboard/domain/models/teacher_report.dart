@@ -49,19 +49,21 @@ class TeacherReport {
 
   factory TeacherReport.fromJson(Map<String, dynamic> json) {
     String imageUrl = '';
-    final zoomData = json['zoomImageUrl'] ?? json['zoom_image_url'];
+    final zoomData = json['zoom_image_url'] ?? json['zoomImageUrl'];
     if (zoomData != null && zoomData.toString().isNotEmpty) {
       try {
-        if (zoomData is String) {
-          if (zoomData.trim().isNotEmpty) {
+        if (zoomData is List) {
+          if (zoomData.isNotEmpty) {
+            imageUrl = zoomData[0].toString();
+          }
+        } else if (zoomData is String && zoomData.trim().isNotEmpty) {
+          if (zoomData.trim().startsWith('[')) {
             final List<dynamic> images = jsonDecode(zoomData);
             if (images.isNotEmpty) {
-              imageUrl = images[0].toString().replaceAll(r'\\', '');
+              imageUrl = images[0].toString();
             }
-          }
-        } else if (zoomData is List) {
-          if (zoomData.isNotEmpty) {
-            imageUrl = zoomData[0].toString().replaceAll(r'\\', '');
+          } else {
+            imageUrl = zoomData;
           }
         }
       } catch (e) {

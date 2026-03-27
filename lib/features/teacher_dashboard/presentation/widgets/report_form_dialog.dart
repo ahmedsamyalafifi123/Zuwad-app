@@ -183,7 +183,6 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
   int? _selectedAyahTo;
 
   File? _selectedImage;
-  String? _uploadedImageUrl;
   final ImagePicker _picker = ImagePicker();
 
   final List<String> _attendanceOptions = [
@@ -779,7 +778,6 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
                                             child: GestureDetector(
                                               onTap: () => setState(() {
                                                 _selectedImage = null;
-                                                _uploadedImageUrl = null;
                                               }),
                                               child: Container(
                                                 padding:
