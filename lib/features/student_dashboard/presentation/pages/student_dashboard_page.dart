@@ -23,9 +23,11 @@ import '../../../meeting/presentation/pages/meeting_page.dart';
 import '../../data/repositories/schedule_repository.dart';
 import '../../data/repositories/report_repository.dart';
 import '../../data/repositories/event_repository.dart';
+import '../../data/repositories/user_message_repository.dart';
 import '../../domain/models/schedule.dart';
 import '../../domain/models/student_report.dart';
 import '../../domain/models/student_event.dart';
+import '../../domain/models/user_message.dart';
 import '../../../../core/widgets/responsive_content_wrapper.dart';
 import 'postpone_page.dart';
 import 'alarm_settings_page.dart';
@@ -927,6 +929,7 @@ class _DashboardContentState extends State<_DashboardContent> {
   final ScheduleRepository _scheduleRepository = ScheduleRepository();
   final ReportRepository _reportRepository = ReportRepository();
   final EventRepository _eventRepository = EventRepository();
+  final UserMessageRepository _userMessageRepository = UserMessageRepository();
   StudentSchedule? _nextSchedule;
   Schedule? _nextLesson;
   DateTime?
@@ -947,6 +950,9 @@ class _DashboardContentState extends State<_DashboardContent> {
   DateTime? _eventUtc; // Event time in UTC (for countdown logic)
   Timer? _eventCountdownTimer;
   Duration? _timeUntilEvent;
+  UserMessage? _latestUserMessage;
+  bool _isLoadingUserMessage = false;
+  int _userMessagesUnreadCount = 0;
 
   final AuthRepository _authRepository = AuthRepository();
   StudentReport? _lastReport;
@@ -960,6 +966,7 @@ class _DashboardContentState extends State<_DashboardContent> {
     // Force refresh on init to ensure fresh data after page reload
     _loadNextLesson(forceRefresh: true);
     _loadNextEvent();
+    _loadLatestUserMessage();
   }
 
   @override
@@ -977,7 +984,19 @@ class _DashboardContentState extends State<_DashboardContent> {
         final student = authState.student!;
         final nextEvent = await _eventRepository.getNextEvent(student.id);
 
-        if (mounted && nextEvent != null) {
+        if (!mounted) return;
+
+        if (nextEvent == null) {
+          setState(() {
+            _nextEvent = null;
+            _eventLocalDateTime = null;
+            _eventUtc = null;
+            _timeUntilEvent = null;
+          });
+          return;
+        }
+
+        if (mounted) {
           // Parse event datetime (from API which is in Egypt time)
           final egyptDateTime = nextEvent.eventDateTime;
           if (egyptDateTime != null) {
@@ -1001,6 +1020,174 @@ class _DashboardContentState extends State<_DashboardContent> {
         }
       }
     }
+  }
+
+  Future<void> _loadLatestUserMessage() async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated || authState.student == null) {
+      if (!mounted) return;
+      setState(() {
+        _latestUserMessage = null;
+        _userMessagesUnreadCount = 0;
+        _isLoadingUserMessage = false;
+      });
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingUserMessage = true;
+      });
+    }
+
+    try {
+      final messages = await _userMessageRepository.getUserMessages(
+        page: 1,
+        perPage: 10,
+        status: 'unread',
+      );
+      final unreadCount = await _userMessageRepository.getUnreadCount();
+
+      if (!mounted) return;
+      setState(() {
+        _latestUserMessage = messages.isNotEmpty ? messages.first : null;
+        _userMessagesUnreadCount = unreadCount;
+        _isLoadingUserMessage = false;
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading user messages: $e');
+      }
+      if (!mounted) return;
+      setState(() {
+        _latestUserMessage = null;
+        _userMessagesUnreadCount = 0;
+        _isLoadingUserMessage = false;
+      });
+    }
+  }
+
+  String _stripHtmlTags(String input) {
+    return input
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'</p>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .trim();
+  }
+
+  String _formatMessageDate(DateTime? date) {
+    if (date == null) return '';
+    final local = date.toLocal();
+    final dayName = TimezoneUtils.getArabicDayName(local);
+    final time = TimezoneUtils.formatTime(local);
+    return '$dayName - $time';
+  }
+
+  Future<void> _openUserMessageDetails(UserMessage message) async {
+    final details =
+        await _userMessageRepository.getMessageDetails(message.id) ?? message;
+    final plainMessage = _stripHtmlTags(details.message);
+
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: const Color(0xFFF8F6F1),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+        contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        title: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: details.isHighPriority
+                      ? const Color(0xFF820C22).withValues(alpha: 0.1)
+                      : const Color(0xFFD4AF37).withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  details.isHighPriority ? Icons.priority_high : Icons.mail_outline,
+                  color: details.isHighPriority
+                      ? const Color(0xFF820C22)
+                      : const Color(0xFFD4AF37),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  details.title,
+                  style: const TextStyle(
+                    fontFamily: 'Qatar',
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        content: Directionality(
+          textDirection: TextDirection.rtl,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_formatMessageDate(details.createdAt).isNotEmpty) ...[
+                  Text(
+                    _formatMessageDate(details.createdAt),
+                    style: const TextStyle(
+                      fontFamily: 'Qatar',
+                      fontSize: 12,
+                      color: Colors.black54,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                SelectableText(
+                  plainMessage,
+                  style: const TextStyle(
+                    fontFamily: 'Qatar',
+                    fontSize: 15,
+                    color: Colors.black87,
+                    height: 1.6,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'إغلاق',
+              style: TextStyle(
+                fontFamily: 'Qatar',
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF820C22),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _latestUserMessage = details;
+      _userMessagesUnreadCount = (_userMessagesUnreadCount - 1).clamp(0, 9999);
+    });
+    _loadLatestUserMessage();
   }
 
   /// Start countdown timer for event
@@ -2601,6 +2788,187 @@ class _DashboardContentState extends State<_DashboardContent> {
     );
   }
 
+  Widget _buildMessagesSection() {
+    if (_isLoadingUserMessage && _latestUserMessage == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16.0),
+        child: Center(
+          child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
+        ),
+      );
+    }
+
+    if (_latestUserMessage == null) return const SizedBox.shrink();
+
+    final message = _latestUserMessage!;
+    final preview = _stripHtmlTags(message.message);
+    final previewText =
+        preview.length > 110 ? '${preview.substring(0, 110).trim()}...' : preview;
+    final accentColor =
+        message.isHighPriority ? const Color(0xFF820C22) : const Color(0xFFD4AF37);
+    final chipText = message.isHighPriority ? 'رسالة مهمة' : 'رسالة جديدة';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.markunread_mailbox_outlined,
+                  color: Color(0xFFD4AF37), size: 32),
+              SizedBox(width: 8),
+              Text(
+                'رسائل لك',
+                style: TextStyle(
+                  fontFamily: 'Qatar',
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: () => _openUserMessageDetails(message),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color.fromARGB(255, 255, 255, 255),
+                    Color.fromARGB(255, 230, 230, 230),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color.fromARGB(140, 0, 0, 0),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(
+                  color: accentColor.withValues(alpha: 0.28),
+                  width: 1.2,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          chipText,
+                          style: TextStyle(
+                            fontFamily: 'Qatar',
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: accentColor,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      if (_userMessagesUnreadCount > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF820C22),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '$_userMessagesUnreadCount',
+                            style: const TextStyle(
+                              fontFamily: 'Qatar',
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    message.title,
+                    style: const TextStyle(
+                      fontFamily: 'Qatar',
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  if (_formatMessageDate(message.createdAt).isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.schedule, size: 16, color: accentColor),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _formatMessageDate(message.createdAt),
+                            style: const TextStyle(
+                              fontFamily: 'Qatar',
+                              fontSize: 13,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Text(
+                    previewText,
+                    style: const TextStyle(
+                      fontFamily: 'Qatar',
+                      fontSize: 14,
+                      color: Colors.black87,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Text(
+                        'اضغط لقراءة الرسالة',
+                        style: TextStyle(
+                          fontFamily: 'Qatar',
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: accentColor,
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(Icons.arrow_back_ios_new, size: 14, color: accentColor),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openPostponePage() async {
     if (_nextSchedule == null) return;
 
@@ -2829,6 +3197,9 @@ class _DashboardContentState extends State<_DashboardContent> {
         _familyMembers = []; // Clear family members so they reload
         _timeUntilNextLesson = null;
         _countdownTimer?.cancel();
+        _latestUserMessage = null;
+        _userMessagesUnreadCount = 0;
+        _isLoadingUserMessage = false;
         _isLoading = true;
       });
 
@@ -2865,9 +3236,13 @@ class _DashboardContentState extends State<_DashboardContent> {
       if (foundNewStudent) {
         // Now load dashboard data with the new student
         await _loadNextLesson(forceRefresh: true);
+        await _loadNextEvent();
+        await _loadLatestUserMessage();
       } else {
         // Force load anyway after timeout
         await _loadNextLesson(forceRefresh: true);
+        await _loadNextEvent();
+        await _loadLatestUserMessage();
       }
     } catch (e) {
       if (mounted) {
@@ -3148,6 +3523,8 @@ class _DashboardContentState extends State<_DashboardContent> {
                   });
                   context.read<AuthBloc>().add(GetStudentProfileEvent());
                   await _loadNextLesson(forceRefresh: true);
+                  await _loadNextEvent();
+                  await _loadLatestUserMessage();
                   // Reload family members in the background
                   _loadFamilyMembers();
                 },
@@ -3415,6 +3792,12 @@ class _DashboardContentState extends State<_DashboardContent> {
                             // Events Section - Shows only if there's an upcoming event
                             if (_nextEvent != null) ...[
                               _buildEventsSection(),
+                              const SizedBox(height: 20),
+                            ],
+
+                            if (_latestUserMessage != null ||
+                                _isLoadingUserMessage) ...[
+                              _buildMessagesSection(),
                               const SizedBox(height: 20),
                             ],
 

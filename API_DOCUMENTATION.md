@@ -3036,6 +3036,602 @@ Authorization: Bearer {token}
 }
 ```
 
+## 📨 User Messages API
+
+The User Messages API provides in-app messaging/announcements targeted to specific users based on demographics (age, gender, country, supervisor, role). Messages appear in a dedicated "Messages" section in the Flutter app.
+
+### Overview
+
+**Key Features:**
+- **Targeted Messages**: Messages can be filtered by age, gender, country, supervisor m_id, and user role
+- **Priority Levels**: High priority messages are shown first with special styling
+- **Expiry Dates**: Messages can have automatic expiration
+- **Read Status**: Track which messages have been read by users
+- **Badge Support**: Get unread count for notification badges
+
+**Message Filtering:**
+Messages are automatically filtered server-side. Users only see messages that match ALL their criteria:
+- User role (student, teacher, supervisor, etc.)
+- Gender (ذكر/أنثى)
+- Country
+- Supervisor m_id prefix
+- Age range
+
+### Get User Messages
+
+Returns messages targeted to the authenticated user with automatic filtering applied.
+
+```http
+GET /user-messages?page=1&per_page=20&status=unread
+Authorization: Bearer {token}
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | integer | 1 | Page number for pagination |
+| `per_page` | integer | 20 | Items per page (max: 100) |
+| `status` | string | all | Filter by status: `all`, `read`, `unread` |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "title": "تذكير مهم",
+      "message": "سيتم صيانة النظام يوم الأحد القادم",
+      "priority": "high",
+      "is_read": false,
+      "created_at": "2024-01-15 14:30:00",
+      "read_at": null,
+      "expiry_date": "2024-01-20 23:59:59",
+      "_filters": {
+        "role": "student",
+        "gender": "all",
+        "country": "مصر",
+        "age_type": "all"
+      }
+    },
+    {
+      "id": 2,
+      "title": "رسالة عادية",
+      "message": "تم إضافة ميزات جديدة في التطبيق",
+      "priority": "normal",
+      "is_read": true,
+      "created_at": "2024-01-14 10:00:00",
+      "read_at": "2024-01-14 15:30:00",
+      "expiry_date": null,
+      "_filters": {
+        "role": "all",
+        "gender": "all",
+        "country": "all",
+        "age_type": "all"
+      }
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 20,
+    "total": 5,
+    "total_pages": 1,
+    "unread_count": 3
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Message ID |
+| `title` | string | Message title |
+| `message` | string | Full message content (supports basic HTML) |
+| `priority` | string | Priority level: `normal` or `high` |
+| `is_read` | boolean | Whether the user has read this message |
+| `created_at` | string | Creation timestamp (UTC) |
+| `read_at` | string | Read timestamp (UTC), null if unread |
+| `expiry_date` | string | Expiration date (UTC), null if permanent |
+| `_filters` | object | Filter criteria (for debugging) |
+
+> **Note:** The `_filters` field is for debugging/advanced use. It shows which filters were applied when the message was created.
+
+### Get Single Message
+
+Get details of a specific message and automatically mark it as read.
+
+```http
+GET /user-messages/{id}
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "title": "تذكير مهم",
+    "message": "سيتم صيانة النظام يوم الأحد القادم",
+    "priority": "high",
+    "is_read": true,
+    "created_at": "2024-01-15 14:30:00",
+    "read_at": "2024-01-15 16:45:00",
+    "expiry_date": "2024-01-20 23:59:59"
+  }
+}
+```
+
+> **Important:** This endpoint automatically marks the message as read when fetched.
+
+### Mark Message as Read
+
+Manually mark a specific message as read.
+
+```http
+POST /user-messages/{id}/read
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "تم تحديد الرسالة كمقروءة",
+    "message_id": 1
+  }
+}
+```
+
+### Mark All Messages as Read
+
+Mark all messages for the current user as read.
+
+```http
+POST /user-messages/mark-all-read
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "تم تحديد جميع الرسائل كمقروءة",
+    "marked_count": 5
+  }
+}
+```
+
+### Get Unread Count
+
+Get the count of unread messages (useful for badges on the app icon or bottom navigation).
+
+```http
+GET /user-messages/count
+Authorization: Bearer {token}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "unread_count": 3
+  }
+}
+```
+
+### Priority Levels
+
+| Priority | Arabic | Description | UI Suggestion |
+|----------|--------|-------------|---------------|
+| `high` | مهم 🔴 | Important announcements | Red badge, bold title, pin to top |
+| `normal` | عادي | Regular updates | Standard styling |
+
+### Flutter Implementation Guide
+
+#### Data Model
+
+```dart
+class UserMessage {
+  final int id;
+  final String title;
+  final String message;
+  final String priority; // 'high' or 'normal'
+  final bool isRead;
+  final DateTime createdAt;
+  final DateTime? readAt;
+  final DateTime? expiryDate;
+
+  UserMessage({
+    required this.id,
+    required this.title,
+    required this.message,
+    required this.priority,
+    required this.isRead,
+    required this.createdAt,
+    this.readAt,
+    this.expiryDate,
+  });
+
+  factory UserMessage.fromJson(Map<String, dynamic> json) {
+    return UserMessage(
+      id: json['id'],
+      title: json['title'],
+      message: json['message'],
+      priority: json['priority'],
+      isRead: json['is_read'],
+      createdAt: DateTime.parse(json['created_at']),
+      readAt: json['read_at'] != null ? DateTime.parse(json['read_at']) : null,
+      expiryDate: json['expiry_date'] != null 
+          ? DateTime.parse(json['expiry_date']) 
+          : null,
+    );
+  }
+}
+```
+
+#### API Service
+
+```dart
+class UserMessagesService {
+  final Dio _dio;
+  final String _baseUrl = 'https://your-domain.com/wp-json/zuwad/v2';
+
+  UserMessagesService(this._dio);
+
+  // Get messages list
+  Future<MessageResponse> getMessages({
+    int page = 1,
+    int perPage = 20,
+    String status = 'all',
+  }) async {
+    final response = await _dio.get(
+      '$_baseUrl/user-messages',
+      queryParameters: {
+        'page': page,
+        'per_page': perPage,
+        'status': status,
+      },
+      options: Options(headers: {'Authorization': 'Bearer $jwtToken'}),
+    );
+    
+    final List<UserMessage> messages = (response.data['data'] as List)
+        .map((m) => UserMessage.fromJson(m))
+        .toList();
+    
+    return MessageResponse(
+      messages: messages,
+      meta: Meta.fromJson(response.data['meta']),
+    );
+  }
+
+  // Get unread count (for badge)
+  Future<int> getUnreadCount() async {
+    final response = await _dio.get(
+      '$_baseUrl/user-messages/count',
+      options: Options(headers: {'Authorization': 'Bearer $jwtToken'}),
+    );
+    return response.data['data']['unread_count'];
+  }
+
+  // Get message details (marks as read)
+  Future<UserMessage> getMessageDetails(int messageId) async {
+    final response = await _dio.get(
+      '$_baseUrl/user-messages/$messageId',
+      options: Options(headers: {'Authorization': 'Bearer $jwtToken'}),
+    );
+    return UserMessage.fromJson(response.data['data']);
+  }
+
+  // Mark as read
+  Future<void> markAsRead(int messageId) async {
+    await _dio.post(
+      '$_baseUrl/user-messages/$messageId/read',
+      options: Options(headers: {'Authorization': 'Bearer $jwtToken'}),
+    );
+  }
+
+  // Mark all as read
+  Future<int> markAllAsRead() async {
+    final response = await _dio.post(
+      '$_baseUrl/user-messages/mark-all-read',
+      options: Options(headers: {'Authorization': 'Bearer $jwtToken'}),
+    );
+    return response.data['data']['marked_count'];
+  }
+}
+```
+
+#### UI Implementation
+
+**1. Messages List Screen:**
+
+```dart
+class MessagesScreen extends StatefulWidget {
+  @override
+  _MessagesScreenState createState() => _MessagesScreenState();
+}
+
+class _MessagesScreenState extends State<MessagesScreen> {
+  List<UserMessage> _messages = [];
+  bool _isLoading = false;
+  int _unreadCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+  }
+
+  Future<void> _loadMessages() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final response = await UserMessagesService(dio).getMessages();
+      setState(() {
+        _messages = response.messages;
+        _unreadCount = response.meta.unreadCount;
+      });
+    } catch (e) {
+      // Handle error
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('الرسائل'),
+        actions: [
+          if (_unreadCount > 0)
+            TextButton(
+              onPressed: _markAllAsRead,
+              child: Text('تحديد الكل كمقروء'),
+            ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadMessages,
+        child: _isLoading && _messages.isEmpty
+            ? Center(child: CircularProgressIndicator())
+            : _messages.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      return MessageCard(
+                        message: _messages[index],
+                        onTap: () => _openMessageDetail(_messages[index]),
+                      );
+                    },
+                  ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.message_outlined, size: 64, color: Colors.grey),
+          SizedBox(height: 16),
+          Text(
+            'لا توجد رسائل',
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openMessageDetail(UserMessage message) async {
+    // Navigate to detail screen
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MessageDetailScreen(message: message),
+      ),
+    );
+    
+    // Refresh to update read status
+    _loadMessages();
+  }
+
+  Future<void> _markAllAsRead() async {
+    final count = await UserMessagesService(dio).markAllAsRead();
+    setState(() => _unreadCount = 0);
+    _loadMessages();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('تم تحديد $count رسائل كمقروءة')),
+    );
+  }
+}
+```
+
+**2. Message Card Widget:**
+
+```dart
+class MessageCard extends StatelessWidget {
+  final UserMessage message;
+  final VoidCallback onTap;
+
+  const MessageCard({
+    required this.message,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      elevation: message.isRead ? 1 : 3,
+      color: message.isRead ? Colors.white : Color(0xFFF8F9FF),
+      child: ListTile(
+        onTap: onTap,
+        leading: _buildLeading(),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                message.title,
+                style: TextStyle(
+                  fontWeight: message.isRead ? FontWeight.normal : FontWeight.bold,
+                ),
+              ),
+            ),
+            if (message.priority == 'high')
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'مهم',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message.message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            SizedBox(height: 8),
+            Text(
+              _formatDate(message.createdAt),
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        trailing: message.isRead
+            ? null
+            : Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  shape: BoxShape.circle,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildLeading() {
+    if (message.priority == 'high') {
+      return CircleAvatar(
+        backgroundColor: Colors.red[50],
+        child: Icon(Icons.priority_high, color: Colors.red),
+      );
+    }
+    return CircleAvatar(
+      backgroundColor: Colors.blue[50],
+      child: Icon(Icons.message, color: Colors.blue),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return DateFormat.yMMMd('ar_SA').format(date);
+  }
+}
+```
+
+**3. Badge in Bottom Navigation:**
+
+```dart
+BottomNavigationBarItem(
+  icon: Badge(
+    showBadge: unreadCount > 0,
+    badgeContent: Text(
+      unreadCount > 99 ? '99+' : unreadCount.toString(),
+      style: TextStyle(color: Colors.white, fontSize: 10),
+    ),
+    child: Icon(Icons.message),
+  ),
+  label: 'الرسائل',
+)
+```
+
+**4. Periodic Badge Update:**
+
+```dart
+// In your main screen or app initialization
+void initState() {
+  super.initState();
+  _startBadgeRefresh();
+}
+
+void _startBadgeRefresh() {
+  // Refresh badge every 60 seconds
+  Timer.periodic(Duration(seconds: 60), (_) {
+    _refreshBadge();
+  });
+  
+  // Also refresh when app comes to foreground
+  WidgetsBinding.instance.addObserver(
+    LifecycleEventHandler(
+      resumeCallBack: () => _refreshBadge(),
+    ),
+  );
+}
+
+Future<void> _refreshBadge() async {
+  try {
+    final count = await UserMessagesService(dio).getUnreadCount();
+    setState(() => _unreadCount = count);
+  } catch (e) {
+    // Silently fail
+  }
+}
+```
+
+### Error Responses
+
+| Code | Status | Description |
+|------|--------|-------------|
+| `message_not_found` | 404 | Message does not exist or expired |
+| `not_authenticated` | 401 | User is not logged in |
+
+### Admin Panel
+
+Administrators and supervisors can create and manage messages from the **Events Modal** in the WordPress admin panel:
+
+1. Click **"🎬 إنشاء حدث"** (Create Event) button
+2. Navigate to the **"📨 الرسائل"** (Messages) tab
+3. Create messages with filtering options
+
+**Features:**
+- Create/edit/delete messages
+- Filter by: role, gender, country, supervisor, age
+- Set priority levels
+- Set expiry dates
+- View message statistics
+
+**Note:** Messages are managed through the existing Events UI - no separate shortcode needed.
+
 ---
 
 ## 💬 Chat API

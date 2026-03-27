@@ -105,6 +105,17 @@ class ApiConstants {
   static String get chatUnreadCountEndpoint => '$v2BaseUrl/chat/unread-count';
 
   // ============================================
+  // User Messages Endpoints
+  // ============================================
+  static String get userMessagesEndpoint => '$v2BaseUrl/user-messages';
+  static String userMessageByIdEndpoint(int id) => '$v2BaseUrl/user-messages/$id';
+  static String userMessageReadEndpoint(int id) =>
+      '$v2BaseUrl/user-messages/$id/read';
+  static String get userMessagesMarkAllReadEndpoint =>
+      '$v2BaseUrl/user-messages/mark-all-read';
+  static String get userMessagesCountEndpoint => '$v2BaseUrl/user-messages/count';
+
+  // ============================================
   // Wallet Endpoints
   // ============================================
   static String walletFamilyEndpoint(int familyId) =>

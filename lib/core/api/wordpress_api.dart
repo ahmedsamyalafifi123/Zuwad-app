@@ -458,6 +458,94 @@ class WordPressApi {
     }
   }
 
+  /// Get targeted user messages for the authenticated user.
+  Future<Map<String, dynamic>> getUserMessages({
+    int page = 1,
+    int perPage = 20,
+    String status = 'all',
+  }) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.userMessagesEndpoint,
+        queryParameters: {
+          'page': page,
+          'per_page': perPage,
+          'status': status,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true) {
+          return Map<String, dynamic>.from(jsonData as Map);
+        }
+      }
+      return {'data': <dynamic>[], 'meta': <String, dynamic>{}};
+    } catch (e) {
+      if (kDebugMode) {
+        print('WordPressApi.getUserMessages - Error: $e');
+      }
+      return {'data': <dynamic>[], 'meta': <String, dynamic>{}};
+    }
+  }
+
+  /// Get details of a single user message. Fetching details marks it as read.
+  Future<Map<String, dynamic>?> getUserMessageDetails(int messageId) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.userMessageByIdEndpoint(messageId),
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = response.data;
+        if (jsonData['success'] == true && jsonData['data'] is Map) {
+          return Map<String, dynamic>.from(jsonData['data'] as Map);
+        }
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('WordPressApi.getUserMessageDetails - Error: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Manually mark a specific user message as read.
+  Future<bool> markUserMessageAsRead(int messageId) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.userMessageReadEndpoint(messageId),
+      );
+
+      return response.statusCode == 200 && response.data?['success'] == true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('WordPressApi.markUserMessageAsRead - Error: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Get unread targeted user messages count.
+  Future<int> getUserMessagesUnreadCount() async {
+    try {
+      final response = await _dio.get(ApiConstants.userMessagesCountEndpoint);
+
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        final count = response.data?['data']?['unread_count'];
+        if (count is int) return count;
+        if (count is String) return int.tryParse(count) ?? 0;
+      }
+      return 0;
+    } catch (e) {
+      if (kDebugMode) {
+        print('WordPressApi.getUserMessagesUnreadCount - Error: $e');
+      }
+      return 0;
+    }
+  }
+
   /// Fetch a server-side LiveKit meeting token via the REST API.
   /// Returns a map with `token`, `server_url`, `room_name`, etc., or null on error.
   Future<Map<String, dynamic>?> getMeetingToken({
