@@ -410,9 +410,95 @@ DELETE /students/{id}
 
 ### Get Student Reports
 
+Get all reports for a specific student.
+
 ```http
 GET /students/{id}/reports?page=1&per_page=20
+Authorization: Bearer {token}
 ```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 500,
+      "student_id": 101,
+      "student_name": "محمد أحمد",
+      "student_m_id": "010301",
+      "teacher_id": 42,
+      "teacher_name": "أحمد المعلم",
+      "session_number": 5,
+      "date": "2024-01-15",
+      "time": "14:00:00",
+      "attendance": "حضور",
+      "lesson_duration": 30,
+      "evaluation": "ماهر ⭐⭐⭐⭐⭐",
+      "grade": 95,
+      "tasmii": "سورة البقرة",
+      "tahfiz": "الآيات 1-20",
+      "mourajah": "سورة الفاتحة",
+      "next_tasmii": "سورة البقرة الآيات 21-40",
+      "next_mourajah": "سورة البقرة",
+      "notes": "أداء ممتاز",
+      "zoom_image_url": "https://example.com/images/report_500.jpg",
+      "is_postponed": false,
+      "created_at": "2024-01-15 14:30:00"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 20,
+    "total": 45,
+    "total_pages": 3
+  }
+}
+```
+
+**Query Parameters:**
+
+| Parameter     | Type    | Default | Description                          |
+| ------------- | ------- | ------- | ------------------------------------ |
+| `page`        | integer | 1       | Page number                          |
+| `per_page`    | integer | 20      | Items per page (max: 100)            |
+| `attendance`  | string  | -       | Filter by attendance type            |
+| `start_date`  | string  | -       | Filter by start date (YYYY-MM-DD)   |
+| `end_date`    | string  | -       | Filter by end date (YYYY-MM-DD)      |
+
+**Report Fields:**
+
+| Field           | Type    | Description                                    |
+| --------------- | ------- | ---------------------------------------------- |
+| `id`            | integer | Report ID                                      |
+| `student_id`    | integer | Student ID                                     |
+| `student_name`  | string  | Student display name                           |
+| `student_m_id`  | string  | Student hierarchical ID (e.g., "010301")       |
+| `teacher_id`    | integer | Teacher ID                                     |
+| `teacher_name`  | string  | Teacher display name                           |
+| `session_number`| integer | Session/lesson number in package               |
+| `date`          | string  | Report date (YYYY-MM-DD)                       |
+| `time`          | string  | Report time (HH:MM:SS)                         |
+| `attendance`    | string  | Attendance status (see attendance types above) |
+| `lesson_duration` | integer | Lesson duration in minutes                    |
+| `evaluation`    | string  | Evaluation rating with stars                   |
+| `grade`         | integer | Grade/score                                    |
+| `tasmii`        | string  | Recitation completed (تم تسميع)                |
+| `tahfiz`        | string  | Memorization completed (تم تحفيظ)              |
+| `mourajah`      | string  | Review completed (تم مراجعة)                    |
+| `next_tasmii`   | string  | Next recitation plan (سيتم تسميع)              |
+| `next_mourajah` | string  | Next review plan (سيتم مراجعة)                 |
+| `notes`         | string  | Teacher notes                                  |
+| `zoom_image_url` | string  | Lesson screenshot URL (may be JSON array)      |
+| `is_postponed`  | boolean | Whether this is a postponed lesson            |
+| `created_at`   | string  | Creation timestamp (YYYY-MM-DD HH:MM:SS)        |
+
+> **Note on `zoom_image_url`:** When multiple images are uploaded for a report, this field contains a JSON-encoded array of URLs. Parse it as JSON if the value starts with `[`. Single images are stored as plain strings.
+
+> **Note on Field Sections:** The report fields are organized into two logical sections representing lesson progress:
+> - **Previous Lesson (الحصة السابقة):** `tasmii`, `tahfiz`, `mourajah` - What was covered in this lesson
+> - **Next Lesson (الحصة القادمة):** `next_tasmii`, `next_mourajah` - What's planned for the next lesson
 
 ### Get Student Schedules
 
@@ -1262,13 +1348,320 @@ Content-Type: application/json
   "date": "2024-01-15",
   "time": "14:00",
   "attendance": "حضور",
+  "teacher_id": 42,
   "lesson_duration": 30,
+  "evaluation": "ماهر ⭐⭐⭐⭐⭐",
+  "grade": 95,
   "tasmii": "سورة البقرة",
   "tahfiz": "الآيات 1-20",
   "mourajah": "سورة الفاتحة",
-  "evaluation": "ممتاز",
-  "grade": 95,
-  "notes": "أداء ممتاز"
+  "next_tasmii": "سورة البقرة الآيات 21-40",
+  "next_mourajah": "سورة البقرة",
+  "notes": "أداء ممتاز",
+  "zoom_image_url": "https://example.com/images/report_500.jpg",
+  "is_postponed": false
+}
+```
+
+**Request Fields:**
+
+| Field           | Type    | Required | Description                                                      |
+| --------------- | ------- | -------- | ---------------------------------------------------------------- |
+| `student_id`    | integer | Yes      | Student ID                                                       |
+| `date`          | string  | Yes      | Report date (YYYY-MM-DD format)                                  |
+| `time`          | string  | Yes      | Report time (HH:MM or HH:MM:SS format)                          |
+| `attendance`    | string  | Yes      | Attendance status (see attendance types below)                   |
+| `teacher_id`    | integer | No       | Teacher ID (auto-assigned from student's teacher or current user) |
+| `lesson_duration` | integer | No     | Lesson duration in minutes (defaults to student's lesson_duration) |
+| `evaluation`    | string  | No       | Evaluation rating (see evaluation values below)                  |
+| `grade`         | integer | No       | Grade/score (0-100)                                              |
+| `tasmii`        | string  | No       | Recitation completed (تم تسميع)                                  |
+| `tahfiz`        | string  | No       | Memorization completed (تم تحفيظ)                                |
+| `mourajah`      | string  | No       | Review completed (تم مراجعة)                                     |
+| `next_tasmii`   | string  | No       | Next recitation plan (سيتم تسميع)                                |
+| `next_mourajah` | string  | No       | Next review plan (سيتم مراجعة)                                   |
+
+**Field Sections:**
+
+The report fields are organized into two logical sections:
+
+**1. Previous Lesson (الحصة السابقة):**
+- `tasmii`: What was recited during the lesson (تم تسميع)
+- `tahfiz`: What was memorized during the lesson (تم تحفيظ)
+- `mourajah`: What was reviewed during the lesson (تم مراجعة)
+
+**2. Next Lesson (الحصة القادمة):**
+- `next_tasmii`: What will be recited in the next lesson (سيتم تسميع)
+- `next_mourajah`: What will be reviewed in the next lesson (سيتم مراجعة)
+
+> **Note for Flutter developers:** These fields should be displayed in two separate sections in the UI, mirroring the web interface. The `next_tasmii` field often includes Quran verse ranges (e.g., "سورة البقرة الآيات 1-20").
+| `notes`         | string  | No       | Teacher notes                                                    |
+| `zoom_image_url` | string | No       | URL to lesson screenshot image                                    |
+| `is_postponed`  | boolean | No       | Whether this is a postponed lesson (default: false)              |
+
+**Attendance Types:**
+
+| Value               | Arabic Name     | Session Number | Description                              |
+| ------------------- | --------------- | -------------- | ---------------------------------------- |
+| `حضور`              | Attendance      | Increments     | Student attended                         |
+| `غياب`              | Absence         | Increments     | Student was absent                       |
+| `تأجيل المعلم`       | Teacher Delay   | Increments     | Teacher postponed                        |
+| `تأجيل ولي أمر`      | Parent Delay    | Increments     | Parent/Student postponed                 |
+| `تعويض التأجيل`      | Delay Compensation | 0           | Makeup for postponed lesson             |
+| `تعويض الغياب`       | Absence Compensation | 0        | Makeup for absence                       |
+| `تجريبي`            | Trial           | 0              | Trial lesson                             |
+| `اجازة معلم`         | Teacher Leave   | 0              | Teacher holiday                          |
+
+> **Note for Teachers:** Teachers can only use `حضور` and `غياب` attendance types. Supervisors and administrators have access to all attendance types.
+
+> **Note for Students:** Students can only create reports with postponement attendance types (`تأجيل ولي أمر`, `تأجيل`, `تأجيل طالب`) for their own lessons.
+
+**Evaluation Values:**
+
+| Value                  | Description              |
+| ---------------------- | ------------------------ |
+| `ماهر ⭐⭐⭐⭐⭐`          | Expert (5 stars)        |
+| `محترف ⭐⭐⭐⭐`           | Professional (4 stars)   |
+| `رائع ⭐⭐⭐`             | Great (3 stars)          |
+| `متميز ⭐⭐`             | Distinguished (2 stars)  |
+| `مجتهد ⭐`              | Hardworking (1 star)     |
+
+**Session Number Calculation:**
+
+The `session_number` is automatically calculated based on:
+1. **Incrementing attendances** (`حضور`, `غياب`, `تأجيل المعلم`, `تأجيل ولي أمر`): Session number increases by 1
+2. **Non-incrementing attendances** (`تعويض التأجيل`, `تعويض الغياب`, `تجريبي`, `اجازة معلم`): Session number is 0
+3. **Postponed lessons** (`is_postponed: true`): Session number is 0
+4. **Reset logic**: When session_number exceeds `lessons_number`, it resets to 1
+
+Use `GET /reports/session-number?student_id={id}&attendance={type}` to get the expected session number before creating a report.
+
+#### Quran Content Fields (سيتم تسميع)
+
+The `next_tasmii` field supports **Quran verse selection** via a structured format in the web interface. When teachers select Quran content for recitation, the field contains structured information about:
+- **Surah (السورة):** The selected surah name (all 114 surahs available)
+- **Ayah Range (نطاق الآيات):** From verse X to verse Y
+
+**Example Values for `next_tasmii`:**
+- `"سورة البقرة"` - Only surah selected
+- `"سورة البقرة 1-20"` - Surah with ayah range (verses 1 to 20)
+- `"سورة الفاتحة"` - Surah without specific verses
+- `"سورة يوسف الآيات 50-75"` - Alternative Arabic format
+
+**Flutter Implementation for Quran Selector:**
+
+When implementing the Quran selector in Flutter, you need to provide a list of surahs with their verse counts. The field works as follows:
+
+1. First, the teacher selects a **surah**: A dropdown with all 114 surahs
+2. Then, they can optionally select **ayah range**: 
+   - "من آية" (From verse): Dropdown populated with verses 1 to total_ayat of selected surah
+   - "إلى آية" (To verse): Dropdown populated with verses 1 to total_ayat
+
+**Quran Data Structure (for Flutter):**
+
+```dart
+const QURAN_DATA = [
+  {"id": 1, "name_ar": "الفاتحة", "ayat": 7},
+  {"id": 2, "name_ar": "البقرة", "ayat": 286},
+  {"id": 3, "name_ar": "آل عمران", "ayat": 200},
+  {"id": 4, "name_ar": "النساء", "ayat": 176},
+  {"id": 5, "name_ar": "المائدة", "ayat": 120},
+  {"id": 6, "name_ar": "الأنعام", "ayat": 165},
+  {"id": 7, "name_ar": "الأعراف", "ayat": 206},
+  {"id": 8, "name_ar": "الأنفال", "ayat": 75},
+  {"id": 9, "name_ar": "التوبة", "ayat": 129},
+  {"id": 10, "name_ar": "يونس", "ayat": 109},
+  // ... all 114 surahs
+  {"id": 114, "name_ar": "الناس", "ayat": 6}
+];
+```
+
+**Flutter Code Example:**
+
+```dart
+// Build surah dropdown
+Widget buildQuranSelector() {
+  return Column(
+    children: [
+      // Surah dropdown
+      DropdownButtonFormField<int>(
+        value: selectedSurahId,
+        hint: Text('اختر السورة...'),
+        items: QURAN_DATA.map((surah) => DropdownMenuItem(
+          value: surah['id'],
+          child: Text(surah['name_ar']),
+        )).toList(),
+        onChanged: (value) {
+          setState(() {
+            selectedSurahId = value;
+            selectedAyahFrom = null;
+            selectedAyahTo = null;
+          });
+        },
+      ),
+      
+      // From ayah dropdown (only show if surah selected)
+      if (selectedSurahId != null) ...[
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<int>(
+                value: selectedAyahFrom,
+                hint: Text('من آية'),
+                items: List.generate(
+                  getSurahAyatCount(selectedSurahId),
+                  (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
+                ).toList(),
+                onChanged: (value) => setState(() => selectedAyahFrom = value),
+              ),
+            ),
+            Expanded(
+              child: DropdownButtonFormField<int>(
+                value: selectedAyahTo,
+                hint: Text('إلى آية'),
+                items: List.generate(
+                  getSurahAyatCount(selectedSurahId),
+                  (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
+                ).toList(),
+                onChanged: (value) => setState(() => selectedAyahTo = value),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ],
+  );
+}
+
+// Build next_tasmii value from selections
+String buildNextTasmiiValue() {
+  final surah = QURAN_DATA.firstWhere((s) => s['id'] == selectedSurahId);
+  if (selectedAyahFrom != null && selectedAyahTo != null) {
+    return '${surah['name_ar']} $selectedAyahFrom-$selectedAyahTo';
+  } else if (selectedAyahFrom != null) {
+    return '${surah['name_ar']} $selectedAyahFrom';
+  } else {
+    return surah['name_ar'];
+  }
+}
+```
+
+> **Important:** The `next_tasmii` field in the API accepts **plain text**. The Quran selector is a UI convenience on the web, but the API just stores the resulting string. You can send any text value.
+
+#### Uploading Lesson Screenshots (صورة من حصة الزوم)
+
+Teachers can upload one or multiple images for each report (lesson screenshots from Zoom/online sessions).
+
+**Option 1: Single Image Upload (Recommended for Flutter)**
+
+Upload the image first using the dedicated endpoint, then include the URL in the report:
+
+```http
+POST /reports/upload-image
+Authorization: Bearer {token}
+Content-Type: multipart/form-data
+
+image: [file]
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "attachment_id": 12345,
+    "url": "https://example.com/wp-content/uploads/2024/01/lesson-screenshot.jpg",
+    "type": "image/jpeg"
+  },
+  "statusCode": 201
+}
+```
+
+Then use the URL in the report:
+
+```json
+{
+  "student_id": 101,
+  "date": "2024-01-15",
+  "time": "14:00",
+  "attendance": "حضور",
+  "zoom_image_url": "https://example.com/wp-content/uploads/2024/01/lesson-screenshot.jpg"
+}
+```
+
+**Option 2: Multiple Images (JSON Array)**
+
+For multiple images, use a JSON-encoded array of URLs:
+
+```json
+{
+  "zoom_image_url": "[\"https://example.com/image1.jpg\", \"https://example.com/image2.jpg\"]"
+}
+```
+
+> **Important:** When reading reports, the `zoom_image_url` field can be:
+> - A plain string URL (single image): `"https://example.com/image.jpg"`
+> - A JSON-encoded array (multiple images): `"[\"url1\", \"url2\"]"`
+>
+> **Flutter parsing tip:** Check if the value starts with `[` to determine if it's an array:
+> ```dart
+> List<String> imageUrls;
+> if (zoomImageUrl.startsWith('[')) {
+>   imageUrls = List<String>.from(jsonDecode(zoomImageUrl));
+> } else if (zoomImageUrl.isNotEmpty) {
+>   imageUrls = [zoomImageUrl];
+> } else {
+>   imageUrls = [];
+> }
+> ```
+
+**File Constraints:**
+- Allowed types: `image/jpeg`, `image/png`, `image/gif`, `image/webp`
+- Maximum file size: 5MB
+- Multiple images allowed per report
+
+**Flutter Image Upload Example:**
+
+```dart
+Future<String> uploadReportImage(File imageFile) async {
+  final uri = Uri.parse('https://your-domain.com/wp-json/zuwad/v2/reports/upload-image');
+  final request = http.MultipartRequest('POST', uri);
+  
+  request.headers['Authorization'] = 'Bearer $jwtToken';
+  request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+  
+  final response = await request.send();
+  final data = jsonDecode(await response.stream.bytesToString());
+  
+  if (data['success']) {
+    return data['data']['url']; // Return the uploaded image URL
+  }
+  throw Exception('Failed to upload image');
+}
+
+// Create report with image
+Future<void> createReportWithImage() async {
+  // Upload image first
+  final imageUrl = await uploadReportImage(selectedImage);
+  
+  // Create report with image URL
+  final response = await http.post(
+    Uri.parse('https://your-domain.com/wp-json/zuwad/v2/reports'),
+    headers: {
+      'Authorization': 'Bearer $jwtToken',
+      'Content-Type': 'application/json',
+    },
+    body: jsonEncode({
+      'student_id': studentId,
+      'date': '2024-01-15',
+      'time': '14:00',
+      'attendance': 'حضور',
+      'tasmii': 'سورة البقرة',
+      'next_tasmii': 'سورة البقرة 21-40',
+      'zoom_image_url': imageUrl, // Use the uploaded image URL
+    }),
+  );
 }
 ```
 
@@ -1281,6 +1674,7 @@ Content-Type: application/json
     "id": 500,
     "student_id": 101,
     "student_name": "محمد أحمد",
+    "student_m_id": "010301",
     "teacher_id": 42,
     "teacher_name": "أحمد المعلم",
     "session_number": 5,
@@ -1288,9 +1682,15 @@ Content-Type: application/json
     "time": "14:00:00",
     "attendance": "حضور",
     "lesson_duration": 30,
+    "evaluation": "ماهر ⭐⭐⭐⭐⭐",
+    "grade": 95,
     "tasmii": "سورة البقرة",
     "tahfiz": "الآيات 1-20",
+    "mourajah": "سورة الفاتحة",
+    "next_tasmii": "سورة البقرة الآيات 21-40",
+    "next_mourajah": "سورة البقرة",
     "notes": "أداء ممتاز",
+    "zoom_image_url": "https://example.com/images/report_500.jpg",
     "is_postponed": false,
     "created_at": "2024-01-15 14:30:00"
   },
@@ -1301,7 +1701,36 @@ Content-Type: application/json
 }
 ```
 
+**Response Fields:**
+
+| Field           | Type    | Description                                    |
+| --------------- | ------- | ---------------------------------------------- |
+| `id`            | integer | Report ID                                      |
+| `student_id`    | integer | Student ID                                     |
+| `student_name`  | string  | Student display name                           |
+| `student_m_id`  | string  | Student hierarchical ID (e.g., "010301")       |
+| `teacher_id`    | integer | Teacher ID                                     |
+| `teacher_name`  | string  | Teacher display name                           |
+| `session_number`| integer | Session/lesson number in package               |
+| `date`          | string  | Report date (YYYY-MM-DD)                       |
+| `time`          | string  | Report time (HH:MM:SS)                         |
+| `attendance`    | string  | Attendance status                              |
+| `lesson_duration` | integer | Lesson duration in minutes                    |
+| `evaluation`    | string  | Evaluation rating with stars                   |
+| `grade`         | integer | Grade/score                                    |
+| `tasmii`        | string  | Recitation completed (تم تسميع)                |
+| `tahfiz`        | string  | Memorization completed (تم تحفيظ)              |
+| `mourajah`      | string  | Review completed (تم مراجعة)                    |
+| `next_tasmii`   | string  | Next recitation plan (سيتم تسميع)              |
+| `next_mourajah` | string  | Next review plan (سيتم مراجعة)                 |
+| `notes`         | string  | Teacher notes                                  |
+| `zoom_image_url` | string  | Lesson screenshot URL (may be JSON array)      |
+| `is_postponed`  | boolean | Whether this is a postponed lesson            |
+| `created_at`   | string  | Creation timestamp (YYYY-MM-DD HH:MM:SS)        |
+
 #### Update Report
+
+Teachers can update their own reports. Supervisors and administrators can update any report.
 
 ```http
 PUT /reports/{id}
@@ -1310,9 +1739,35 @@ Content-Type: application/json
 
 {
   "evaluation": "جيد جداً",
+  "grade": 85,
+  "tasmii": "سورة البقرة الآيات 1-30",
+  "tahfiz": "الآيات 21-40",
+  "mourajah": "سورة البقرة",
+  "next_tasmii": "سورة البقرة الآيات 41-60",
+  "next_mourajah": "سورة آل عمران",
   "notes": "تحسن ملحوظ"
 }
 ```
+
+**Updatable Fields:**
+
+| Field           | Type    | Description                                    |
+| --------------- | ------- | ---------------------------------------------- |
+| `date`          | string  | Report date (YYYY-MM-DD)                       |
+| `time`          | string  | Report time (HH:MM or HH:MM:SS)               |
+| `attendance`    | string  | Attendance status                              |
+| `evaluation`    | string  | Evaluation rating                              |
+| `grade`         | integer | Grade/score                                    |
+| `lesson_duration` | integer | Lesson duration in minutes                    |
+| `tasmii`        | string  | Recitation completed (تم تسميع)                |
+| `tahfiz`        | string  | Memorization completed (تم تحفيظ)              |
+| `mourajah`      | string  | Review completed (تم مراجعة)                    |
+| `next_tasmii`   | string  | Next recitation plan (سيتم تسميع)              |
+| `next_mourajah` | string  | Next review plan (سيتم مراجعة)                 |
+| `notes`         | string  | Teacher notes                                  |
+| `zoom_image_url` | string  | Lesson screenshot URL                          |
+
+> **Note:** If `attendance` is changed, the `session_number` is automatically recalculated.
 
 #### Get Session Number
 

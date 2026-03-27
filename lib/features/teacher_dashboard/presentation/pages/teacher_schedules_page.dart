@@ -108,6 +108,9 @@ class _TeacherSchedulesPageState extends State<TeacherSchedulesPage> {
         lessonDuration: lessonDuration,
         sessionNumber: sessionNumber,
         getSessionNumber: _reportRepo.getSessionNumber,
+        onUploadImage: (imageFile) async {
+          return await _reportRepo.uploadReportImage(imageFile);
+        },
         onSubmit: ({
           required int studentId,
           required int teacherId,
@@ -117,7 +120,6 @@ class _TeacherSchedulesPageState extends State<TeacherSchedulesPage> {
           required int lessonDuration,
           int? sessionNumber,
           String? evaluation,
-          int? grade,
           String? tasmii,
           String? tahfiz,
           String? mourajah,
@@ -135,13 +137,13 @@ class _TeacherSchedulesPageState extends State<TeacherSchedulesPage> {
             lessonDuration: lessonDuration,
             sessionNumber: sessionNumber,
             evaluation: evaluation,
-            grade: grade,
             tasmii: tasmii,
             tahfiz: tahfiz,
             mourajah: mourajah,
             nextTasmii: nextTasmii,
             nextMourajah: nextMourajah,
             notes: notes,
+            zoomImageUrl: zoomImageUrl,
           );
         },
       ),
@@ -207,16 +209,9 @@ class _TeacherSchedulesPageState extends State<TeacherSchedulesPage> {
   TeacherReport? _findReportForSchedule(
       int studentId, String date, String time) {
     try {
-      final normalizedTime = time.replaceAll(' ', '').toUpperCase();
       for (final report in _reports) {
         if (report.studentId == studentId && report.date == date) {
-          final reportTime = report.time.replaceAll(' ', '').toUpperCase();
-          if (reportTime.contains(
-                  normalizedTime.substring(0, normalizedTime.length - 2)) ||
-              normalizedTime
-                  .contains(reportTime.substring(0, reportTime.length - 2))) {
-            return report;
-          }
+          return report;
         }
       }
       return null;
@@ -238,7 +233,7 @@ class _TeacherSchedulesPageState extends State<TeacherSchedulesPage> {
       return schedule.postponedDate!;
     }
 
-    // Calculate next occurrence of this day
+    // Calculate the date for this schedule
     final now = DateTime.now();
     final dayMap = {
       'الأحد': DateTime.sunday,
@@ -253,6 +248,12 @@ class _TeacherSchedulesPageState extends State<TeacherSchedulesPage> {
     final scheduledDay = dayMap[schedule.day];
     if (scheduledDay == null) return '';
 
+    // If today matches the scheduled day, return today's date
+    if (now.weekday == scheduledDay) {
+      return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    }
+
+    // Otherwise calculate next occurrence
     int daysUntil = (scheduledDay - now.weekday) % 7;
     if (daysUntil < 0) daysUntil += 7;
 

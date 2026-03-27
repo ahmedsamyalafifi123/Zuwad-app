@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/api/wordpress_api.dart';
+import '../../../../core/constants/api_constants.dart';
 import '../../domain/models/teacher_report.dart';
 
 class TeacherReportRepository {
@@ -80,7 +82,6 @@ class TeacherReportRepository {
     required int lessonDuration,
     int? sessionNumber,
     String? evaluation,
-    int? grade,
     String? tasmii,
     String? tahfiz,
     String? mourajah,
@@ -103,13 +104,13 @@ class TeacherReportRepository {
         time: time,
         sessionNumber: sessionNumber?.toString(),
         evaluation: evaluation,
-        grade: grade,
         tasmii: tasmii,
         tahfiz: tahfiz,
         mourajah: mourajah,
         nextTasmii: nextTasmii,
         nextMourajah: nextMourajah,
         notes: notes,
+        zoomImageUrl: zoomImageUrl,
       );
 
       if (kDebugMode) {
@@ -122,6 +123,28 @@ class TeacherReportRepository {
         print('Error creating report: $e');
       }
       throw Exception('Error creating report: $e');
+    }
+  }
+
+  Future<String?> uploadReportImage(File imageFile) async {
+    try {
+      if (kDebugMode) {
+        print('Uploading report image');
+      }
+
+      // Upload image - use report_id 0 for temporary upload
+      final imageUrl = await _api.uploadReportImage(0, imageFile.path);
+
+      if (kDebugMode) {
+        print('Report image uploaded: $imageUrl');
+      }
+
+      return imageUrl;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error uploading report image: $e');
+      }
+      return null;
     }
   }
 
