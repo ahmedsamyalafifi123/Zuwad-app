@@ -188,12 +188,6 @@ class _ReportFormDialogState extends State<ReportFormDialog> {
   final List<String> _attendanceOptions = [
     'حضور',
     'غياب',
-    'تأجيل المعلم',
-    'تأجيل ولي أمر',
-    'تعويض الغياب',
-    'تعويض التأجيل',
-    'تجريبي',
-    'اجازة معلم',
   ];
 
   final List<String> _evaluationOptions = [
