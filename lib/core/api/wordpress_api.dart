@@ -50,13 +50,20 @@ class WordPressApi {
             return handler.next(error);
           }
 
+          // Skip if this request was already retried once (prevent infinite loop
+          // when the endpoint itself returns 401 due to permissions, not expired token)
+          if (error.requestOptions.extra['_retried'] == true) {
+            return handler.next(error);
+          }
+
           try {
             final refreshed = await refreshToken();
             if (refreshed) {
-              // Retry the original request with new token
+              // Retry the original request with new token (only once)
               final newToken = await _secureStorage.getToken();
               error.requestOptions.headers['Authorization'] =
                   'Bearer $newToken';
+              error.requestOptions.extra['_retried'] = true;
               final response = await _dio.fetch(error.requestOptions);
               return handler.resolve(response);
             }

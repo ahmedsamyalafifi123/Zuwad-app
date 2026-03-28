@@ -1041,19 +1041,24 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
 
     try {
-      final messages = await _userMessageRepository.getUserMessages(
+      final result = await _userMessageRepository.getUserMessagesWithCount(
         page: 1,
         perPage: 10,
-        status: 'unread',
+        status: 'all',
       );
-      final unreadCount = await _userMessageRepository.getUnreadCount();
 
       if (!mounted) return;
+      final firstMessage = result.messages.isNotEmpty ? result.messages.first : null;
       setState(() {
-        _latestUserMessage = messages.isNotEmpty ? messages.first : null;
-        _userMessagesUnreadCount = unreadCount;
+        _latestUserMessage = firstMessage;
+        _userMessagesUnreadCount = result.unreadCount;
         _isLoadingUserMessage = false;
       });
+
+      // Auto-mark as read once the message is seen
+      if (firstMessage != null && !firstMessage.isRead) {
+        _userMessageRepository.markAsRead(firstMessage.id);
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Error loading user messages: $e');
@@ -2801,170 +2806,119 @@ class _DashboardContentState extends State<_DashboardContent> {
     if (_latestUserMessage == null) return const SizedBox.shrink();
 
     final message = _latestUserMessage!;
-    final preview = _stripHtmlTags(message.message);
-    final previewText =
-        preview.length > 110 ? '${preview.substring(0, 110).trim()}...' : preview;
+    final bodyText = _stripHtmlTags(message.message);
+    final isHighPriority = message.isHighPriority;
     final accentColor =
-        message.isHighPriority ? const Color(0xFF820C22) : const Color(0xFFD4AF37);
-    final chipText = message.isHighPriority ? 'رسالة مهمة' : 'رسالة جديدة';
+        isHighPriority ? const Color(0xFF820C22) : const Color(0xFFD4AF37);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.markunread_mailbox_outlined,
-                  color: Color(0xFFD4AF37), size: 32),
-              SizedBox(width: 8),
-              Text(
-                'رسائل لك',
-                style: TextStyle(
-                  fontFamily: 'Qatar',
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+      child: GestureDetector(
+        onTap: () => _openUserMessageDetails(message),
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: accentColor.withValues(alpha: 0.18),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          InkWell(
-            onTap: () => _openUserMessageDetails(message),
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color.fromARGB(255, 255, 255, 255),
-                    Color.fromARGB(255, 230, 230, 230),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color.fromARGB(140, 0, 0, 0),
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-                border: Border.all(
-                  color: accentColor.withValues(alpha: 0.28),
-                  width: 1.2,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: accentColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          chipText,
-                          style: TextStyle(
-                            fontFamily: 'Qatar',
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: accentColor,
+                  // Accent left strip
+                  Container(
+                    width: 5,
+                    color: accentColor,
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                isHighPriority
+                                    ? Icons.campaign_rounded
+                                    : Icons.mail_rounded,
+                                color: accentColor,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  message.title,
+                                  style: const TextStyle(
+                                    fontFamily: 'Qatar',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ),
+                              if (_userMessagesUnreadCount > 0)
+                                Container(
+                                  margin: const EdgeInsets.only(right: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF820C22),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    '$_userMessagesUnreadCount',
+                                    style: const TextStyle(
+                                      fontFamily: 'Qatar',
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                        ),
-                      ),
-                      const Spacer(),
-                      if (_userMessagesUnreadCount > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF820C22),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            '$_userMessagesUnreadCount',
+                          if (_formatMessageDate(message.createdAt).isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              _formatMessageDate(message.createdAt),
+                              style: TextStyle(
+                                fontFamily: 'Qatar',
+                                fontSize: 11,
+                                color: accentColor.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 10),
+                          Text(
+                            bodyText,
                             style: const TextStyle(
                               fontFamily: 'Qatar',
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              fontSize: 14,
+                              color: Colors.black87,
+                              height: 1.6,
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    message.title,
-                    style: const TextStyle(
-                      fontFamily: 'Qatar',
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  if (_formatMessageDate(message.createdAt).isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.schedule, size: 16, color: accentColor),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            _formatMessageDate(message.createdAt),
-                            style: const TextStyle(
-                              fontFamily: 'Qatar',
-                              fontSize: 13,
-                              color: Colors.black54,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Text(
-                    previewText,
-                    style: const TextStyle(
-                      fontFamily: 'Qatar',
-                      fontSize: 14,
-                      color: Colors.black87,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Text(
-                        'اضغط لقراءة الرسالة',
-                        style: TextStyle(
-                          fontFamily: 'Qatar',
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: accentColor,
-                        ),
+                        ],
                       ),
-                      const Spacer(),
-                      Icon(Icons.arrow_back_ios_new, size: 14, color: accentColor),
-                    ],
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
