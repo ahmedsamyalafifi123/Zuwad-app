@@ -791,7 +791,10 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
           ),
         ),
       ),
-      body: _pages[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
+      ),
       extendBody: true,
       extendBodyBehindAppBar: true, // Allow body to show behind rounded corners
       bottomNavigationBar: IslamicBottomNavBar(
@@ -963,10 +966,13 @@ class _DashboardContentState extends State<_DashboardContent> {
   @override
   void initState() {
     super.initState();
-    // Force refresh on init to ensure fresh data after page reload
-    _loadNextLesson(forceRefresh: true);
-    _loadNextEvent();
-    _loadLatestUserMessage();
+    // Load lesson data and secondary data in parallel,
+    // then family members last to avoid simultaneous request bursts.
+    Future.wait([
+      _loadNextLesson(forceRefresh: true),
+      _loadNextEvent(),
+      _loadLatestUserMessage(),
+    ]).then((_) => _loadFamilyMembers());
   }
 
   @override
@@ -1338,11 +1344,6 @@ class _DashboardContentState extends State<_DashboardContent> {
 
         // Get student data
         final student = authState.student!;
-
-        // Load family members if not loaded
-        if (_familyMembers.isEmpty) {
-          _loadFamilyMembers();
-        }
 
         _lessonName = student.displayLessonName;
         _teacherName = student.teacherName ?? 'المعلم';
@@ -3094,7 +3095,11 @@ class _DashboardContentState extends State<_DashboardContent> {
     }
   }
 
+  bool _isFetchingFamily = false;
+
   Future<void> _loadFamilyMembers() async {
+    if (_isFetchingFamily) return;
+    _isFetchingFamily = true;
     try {
       if (kDebugMode) {
         print('_loadFamilyMembers: Starting to load family members...');
@@ -3115,6 +3120,8 @@ class _DashboardContentState extends State<_DashboardContent> {
       if (kDebugMode) {
         print('Error loading family members: $e');
       }
+    } finally {
+      _isFetchingFamily = false;
     }
   }
 
@@ -3471,16 +3478,17 @@ class _DashboardContentState extends State<_DashboardContent> {
 
               return RefreshIndicator(
                 onRefresh: () async {
-                  // Clear family members so they reload fresh
                   setState(() {
                     _familyMembers = [];
+                    _isFetchingFamily = false;
                   });
                   context.read<AuthBloc>().add(GetStudentProfileEvent());
-                  await _loadNextLesson(forceRefresh: true);
-                  await _loadNextEvent();
-                  await _loadLatestUserMessage();
-                  // Reload family members in the background
-                  _loadFamilyMembers();
+                  await Future.wait([
+                    _loadNextLesson(forceRefresh: true),
+                    _loadNextEvent(),
+                    _loadLatestUserMessage(),
+                  ]);
+                  await _loadFamilyMembers();
                 },
                 color: const Color(0xFFD4AF37),
                 backgroundColor: Colors.white,

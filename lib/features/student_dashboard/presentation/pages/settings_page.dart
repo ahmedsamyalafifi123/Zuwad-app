@@ -273,10 +273,22 @@ class _SettingsPageState extends State<SettingsPage> {
     'هونغ كونغ',
   ];
 
+  bool _hasLoaded = false;
+
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // Data is loaded lazily on first activation (see didChangeDependencies)
+    // to avoid firing API calls at app startup when using IndexedStack.
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasLoaded) {
+      _hasLoaded = true;
+      _loadData();
+    }
   }
 
   @override

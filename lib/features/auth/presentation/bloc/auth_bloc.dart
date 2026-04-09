@@ -204,7 +204,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     GetStudentProfileEvent event,
     Emitter<AuthState> emit,
   ) async {
-    if (state is AuthAuthenticated) {
+    if (state is AuthAuthenticated || state is AuthError) {
       emit(AuthLoading());
       try {
         final student = await _authRepository.getStudentProfile();
