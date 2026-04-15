@@ -183,11 +183,14 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
   Widget _buildVideoOrAvatar() {
     if (_videoTrack != null && _isVideoEnabled && !widget.forceAvatar) {
       return SizedBox.expand(
-        // AbsorbPointer prevents tap-to-focus gesture from reaching the
-        // flutter_webrtc GestureDetector inside VideoTrackRenderer.
-        // Without this, a touch triggers setFocusPoint() in native code which
-        // crashes with NPE when DeviceOrientation is null under forced landscape.
-        child: AbsorbPointer(
+        // IgnorePointer removes the platform view from hit testing entirely.
+        // This prevents taps from reaching flutter_webrtc's native camera view,
+        // which calls setExposurePoint() -> convertPointToMeteringRectangle()
+        // and crashes with NPE when DeviceOrientation is null under forced landscape.
+        // IgnorePointer is used instead of AbsorbPointer because Android platform
+        // views receive touch events at the native level, bypassing Flutter's
+        // AbsorbPointer (which participates in hit testing).
+        child: IgnorePointer(
           child: VideoTrackRenderer(
             _videoTrack!,
             fit: _isScreenSharing ? VideoViewFit.contain : VideoViewFit.cover,
