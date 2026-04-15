@@ -183,9 +183,15 @@ class _ParticipantWidgetState extends State<ParticipantWidget> {
   Widget _buildVideoOrAvatar() {
     if (_videoTrack != null && _isVideoEnabled && !widget.forceAvatar) {
       return SizedBox.expand(
-        child: VideoTrackRenderer(
-          _videoTrack!,
-          fit: _isScreenSharing ? VideoViewFit.contain : VideoViewFit.cover,
+        // AbsorbPointer prevents tap-to-focus gesture from reaching the
+        // flutter_webrtc GestureDetector inside VideoTrackRenderer.
+        // Without this, a touch triggers setFocusPoint() in native code which
+        // crashes with NPE when DeviceOrientation is null under forced landscape.
+        child: AbsorbPointer(
+          child: VideoTrackRenderer(
+            _videoTrack!,
+            fit: _isScreenSharing ? VideoViewFit.contain : VideoViewFit.cover,
+          ),
         ),
       );
     }
