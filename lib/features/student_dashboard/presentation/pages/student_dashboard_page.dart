@@ -1256,6 +1256,17 @@ class _DashboardContentState extends State<_DashboardContent> {
     final student = authState.student!;
     final event = _nextEvent!;
 
+    // Capture navigator before async gap so dialog can be dismissed even if widget unmounts
+    final navigator = Navigator.of(context);
+    bool dialogDismissed = false;
+
+    void dismissDialog() {
+      if (!dialogDismissed) {
+        dialogDismissed = true;
+        navigator.pop();
+      }
+    }
+
     // Show loading while fetching server token
     showDialog(
       context: context,
@@ -1266,9 +1277,11 @@ class _DashboardContentState extends State<_DashboardContent> {
     );
 
     try {
-      print('[_joinEvent] ▶ event.roomName=${event.roomName}');
-      print('[_joinEvent] ▶ event.roomUrl=${event.roomUrl}');
-      print('[_joinEvent] ▶ student.name=${student.name} id=${student.id}');
+      if (kDebugMode) {
+        print('[_joinEvent] ▶ event.roomName=${event.roomName}');
+        print('[_joinEvent] ▶ event.roomUrl=${event.roomUrl}');
+        print('[_joinEvent] ▶ student.name=${student.name} id=${student.id}');
+      }
 
       // Extract actual room name from roomUrl (the room= query param has the correct name)
       // e.g. roomUrl = "/lesson/?room=event_1772749321_9402&..." → "event_1772749321_9402"
@@ -1284,7 +1297,9 @@ class _DashboardContentState extends State<_DashboardContent> {
           }
         } catch (_) {}
       }
-      print('[_joinEvent] ▶ actualRoomName=$actualRoomName');
+      if (kDebugMode) {
+        print('[_joinEvent] ▶ actualRoomName=$actualRoomName');
+      }
 
       // Fetch server-side token — same mechanism as the web system
       final tokenData = await WordPressApi().getMeetingToken(
@@ -1292,17 +1307,26 @@ class _DashboardContentState extends State<_DashboardContent> {
         studentName: student.name,
       );
 
+      dismissDialog();
       if (!mounted) return;
-      Navigator.pop(context); // dismiss loading
 
-      final serverToken = tokenData?['token'] as String?;
-      final serverUrl = tokenData?['server_url'] as String?;
+      if (tokenData == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تعذّر الحصول على رمز الجلسة. يرجى المحاولة مرة أخرى.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
 
-      print('[_joinEvent] tokenData=$tokenData');
-      print(
-          '[_joinEvent] serverToken=${serverToken != null ? "✅ present" : "❌ null — will use client-side fallback"}');
-      print('[_joinEvent] serverUrl=$serverUrl');
-      print('[_joinEvent] ▶ pushing MeetingPage...');
+      final serverToken = tokenData['token'] as String?;
+      final serverUrl = tokenData['server_url'] as String?;
+
+      if (kDebugMode) {
+        print('[_joinEvent] serverToken=${serverToken != null ? "✅ present" : "❌ null"}');
+        print('[_joinEvent] serverUrl=$serverUrl');
+      }
 
       Navigator.push(
         context,
@@ -1320,10 +1344,12 @@ class _DashboardContentState extends State<_DashboardContent> {
         ),
       );
     } catch (e, st) {
-      print('[_joinEvent] ❌ EXCEPTION: $e');
-      print('[_joinEvent] ❌ stacktrace: $st');
+      if (kDebugMode) {
+        print('[_joinEvent] ❌ EXCEPTION: $e');
+        print('[_joinEvent] ❌ stacktrace: $st');
+      }
+      dismissDialog();
       if (mounted) {
-        Navigator.pop(context); // dismiss loading
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('حدث خطأ أثناء الانضمام للحدث: ${e.toString()}'),
@@ -3351,70 +3377,95 @@ class _DashboardContentState extends State<_DashboardContent> {
     });
   }
 
-  void _joinLesson() {
+  Future<void> _joinLesson() async {
     if (_nextLesson == null) return;
 
-    if (kDebugMode) {
-      print('JoinLesson: Starting join process');
-    }
-    try {
-      if (kDebugMode) {
-        print('JoinLesson: Generating room name');
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated || authState.student == null) return;
+    final student = authState.student!;
+
+    // Capture navigator before async gap so dialog can be dismissed even if widget unmounts
+    final navigator = Navigator.of(context);
+    bool dialogDismissed = false;
+
+    void dismissDialog() {
+      if (!dialogDismissed) {
+        dialogDismissed = true;
+        navigator.pop();
       }
+    }
+
+    // Show loading while fetching server token
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
+      ),
+    );
+
+    try {
       final roomName = _generateRoomName();
       if (kDebugMode) {
-        print('JoinLesson: Room name generated: $roomName');
-        print('JoinLesson: Getting participant name');
+        print('[_joinLesson] roomName=$roomName studentName=${student.name}');
       }
-      final participantName = _getParticipantName();
+
+      // Fetch server-side token — same as _joinEvent so the room matches
+      final tokenData = await WordPressApi().getMeetingToken(
+        roomName: roomName,
+        studentName: student.name,
+      );
+
+      dismissDialog();
+      if (!mounted) return;
+
+      if (tokenData == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تعذّر الحصول على رمز الجلسة. يرجى المحاولة مرة أخرى.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final serverToken = tokenData['token'] as String?;
+      final serverUrl = tokenData['server_url'] as String?;
+
       if (kDebugMode) {
-        print('JoinLesson: Participant name: $participantName');
-        print('JoinLesson: Getting participant ID');
+        print('[_joinLesson] serverToken=${serverToken != null ? "✅ present" : "❌ null"}');
+        print('[_joinLesson] serverUrl=$serverUrl');
       }
-      final participantId = _getParticipantId();
-      if (kDebugMode) {
-        print('JoinLesson: Participant ID: $participantId');
-        print('JoinLesson: Getting participant Email');
-      }
-      final participantEmail = _getParticipantEmail();
-      if (kDebugMode) {
-        print('JoinLesson: Participant Email: $participantEmail');
-        print('JoinLesson: Pushing MeetingPage');
-      }
+
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => MeetingPage(
             roomName: roomName,
-            participantName: participantName,
-            participantId: participantId,
-            participantEmail: participantEmail,
+            participantName: student.name,
+            participantId: student.id.toString(),
+            participantEmail: student.email ?? '',
             lessonName: _lessonName,
             teacherName: _teacherName,
+            serverToken: serverToken,
+            serverUrl: serverUrl,
           ),
         ),
       );
+    } catch (e, st) {
       if (kDebugMode) {
-        print('JoinLesson: Navigation pushed successfully');
+        print('[_joinLesson] ❌ EXCEPTION: $e');
+        print('[_joinLesson] ❌ stacktrace: $st');
       }
-    } catch (e) {
-      if (kDebugMode) {
-        print('JoinLesson Error: $e');
+      dismissDialog();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ أثناء الانضمام للدرس: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-      // Show error dialog
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('خطأ'),
-          content: Text('حدث خطأ أثناء محاولة الانضمام للدرس: ${e.toString()}'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('حسناً'),
-            ),
-          ],
-        ),
-      );
     }
   }
 
@@ -3429,30 +3480,6 @@ class _DashboardContentState extends State<_DashboardContent> {
       );
     }
     return 'default_room';
-  }
-
-  String _getParticipantName() {
-    final authState = context.read<AuthBloc>().state;
-    if (authState is AuthAuthenticated && authState.student != null) {
-      return authState.student!.name;
-    }
-    return 'طالب';
-  }
-
-  String _getParticipantId() {
-    final authState = context.read<AuthBloc>().state;
-    if (authState is AuthAuthenticated && authState.student != null) {
-      return authState.student!.id.toString();
-    }
-    return '0';
-  }
-
-  String _getParticipantEmail() {
-    final authState = context.read<AuthBloc>().state;
-    if (authState is AuthAuthenticated && authState.student != null) {
-      return authState.student!.email ?? '';
-    }
-    return '';
   }
 
   @override

@@ -1101,6 +1101,9 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
   }
 
   Widget _buildErrorScreen() {
+    // Determine if this is a permissions error or a connection error
+    final isPermissionError = !_cameraGranted || !_microphoneGranted;
+
     return Container(
       color: AppTheme.primaryColor,
       child: Center(
@@ -1125,27 +1128,54 @@ class _MeetingPageState extends State<MeetingPage> with WidgetsBindingObserver {
                 ),
               ),
               const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: () {
-                  _showPermissionSettingsDialog();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFf6c302),
-                  foregroundColor: AppTheme.primaryColor,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25),
+              if (isPermissionError)
+                ElevatedButton(
+                  onPressed: () {
+                    _showPermissionSettingsDialog();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFf6c302),
+                    foregroundColor: AppTheme.primaryColor,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                  ),
+                  child: const Text(
+                    'تفعيل الصلاحيات',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              else
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _isConnecting = true;
+                      _errorMessage = null;
+                    });
+                    _connectToRoom();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFf6c302),
+                    foregroundColor: AppTheme.primaryColor,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                  ),
+                  child: const Text(
+                    'إعادة المحاولة',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-                child: const Text(
-                  'تفعيل الصلاحيات',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
             ],
           ),
         ),

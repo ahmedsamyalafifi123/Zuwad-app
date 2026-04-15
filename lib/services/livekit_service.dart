@@ -91,6 +91,16 @@ class LiveKitService {
         print('LiveKitService: Creating Room');
       }
 
+      // Dispose any previous room before creating a new one (retry path)
+      if (_room != null) {
+        try {
+          await _room!.disconnect();
+          await _room!.dispose();
+        } catch (_) {}
+        _room = null;
+        _isConnected = false;
+      }
+
       // Create room instance with audio-specific configurations
       _room = Room(
         roomOptions: RoomOptions(
