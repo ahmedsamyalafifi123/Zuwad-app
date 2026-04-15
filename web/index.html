@@ -46,6 +46,7 @@
       margin: 0;
       padding: 0;
       overflow: hidden;
+      background-color: #8b0628;
     }
     
     #loading-screen {
@@ -109,13 +110,8 @@
       50% { transform: scale(1.05); }
     }
     
-    /* Ensure Flutter app container is ready */
+    /* Flutter app container - always visible, loading screen covers it while loading */
     flt-glass-pane {
-      opacity: 0;
-      transition: opacity 0.3s ease-in;
-    }
-    
-    flt-glass-pane.ready {
       opacity: 1;
     }
   </style>
@@ -134,18 +130,8 @@
     // Remove loading screen when Flutter is ready
     window.addEventListener('flutter-first-frame', function() {
       const loadingScreen = document.getElementById('loading-screen');
-      const flutterPane = document.querySelector('flt-glass-pane');
-      
       if (loadingScreen) {
-        // Add fade-out class
         loadingScreen.classList.add('fade-out');
-        
-        // Show Flutter app
-        if (flutterPane) {
-          flutterPane.classList.add('ready');
-        }
-        
-        // Remove loading screen from DOM after animation
         setTimeout(function() {
           loadingScreen.remove();
         }, 500);
