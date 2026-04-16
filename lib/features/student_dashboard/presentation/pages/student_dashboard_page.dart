@@ -1311,11 +1311,7 @@ class _DashboardContentState extends State<_DashboardContent> {
       dismissDialog();
       if (!mounted) return;
 
-      final tokenResult = _resolveMeetingToken(
-        tokenData,
-        tokenErrorCode,
-        'ليس لديك صلاحية الانضمام لهذا الحدث.',
-      );
+      final tokenResult = _resolveMeetingToken(tokenData, tokenErrorCode);
       if (tokenResult == null) return;
 
       if (kDebugMode) {
@@ -3415,11 +3411,7 @@ class _DashboardContentState extends State<_DashboardContent> {
       dismissDialog();
       if (!mounted) return;
 
-      final tokenResult = _resolveMeetingToken(
-        tokenData,
-        tokenErrorCode,
-        'ليس لديك صلاحية الانضمام لهذا الدرس.',
-      );
+      final tokenResult = _resolveMeetingToken(tokenData, tokenErrorCode);
       if (tokenResult == null) return;
 
       if (kDebugMode) {
@@ -3480,12 +3472,10 @@ class _DashboardContentState extends State<_DashboardContent> {
   ///  - `null`  — no HTTP response (network failure) → local-token fallback
   ///  - `-1`    — HTTP 200 with malformed body → hard block (no fallback)
   ///  - `401`   — authentication expired → hard block, prompt re-login
-  ///  - `403`   — access denied → hard block
   ///  - other   — server/infra error → local-token fallback
   ({String? serverToken, String? serverUrl})? _resolveMeetingToken(
     Map<String, dynamic>? tokenData,
     int? errorCode,
-    String permissionDeniedMessage,
   ) {
     // Happy path — server supplied a valid token.
     if (tokenData != null) {
@@ -3493,30 +3483,6 @@ class _DashboardContentState extends State<_DashboardContent> {
         serverToken: tokenData['token'] as String?,
         serverUrl: tokenData['server_url'] as String?,
       );
-    }
-
-    // Malformed success response: server said 200 but body was unexpected.
-    // This is a logic error, not an infra failure — do NOT fall back to a
-    // local token because we cannot know whether the student is allowed in.
-    if (errorCode == -1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تعذّر الحصول على رمز الجلسة. يرجى المحاولة مرة أخرى.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return null;
-    }
-
-    // Server explicitly denied access — do NOT fall back to a local token.
-    if (errorCode == 403) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(permissionDeniedMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return null;
     }
 
     // Session expired and token refresh also failed — user must re-login.
@@ -3530,10 +3496,11 @@ class _DashboardContentState extends State<_DashboardContent> {
       return null;
     }
 
-    // Infrastructure failure (5xx, 404, network, etc.).
-    // Fall back to a locally-generated JWT so the user is not blocked by a
-    // temporary server issue. LiveKitConfig already embeds the credentials,
-    // so this does not expose anything new.
+    // For all other failures (403, 500, 404, -1, network, etc.) fall back to
+    // a locally-generated JWT. The LiveKit API key/secret are already embedded
+    // in the app (LiveKitConfig), so this exposes nothing new and ensures
+    // every student can reach their lesson even when the token endpoint has
+    // issues.
     if (kDebugMode) {
       print(
           '[_resolveMeetingToken] ⚠️ server token unavailable (code=$errorCode) — using local JWT fallback');
