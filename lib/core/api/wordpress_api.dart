@@ -559,9 +559,29 @@ class WordPressApi {
     required String roomName,
     String studentName = '',
   }) async {
+    final (data, _) = await getMeetingTokenWithError(
+      roomName: roomName,
+      studentName: studentName,
+    );
+    return data;
+  }
+
+  /// Like [getMeetingToken] but also returns a status code on failure so
+  /// callers can distinguish error types.
+  ///
+  /// Return values for the second element:
+  /// - `null`  — network / connection-level failure (no HTTP response at all)
+  /// - `401`   — authentication failure (token refresh also failed)
+  /// - `403`   — server explicitly denied access to this room
+  /// - `-1`    — server returned HTTP 200 but with a malformed/unsuccessful body
+  /// - other   — the raw HTTP status code returned by the server
+  Future<(Map<String, dynamic>?, int?)> getMeetingTokenWithError({
+    required String roomName,
+    String studentName = '',
+  }) async {
     try {
       final endpoint = '${ApiConstants.v2BaseUrl}/meetings/token';
-      print('[getMeetingToken] ▶ POST $endpoint room=$roomName');
+      if (kDebugMode) print('[getMeetingToken] ▶ POST $endpoint room=$roomName');
 
       final response = await _dio.post(
         endpoint,
@@ -569,32 +589,96 @@ class WordPressApi {
           'room_name': roomName,
           'student_name': studentName,
         },
+        // Accept all status codes so we can inspect the body and handle each
+        // case ourselves. The global onError interceptor only fires when Dio
+        // *throws*, so we bypass it here and manage 401 refresh manually.
+        options: Options(validateStatus: (status) => true),
       );
 
-      print('[getMeetingToken] ◀ status: ${response.statusCode}');
-      print('[getMeetingToken] ◀ body: ${response.data}');
+      if (kDebugMode) {
+        print('[getMeetingToken] ◀ status: ${response.statusCode}');
+        print('[getMeetingToken] ◀ body: ${response.data}');
+      }
 
+      // ── Success path ────────────────────────────────────────────────────
       if (response.statusCode == 200) {
         final body = response.data;
         if (body is Map && body['success'] == true && body['data'] != null) {
           final data = Map<String, dynamic>.from(body['data'] as Map);
-          print(
-              '[getMeetingToken] ✅ token=${data['token'] != null ? "present(${(data['token'] as String).length} chars)" : "NULL"}');
-          print('[getMeetingToken] ✅ server_url=${data['server_url']}');
-          print('[getMeetingToken] ✅ room_name=${data['room_name']}');
-          return data;
-        } else {
-          print('[getMeetingToken] ❌ success!=true or data==null. body=$body');
+          if (kDebugMode) {
+            print(
+                '[getMeetingToken] ✅ token=${data['token'] != null ? "present(${(data['token'] as String).length} chars)" : "NULL"}');
+            print('[getMeetingToken] ✅ server_url=${data['server_url']}');
+            print('[getMeetingToken] ✅ room_name=${data['room_name']}');
+          }
+          return (data, null);
         }
-      } else {
-        print(
-            '[getMeetingToken] ❌ status=${response.statusCode} body=${response.data}');
+        // Server returned 200 but body was not the expected shape (e.g.
+        // success:false). Use sentinel -1 so callers can distinguish this
+        // from a network error and show an appropriate message instead of
+        // silently falling back to a local token.
+        if (kDebugMode) {
+          print('[getMeetingToken] ❌ 200 but success!=true or data==null. body=${response.data}');
+        }
+        return (null, -1);
       }
-      return null;
+
+      // ── 401: try refreshing once, then retry ────────────────────────────
+      if (response.statusCode == 401) {
+        if (kDebugMode) print('[getMeetingToken] ⚠️ 401 — attempting token refresh...');
+        try {
+          final refreshed = await refreshToken();
+          if (refreshed) {
+            // Explicitly read the newly-saved token and attach it so we do
+            // not depend on the onRequest interceptor ordering.
+            final newToken = await _secureStorage.getToken();
+            final retryResponse = await _dio.post(
+              endpoint,
+              data: {
+                'room_name': roomName,
+                'student_name': studentName,
+              },
+              options: Options(
+                validateStatus: (status) => true,
+                headers: newToken != null
+                    ? {'Authorization': 'Bearer $newToken'}
+                    : null,
+              ),
+            );
+            if (kDebugMode) print('[getMeetingToken] ◀ retry status: ${retryResponse.statusCode}');
+            if (retryResponse.statusCode == 200) {
+              final body = retryResponse.data;
+              if (body is Map &&
+                  body['success'] == true &&
+                  body['data'] != null) {
+                final data = Map<String, dynamic>.from(body['data'] as Map);
+                if (kDebugMode) print('[getMeetingToken] ✅ token obtained after refresh');
+                return (data, null);
+              }
+              return (null, -1);
+            }
+            if (kDebugMode) {
+              print('[getMeetingToken] ❌ retry failed: status=${retryResponse.statusCode} body=${retryResponse.data}');
+            }
+            return (null, retryResponse.statusCode ?? 401);
+          }
+        } catch (refreshErr) {
+          if (kDebugMode) print('[getMeetingToken] ❌ refresh error: $refreshErr');
+        }
+        return (null, 401);
+      }
+
+      // ── Any other HTTP error ─────────────────────────────────────────────
+      if (kDebugMode) {
+        print('[getMeetingToken] ❌ status=${response.statusCode} body=${response.data}');
+      }
+      return (null, response.statusCode);
     } catch (e, st) {
-      print('[getMeetingToken] ❌ EXCEPTION: $e');
-      print('[getMeetingToken] ❌ stacktrace: $st');
-      return null;
+      if (kDebugMode) {
+        print('[getMeetingToken] ❌ EXCEPTION: $e');
+        print('[getMeetingToken] ❌ stacktrace: $st');
+      }
+      return (null, null);
     }
   }
 

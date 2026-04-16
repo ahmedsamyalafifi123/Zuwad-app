@@ -1302,7 +1302,8 @@ class _DashboardContentState extends State<_DashboardContent> {
       }
 
       // Fetch server-side token — same mechanism as the web system
-      final tokenData = await WordPressApi().getMeetingToken(
+      final (tokenData, tokenErrorCode) =
+          await WordPressApi().getMeetingTokenWithError(
         roomName: actualRoomName,
         studentName: student.name,
       );
@@ -1310,22 +1311,16 @@ class _DashboardContentState extends State<_DashboardContent> {
       dismissDialog();
       if (!mounted) return;
 
-      if (tokenData == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تعذّر الحصول على رمز الجلسة. يرجى المحاولة مرة أخرى.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      final serverToken = tokenData['token'] as String?;
-      final serverUrl = tokenData['server_url'] as String?;
+      final tokenResult = _resolveMeetingToken(
+        tokenData,
+        tokenErrorCode,
+        'ليس لديك صلاحية الانضمام لهذا الحدث.',
+      );
+      if (tokenResult == null) return;
 
       if (kDebugMode) {
-        print('[_joinEvent] serverToken=${serverToken != null ? "✅ present" : "❌ null"}');
-        print('[_joinEvent] serverUrl=$serverUrl');
+        print('[_joinEvent] serverToken=${tokenResult.serverToken != null ? "✅ present" : "⚠️ null → local fallback"}');
+        print('[_joinEvent] serverUrl=${tokenResult.serverUrl}');
       }
 
       Navigator.push(
@@ -1338,8 +1333,8 @@ class _DashboardContentState extends State<_DashboardContent> {
             participantEmail: student.email ?? '',
             lessonName: event.title,
             teacherName: event.teacherName,
-            serverToken: serverToken,
-            serverUrl: serverUrl,
+            serverToken: tokenResult.serverToken,
+            serverUrl: tokenResult.serverUrl,
           ),
         ),
       );
@@ -3411,7 +3406,8 @@ class _DashboardContentState extends State<_DashboardContent> {
       }
 
       // Fetch server-side token — same as _joinEvent so the room matches
-      final tokenData = await WordPressApi().getMeetingToken(
+      final (tokenData, tokenErrorCode) =
+          await WordPressApi().getMeetingTokenWithError(
         roomName: roomName,
         studentName: student.name,
       );
@@ -3419,22 +3415,16 @@ class _DashboardContentState extends State<_DashboardContent> {
       dismissDialog();
       if (!mounted) return;
 
-      if (tokenData == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تعذّر الحصول على رمز الجلسة. يرجى المحاولة مرة أخرى.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      final serverToken = tokenData['token'] as String?;
-      final serverUrl = tokenData['server_url'] as String?;
+      final tokenResult = _resolveMeetingToken(
+        tokenData,
+        tokenErrorCode,
+        'ليس لديك صلاحية الانضمام لهذا الدرس.',
+      );
+      if (tokenResult == null) return;
 
       if (kDebugMode) {
-        print('[_joinLesson] serverToken=${serverToken != null ? "✅ present" : "❌ null"}');
-        print('[_joinLesson] serverUrl=$serverUrl');
+        print('[_joinLesson] serverToken=${tokenResult.serverToken != null ? "✅ present" : "⚠️ null → local fallback"}');
+        print('[_joinLesson] serverUrl=${tokenResult.serverUrl}');
       }
 
       Navigator.push(
@@ -3447,8 +3437,8 @@ class _DashboardContentState extends State<_DashboardContent> {
             participantEmail: student.email ?? '',
             lessonName: _lessonName,
             teacherName: _teacherName,
-            serverToken: serverToken,
-            serverUrl: serverUrl,
+            serverToken: tokenResult.serverToken,
+            serverUrl: tokenResult.serverUrl,
           ),
         ),
       );
@@ -3480,6 +3470,75 @@ class _DashboardContentState extends State<_DashboardContent> {
       );
     }
     return 'default_room';
+  }
+
+  /// Resolves the result of [WordPressApi.getMeetingTokenWithError] into a
+  /// usable `({serverToken, serverUrl})` pair or `null` when the caller must
+  /// abort (the appropriate SnackBar has already been shown).
+  ///
+  /// Error code semantics:
+  ///  - `null`  — no HTTP response (network failure) → local-token fallback
+  ///  - `-1`    — HTTP 200 with malformed body → hard block (no fallback)
+  ///  - `401`   — authentication expired → hard block, prompt re-login
+  ///  - `403`   — access denied → hard block
+  ///  - other   — server/infra error → local-token fallback
+  ({String? serverToken, String? serverUrl})? _resolveMeetingToken(
+    Map<String, dynamic>? tokenData,
+    int? errorCode,
+    String permissionDeniedMessage,
+  ) {
+    // Happy path — server supplied a valid token.
+    if (tokenData != null) {
+      return (
+        serverToken: tokenData['token'] as String?,
+        serverUrl: tokenData['server_url'] as String?,
+      );
+    }
+
+    // Malformed success response: server said 200 but body was unexpected.
+    // This is a logic error, not an infra failure — do NOT fall back to a
+    // local token because we cannot know whether the student is allowed in.
+    if (errorCode == -1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تعذّر الحصول على رمز الجلسة. يرجى المحاولة مرة أخرى.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return null;
+    }
+
+    // Server explicitly denied access — do NOT fall back to a local token.
+    if (errorCode == 403) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(permissionDeniedMessage),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return null;
+    }
+
+    // Session expired and token refresh also failed — user must re-login.
+    if (errorCode == 401) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('انتهت صلاحية الجلسة. يرجى تسجيل الدخول مجدداً.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return null;
+    }
+
+    // Infrastructure failure (5xx, 404, network, etc.).
+    // Fall back to a locally-generated JWT so the user is not blocked by a
+    // temporary server issue. LiveKitConfig already embeds the credentials,
+    // so this does not expose anything new.
+    if (kDebugMode) {
+      print(
+          '[_resolveMeetingToken] ⚠️ server token unavailable (code=$errorCode) — using local JWT fallback');
+    }
+    return (serverToken: null, serverUrl: null);
   }
 
   @override
