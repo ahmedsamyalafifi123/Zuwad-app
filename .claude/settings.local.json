@@ -14,7 +14,8 @@
       "Bash(curl:*)",
       "Bash(export:*)",
       "WebSearch",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(pod update *)"
     ]
   }
 }

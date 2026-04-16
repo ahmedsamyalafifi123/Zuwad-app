@@ -27,7 +27,7 @@ workflows:
 
       - name: Install CocoaPods
         script: |
-          cd ios && pod install
+          cd ios && pod install --repo-update
 
       - name: Flutter build IPA
         script: |
@@ -63,7 +63,7 @@ workflows:
         script: flutter precache --ios && flutter pub get
 
       - name: Install CocoaPods
-        script: cd ios && pod install
+        script: cd ios && pod install --repo-update
 
       - name: Build for simulator
         script: flutter build ios --debug --simulator --no-codesign
