@@ -47,6 +47,9 @@ class _HomePageState extends State<HomePage> {
   final GlobalKey _previousTabKey = GlobalKey();
   TutorialCoachMark? _tutorialCoachMark;
 
+  StreamSubscription<AuthState>? _authSubscription;
+  bool _hasLoadedData = false;
+
   @override
   void initState() {
     super.initState();
@@ -54,13 +57,36 @@ class _HomePageState extends State<HomePage> {
     // Since variables are true, UI shows loaders.
     // _loadData will eventually update them.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData(forceRefresh: true);
+      // Delay initial load so _DashboardContent (index 0 in IndexedStack)
+      // can finish its API calls first and populate the shared cache.
+      // Both widgets share the same WordPressApi singleton; firing two
+      // identical requests simultaneously can cause one to hang.
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) _loadData(forceRefresh: false);
+      });
+      // Also listen for auth state changes — the student profile may not be
+      // loaded yet when IndexedStack creates this widget during the dashboard
+      // initState (before GetStudentProfileEvent completes).
+      _authSubscription =
+          context.read<AuthBloc>().stream.listen((state) {
+        if (state is AuthAuthenticated &&
+            state.student != null &&
+            !_hasLoadedData) {
+          _loadData(forceRefresh: false);
+        }
+      });
     });
 
     // Check for tutorial part 2
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndShowTutorial();
     });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkAndShowTutorial() async {
@@ -270,7 +296,13 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadData({bool forceRefresh = false}) async {
     final authState = context.read<AuthBloc>().state;
+    if (kDebugMode) {
+      print('HomePage._loadData called (forceRefresh=$forceRefresh, '
+          'authState=${authState.runtimeType}, '
+          'hasStudent=${authState is AuthAuthenticated ? (authState.student != null) : "N/A"})');
+    }
     if (authState is AuthAuthenticated && authState.student != null) {
+      _hasLoadedData = true;
       // Set timezone based on student's country for correct time display
       TimezoneHelper.setUserCountry(authState.student!.country);
       if (kDebugMode) {
@@ -288,9 +320,19 @@ class _HomePageState extends State<HomePage> {
       // Load reports first as they are needed for filtering schedules
       await _loadReports(
           studentId: authState.student!.id, forceRefresh: forceRefresh);
+      if (kDebugMode) {
+        print('HomePage: reports loaded, count=${_reports.length}');
+      }
       // Then load schedules
       await _loadNextLessons(
           studentId: authState.student!.id, forceRefresh: forceRefresh);
+      if (kDebugMode) {
+        print('HomePage: nextLessons loaded, count=${_nextLessons.length}');
+      }
+    } else {
+      if (kDebugMode) {
+        print('HomePage._loadData SKIPPED — no auth student');
+      }
     }
   }
 
@@ -333,17 +375,29 @@ class _HomePageState extends State<HomePage> {
         _isLoadingSchedule = true;
       });
 
+      if (kDebugMode) {
+        print('HomePage._loadNextLessons: fetching schedule for student $studentId');
+      }
       // Get next schedule with force refresh
       final nextSchedule = await _scheduleRepository.getNextSchedule(
         studentId,
         forceRefresh: forceRefresh,
       );
 
+      if (kDebugMode) {
+        print('HomePage._loadNextLessons: nextSchedule=${nextSchedule != null}, '
+            'schedules=${nextSchedule?.schedules.length ?? 0}');
+      }
+
       if (nextSchedule != null && nextSchedule.schedules.isNotEmpty) {
         final authState = context.read<AuthBloc>().state;
         if (authState is AuthAuthenticated && authState.student != null) {
           _findNextTwoLessons(
               nextSchedule.schedules, _reports, authState.student!);
+        } else {
+          if (kDebugMode) {
+            print('HomePage._loadNextLessons: no auth student for _findNextTwoLessons');
+          }
         }
       } else {
         if (mounted) {
@@ -372,6 +426,9 @@ class _HomePageState extends State<HomePage> {
 
   void _findNextTwoLessons(
       List<Schedule> schedules, List<StudentReport> reports, Student student) {
+    if (kDebugMode) {
+      print('HomePage._findNextTwoLessons: schedules=${schedules.length}, reports=${reports.length}');
+    }
     if (schedules.isEmpty) {
       if (mounted) setState(() => _nextLessons = []);
       return;
@@ -693,12 +750,18 @@ class _HomePageState extends State<HomePage> {
       // Take all lessons within 30 days (no limit)
       final allLessons = upcomingLessons.toList();
 
+      if (kDebugMode) {
+        print('HomePage._findNextTwoLessons: found ${allLessons.length} upcoming lessons');
+      }
       if (mounted) {
         setState(() {
           _nextLessons = allLessons;
         });
       }
     } else {
+      if (kDebugMode) {
+        print('HomePage._findNextTwoLessons: no upcoming lessons found (filtered all out)');
+      }
       if (mounted) {
         setState(() {
           _nextLessons = [];
