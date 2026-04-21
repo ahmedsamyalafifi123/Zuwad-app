@@ -13,6 +13,7 @@ import '../../data/repositories/report_repository.dart';
 import '../../data/repositories/schedule_repository.dart';
 import '../../domain/models/student_report.dart';
 import '../../domain/models/schedule.dart';
+import '../utils/timezone_utils.dart';
 import 'report_details_page.dart';
 import 'postpone_page.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
@@ -272,6 +273,10 @@ class _HomePageState extends State<HomePage> {
     if (authState is AuthAuthenticated && authState.student != null) {
       // Set timezone based on student's country for correct time display
       TimezoneHelper.setUserCountry(authState.student!.country);
+      if (kDebugMode) {
+        print(
+            'HomePage timezone: country="${authState.student!.country}" → ${TimezoneHelper.userTimezone}');
+      }
 
       if (forceRefresh) {
         setState(() {
@@ -561,6 +566,7 @@ class _HomePageState extends State<HomePage> {
             upcomingLessons.add({
               'schedule': schedule,
               'dateTime': lessonDateTime,
+              'localDateTime': TimezoneHelper.egyptToLocal(lessonDateTime),
               'dateStr': lessonDateStr,
             });
           }
@@ -583,6 +589,7 @@ class _HomePageState extends State<HomePage> {
           upcomingLessons.add({
             'schedule': schedule,
             'dateTime': lessonDateTime,
+            'localDateTime': TimezoneHelper.egyptToLocal(lessonDateTime),
             'dateStr': lessonDateStr,
           });
         }
@@ -968,12 +975,16 @@ class _HomePageState extends State<HomePage> {
           itemCount: _nextLessons.length,
           itemBuilder: (context, index) {
             final lessonData = _nextLessons[index];
+            final egyptDateTime = lessonData['dateTime'] as DateTime;
+            final localDateTime = lessonData['localDateTime'] as DateTime? ??
+                TimezoneHelper.egyptToLocal(egyptDateTime);
             return KeyedSubtree(
               key: ValueKey(
                   '${lessonData['dateStr']}_${lessonData['sessionNumber']}'),
               child: _buildNextLessonCard(
                 lessonData['schedule'] as Schedule,
-                lessonData['dateTime'] as DateTime,
+                egyptDateTime,
+                localDateTime,
                 lessonData['sessionNumber'] as int? ?? 0,
                 showRescheduleButton: index == 0, // Only show for first card
               ),
@@ -985,7 +996,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildNextLessonCard(
-      Schedule schedule, DateTime dateTime, int sessionNumber,
+      Schedule schedule,
+      DateTime dateTime,
+      DateTime localDateTime,
+      int sessionNumber,
       {bool showRescheduleButton = true}) {
     // Get student details from Bloc
     String teacherName = 'المعلم';
@@ -1023,16 +1037,12 @@ class _HomePageState extends State<HomePage> {
       12: 'ديسمبر'
     };
 
-    final dayNumber = dateTime.day.toString();
-    final monthName = monthNames[dateTime.month] ?? '';
-
-    // Convert Egypt lesson time to student's local timezone for display
-    final localDateTime = TimezoneHelper.egyptToLocal(dateTime);
-    final localHour = localDateTime.hour;
-    final localMinute = localDateTime.minute;
-    final hour12 = localHour == 0 ? 12 : (localHour > 12 ? localHour - 12 : localHour);
-    final ampm = localHour < 12 ? 'AM' : 'PM';
-    String displayTime = '${hour12.toString().padLeft(2, '0')}:${localMinute.toString().padLeft(2, '0')} $ampm';
+    // Use the student's local timezone for all display fields (day, date, time)
+    // so the card reflects the student's country, not Egypt time.
+    final dayNumber = localDateTime.day.toString();
+    final monthName = monthNames[localDateTime.month] ?? '';
+    final localDayName = TimezoneUtils.getArabicDayName(localDateTime);
+    final String displayTime = TimezoneUtils.formatTime(localDateTime).toUpperCase();
 
     // Clean teacher first name
     String teacherFirstName = teacherName;
@@ -1070,7 +1080,7 @@ class _HomePageState extends State<HomePage> {
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
-                      schedule.day,
+                      localDayName,
                       style: const TextStyle(
                         fontFamily: 'Qatar',
                         fontSize: 18,
@@ -1398,59 +1408,56 @@ class _HomePageState extends State<HomePage> {
       // safe fallback
     }
 
-    // Parse date for display
+    // Parse date + time into Egypt DateTime then convert to student's local
+    // timezone so day/date/time displays match the student's country.
+    final Map<int, String> monthNames = {
+      1: 'يناير',
+      2: 'فبراير',
+      3: 'مارس',
+      4: 'أبريل',
+      5: 'مايو',
+      6: 'يونيو',
+      7: 'يوليو',
+      8: 'أغسطس',
+      9: 'سبتمبر',
+      10: 'أكتوبر',
+      11: 'نوفمبر',
+      12: 'ديسمبر'
+    };
+
     String dayName = '';
     String dayNumber = '';
     String monthName = '';
+    String displayTime = '--:--';
 
     try {
-      final date = DateTime.parse(report.date);
-      final Map<int, String> dayNames = {
-        DateTime.sunday: 'الأحد',
-        DateTime.monday: 'الاثنين',
-        DateTime.tuesday: 'الثلاثاء',
-        DateTime.wednesday: 'الأربعاء',
-        DateTime.thursday: 'الخميس',
-        DateTime.friday: 'الجمعة',
-        DateTime.saturday: 'السبت',
-      };
-      final Map<int, String> monthNames = {
-        1: 'يناير',
-        2: 'فبراير',
-        3: 'مارس',
-        4: 'أبريل',
-        5: 'مايو',
-        6: 'يونيو',
-        7: 'يوليو',
-        8: 'أغسطس',
-        9: 'سبتمبر',
-        10: 'أكتوبر',
-        11: 'نوفمبر',
-        12: 'ديسمبر'
-      };
-      dayName = dayNames[date.weekday] ?? '';
-      dayNumber = date.day.toString();
-      monthName = monthNames[date.month] ?? '';
-    } catch (e) {
-      dayNumber = report.date;
-    }
-
-    // Format time to 12-hour format
-    String displayTime = '--:--';
-    if (report.time.isNotEmpty) {
-      try {
+      final datePart = DateTime.parse(report.date);
+      int hour = 0;
+      int minute = 0;
+      if (report.time.isNotEmpty) {
         final timeParts = report.time.split(':');
         if (timeParts.length >= 2) {
-          int hour = int.parse(timeParts[0]);
-          final int minute = int.parse(timeParts[1]);
-          final String period = hour >= 12 ? 'PM' : 'AM';
-          if (hour > 12) hour -= 12;
-          if (hour == 0) hour = 12;
-          displayTime = '$hour:${minute.toString().padLeft(2, '0')} $period';
+          hour = int.tryParse(timeParts[0]) ?? 0;
+          minute = int.tryParse(timeParts[1]) ?? 0;
         }
-      } catch (e) {
-        displayTime = report.time;
       }
+      final egyptDateTime = DateTime(
+        datePart.year,
+        datePart.month,
+        datePart.day,
+        hour,
+        minute,
+      );
+      final localDateTime = TimezoneHelper.egyptToLocal(egyptDateTime);
+
+      dayName = TimezoneUtils.getArabicDayName(localDateTime);
+      dayNumber = localDateTime.day.toString();
+      monthName = monthNames[localDateTime.month] ?? '';
+      displayTime =
+          TimezoneUtils.formatTime(localDateTime).toUpperCase();
+    } catch (e) {
+      dayNumber = report.date;
+      if (report.time.isNotEmpty) displayTime = report.time;
     }
 
     // Clean teacher first name

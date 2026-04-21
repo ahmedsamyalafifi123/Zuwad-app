@@ -3470,7 +3470,7 @@ class _DashboardContentState extends State<_DashboardContent> {
   ///
   /// Error code semantics:
   ///  - `null`  — no HTTP response (network failure) → local-token fallback
-  ///  - `-1`    — HTTP 200 with malformed body → hard block (no fallback)
+  ///  - `-1`    — HTTP 200 with malformed body → local-token fallback
   ///  - `401`   — authentication expired → hard block, prompt re-login
   ///  - other   — server/infra error → local-token fallback
   ({String? serverToken, String? serverUrl})? _resolveMeetingToken(
