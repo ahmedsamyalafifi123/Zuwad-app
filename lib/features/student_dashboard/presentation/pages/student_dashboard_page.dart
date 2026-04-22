@@ -961,6 +961,13 @@ class _DashboardContentState extends State<_DashboardContent> {
   StudentReport? _lastReport;
   List<Student> _familyMembers = [];
   bool _loadingFamily = false;
+  // Count of consecutive bad auth states (AuthError or AuthAuthenticated
+  // with null student). 0 = healthy, 1 = first bad state with auto-retry
+  // in flight (show loading), 2+ = retry already failed (show manual retry).
+  // BlocConsumer fires listener synchronously inside buildWhen before the
+  // builder runs, so the counter lets the builder distinguish "retry about
+  // to happen / in flight" from "retry exhausted".
+  int _profileBadStateStreak = 0;
   // final GlobalKey _arrowKey = GlobalKey(); // Replaced by studentMenuKey
 
   @override
@@ -3529,7 +3536,27 @@ class _DashboardContentState extends State<_DashboardContent> {
         width: double.infinity,
         height: double.infinity,
         color: const Color(0xFF8b0628),
-        child: BlocBuilder<AuthBloc, AuthState>(
+        child: BlocConsumer<AuthBloc, AuthState>(
+          listener: (context, state) {
+            // Profile recovered — clear the bad-state streak.
+            if (state is AuthAuthenticated && state.student != null) {
+              if (_profileBadStateStreak != 0) {
+                _profileBadStateStreak = 0;
+              }
+              return;
+            }
+            // Bad state (AuthError or AuthAuthenticated with null student).
+            // First bad state in a streak → silently dispatch ONE retry.
+            // Subsequent bad states just increment so the builder knows the
+            // retry already failed.
+            final isBad = state is AuthError ||
+                (state is AuthAuthenticated && state.student == null);
+            if (!isBad) return;
+            _profileBadStateStreak += 1;
+            if (_profileBadStateStreak == 1 && mounted) {
+              context.read<AuthBloc>().add(GetStudentProfileEvent());
+            }
+          },
           builder: (context, state) {
             if (state is AuthLoading) {
               return const LoadingWidget();
@@ -3862,6 +3889,13 @@ class _DashboardContentState extends State<_DashboardContent> {
                 ),
               );
             } else {
+              // Bad state. Streak == 1 means the listener just triggered the
+              // one-shot auto-retry — show a spinner while it runs. Streak
+              // >= 2 means the retry already came back bad; surface the
+              // manual retry affordance as a last resort.
+              if (_profileBadStateStreak <= 1) {
+                return const LoadingWidget();
+              }
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
