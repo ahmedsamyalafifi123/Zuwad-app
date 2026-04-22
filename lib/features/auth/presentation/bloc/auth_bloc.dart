@@ -205,12 +205,26 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     if (state is AuthAuthenticated || state is AuthError) {
+      // Preserve the current student data so the UI stays functional
+      // during a profile refresh failure (e.g. rate limiting, network glitch).
+      final currentStudent =
+          state is AuthAuthenticated ? (state as AuthAuthenticated).student : null;
+
       emit(AuthLoading());
       try {
         final student = await _authRepository.getStudentProfile();
         emit(AuthAuthenticated(student: student));
       } catch (e) {
-        emit(AuthError('فشل في الحصول على الملف الشخصي: ${e.toString()}'));
+        if (kDebugMode) {
+          print('GetStudentProfile failed: $e');
+        }
+        // If we already have student data, keep the authenticated state
+        // instead of showing the error screen for transient failures.
+        if (currentStudent != null) {
+          emit(AuthAuthenticated(student: currentStudent));
+        } else {
+          emit(AuthError('فشل في الحصول على الملف الشخصي: ${e.toString()}'));
+        }
       }
     }
   }

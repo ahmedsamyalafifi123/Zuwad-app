@@ -966,13 +966,20 @@ class _DashboardContentState extends State<_DashboardContent> {
   @override
   void initState() {
     super.initState();
-    // Load lesson data and secondary data in parallel,
-    // then family members last to avoid simultaneous request bursts.
-    Future.wait([
-      _loadNextLesson(forceRefresh: true),
+    // Stagger API calls to avoid rate limiting: load the primary lesson data
+    // first, then secondary data, then family members.
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    await _loadNextLesson(forceRefresh: true);
+    if (!mounted) return;
+    await Future.wait([
       _loadNextEvent(),
       _loadLatestUserMessage(),
-    ]).then((_) => _loadFamilyMembers());
+    ]);
+    if (!mounted) return;
+    await _loadFamilyMembers();
   }
 
   @override
