@@ -43,6 +43,31 @@ class WordPressApi {
         return handler.next(options);
       },
       onError: (error, handler) async {
+        // Auto-retry 429 Too Many Requests once, respecting the server's
+        // Retry-After header (falls back to 3s). This is the single point
+        // where we honor rate limits — no other layer should retry 429,
+        // otherwise we amplify the very problem the server is asking us
+        // to back off from.
+        if (error.response?.statusCode == 429) {
+          if (error.requestOptions.extra['_retriedAfter429'] == true) {
+            return handler.next(error);
+          }
+          final retryAfterHeader =
+              error.response?.headers.value('retry-after');
+          final waitSeconds = int.tryParse(retryAfterHeader ?? '') ?? 3;
+          if (kDebugMode) {
+            print(
+                '429 received for ${error.requestOptions.path}; waiting ${waitSeconds}s before single retry.');
+          }
+          await Future.delayed(Duration(seconds: waitSeconds));
+          try {
+            error.requestOptions.extra['_retriedAfter429'] = true;
+            final response = await _dio.fetch(error.requestOptions);
+            return handler.resolve(response);
+          } catch (_) {
+            return handler.next(error);
+          }
+        }
         // Auto-refresh token on 401 errors
         if (error.response?.statusCode == 401) {
           // Skip if this is already a refresh request (prevent loop)

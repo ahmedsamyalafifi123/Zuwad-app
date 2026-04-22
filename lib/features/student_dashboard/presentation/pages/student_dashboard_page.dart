@@ -114,8 +114,10 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
       const SettingsPage(),
     ];
 
-    // Fetch student profile data when dashboard loads
-    context.read<AuthBloc>().add(GetStudentProfileEvent());
+    // Do NOT dispatch GetStudentProfileEvent here — CheckAuthStatus has
+    // already fetched the profile by the time the dashboard mounts.
+    // The dashboard's BlocConsumer auto-retries if the state is bad.
+    // Duplicate dispatches contributed to the 429 rate-limit cascade.
 
     // Load initial chat unread count
     _loadChatUnreadCount();

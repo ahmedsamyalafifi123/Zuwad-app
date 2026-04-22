@@ -10,6 +10,12 @@ class AuthRepository {
   final WordPressApi _api = WordPressApi();
   final SecureStorageService _secureStorage = SecureStorageService();
 
+  // Request coalescing for profile fetches. Several widgets dispatch
+  // GetStudentProfileEvent concurrently on app start (CheckAuthStatus, the
+  // dashboard, settings). Share one in-flight Future across callers so we
+  // only hit the server once.
+  Future<Student>? _inFlightProfileRequest;
+
   /// Login with phone and password.
   /// Returns true on success, throws exception on failure.
   Future<bool> login(String phone, String password, {String? role}) async {
@@ -70,7 +76,22 @@ class AuthRepository {
   }
 
   /// Get student profile with all required data.
-  Future<Student> getStudentProfile() async {
+  /// Concurrent callers share a single in-flight HTTP request.
+  Future<Student> getStudentProfile() {
+    final existing = _inFlightProfileRequest;
+    if (existing != null) {
+      if (kDebugMode) {
+        print('getStudentProfile: coalescing onto in-flight request');
+      }
+      return existing;
+    }
+    final future = _getStudentProfileInternal()
+        .whenComplete(() => _inFlightProfileRequest = null);
+    _inFlightProfileRequest = future;
+    return future;
+  }
+
+  Future<Student> _getStudentProfileInternal() async {
     try {
       final userId = await getCurrentUserId();
       if (kDebugMode) {

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/repositories/auth_repository.dart';
-import '../../domain/models/student.dart';
 import '../../../../features/student_dashboard/domain/services/student_selection_service.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
@@ -15,28 +14,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<LoginAsTeacherEvent>(_onLoginAsTeacher);
     on<LogoutEvent>(_onLogout);
     on<GetStudentProfileEvent>(_onGetStudentProfile);
-  }
-
-  // Transient failures (rate limits, brief network blips) should not surface
-  // as errors to the user. Retry a few times with exponential backoff before
-  // giving up.
-  Future<Student> _fetchStudentProfileWithRetry({int maxAttempts = 3}) async {
-    Object? lastError;
-    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        return await _authRepository.getStudentProfile();
-      } catch (e) {
-        lastError = e;
-        if (kDebugMode) {
-          print('getStudentProfile attempt $attempt/$maxAttempts failed: $e');
-        }
-        if (attempt < maxAttempts) {
-          final delayMs = 500 * (1 << (attempt - 1)); // 500ms, 1s, 2s
-          await Future.delayed(Duration(milliseconds: delayMs));
-        }
-      }
-    }
-    throw lastError ?? Exception('Failed to fetch student profile');
   }
 
   Future<void> _onCheckAuthStatus(
@@ -67,17 +44,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           }
         } else {
           try {
-            final student = await _fetchStudentProfileWithRetry();
+            final student = await _authRepository.getStudentProfile();
             if (kDebugMode) {
               print('Student profile loaded: ${student.name}');
             }
             emit(AuthAuthenticated(student: student));
           } catch (e) {
-            // Retries exhausted. Emit AuthError rather than
-            // AuthAuthenticated(null) so the dashboard can show a proper
-            // loading state and trigger a single auto-retry cycle.
+            // Dio already handled any 429 backoff. If we still failed,
+            // emit AuthError so the dashboard can show its loading state
+            // and trigger a single auto-retry cycle.
             if (kDebugMode) {
-              print('Error getting profile after retries but user is logged in: $e');
+              print('Error getting profile but user is logged in: $e');
             }
             emit(AuthError('فشل في الحصول على الملف الشخصي: ${e.toString()}'));
           }
@@ -237,11 +214,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       emit(AuthLoading());
       try {
-        final student = await _fetchStudentProfileWithRetry();
+        final student = await _authRepository.getStudentProfile();
         emit(AuthAuthenticated(student: student));
       } catch (e) {
         if (kDebugMode) {
-          print('GetStudentProfile failed after retries: $e');
+          print('GetStudentProfile failed: $e');
         }
         // If we already have student data, keep the authenticated state
         // instead of showing the error screen for transient failures.
