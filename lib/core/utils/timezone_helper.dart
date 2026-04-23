@@ -16,7 +16,8 @@ class TimezoneHelper {
     'مصر': 'Africa/Cairo',
     'عمان': 'Asia/Muscat',
     'الإمارات': 'Asia/Dubai',
-    'المملكة العربية السعودية': 'Asia/Riyadh',
+    'السعودية': 'Asia/Riyadh',
+    'المملكة العربية السعودية': 'Asia/Riyadh', // legacy alias
     'الكويت': 'Asia/Kuwait',
     'قطر': 'Asia/Qatar',
     'البحرين': 'Asia/Bahrain',
@@ -63,11 +64,13 @@ class TimezoneHelper {
     'أوزبكستان': 'Asia/Tashkent',
     'تركمانستان': 'Asia/Ashgabat',
     'كازاخستان': 'Asia/Almaty',
-    'قرغيزستان': 'Asia/Bishkek',
+    'قيرغيزستان': 'Asia/Bishkek',
+    'قرغيزستان': 'Asia/Bishkek', // legacy alias
     'أذربيجان': 'Asia/Baku',
     'أرمينيا': 'Asia/Yerevan',
     'جورجيا': 'Asia/Tbilisi',
-    'روسيا': 'Europe/Moscow',
+    'الروسيا': 'Europe/Moscow',
+    'روسيا': 'Europe/Moscow', // legacy alias
     'أوكرانيا': 'Europe/Kiev',
     'بيلاروسيا': 'Europe/Minsk',
     'بولندا': 'Europe/Warsaw',
@@ -96,7 +99,8 @@ class TimezoneHelper {
     'ليتوانيا': 'Europe/Vilnius',
     'إستونيا': 'Europe/Tallinn',
     'البرتغال': 'Europe/Lisbon',
-    'أيرلندا': 'Europe/Dublin',
+    'إيرلندا': 'Europe/Dublin',
+    'أيرلندا': 'Europe/Dublin', // legacy alias
     'أيسلندا': 'Atlantic/Reykjavik',
     'مالطا': 'Europe/Malta',
     'أستراليا': 'Australia/Sydney',
@@ -108,7 +112,9 @@ class TimezoneHelper {
     'الأرجنتين': 'America/Argentina/Buenos_Aires',
     'كولومبيا': 'America/Bogota',
     'بيرو': 'America/Lima',
-    'تشيلي': 'America/Santiago',
+    'التشيلي': 'America/Santiago',
+    'تشيلي': 'America/Santiago', // legacy alias
+    'شيلي': 'America/Santiago', // legacy alias
     'فنزويلا': 'America/Caracas',
     'الإكوادور': 'America/Guayaquil',
     'بوليفيا': 'America/La_Paz',
@@ -124,9 +130,12 @@ class TimezoneHelper {
     'رواندا': 'Africa/Kigali',
     'نيجيريا': 'Africa/Lagos',
     'غانا': 'Africa/Accra',
+    'كوت ديفوار': 'Africa/Abidjan',
+    'ساحل العاج': 'Africa/Abidjan', // legacy alias
     'الكاميرون': 'Africa/Douala',
     'السنغال': 'Africa/Dakar',
-    'الغابون': 'Africa/Libreville',
+    'غابون': 'Africa/Libreville',
+    'الغابون': 'Africa/Libreville', // legacy alias
     'جنوب السودان': 'Africa/Juba',
     'الصحراء الغربية': 'Africa/El_Aaiun',
     'موزمبيق': 'Africa/Maputo',
