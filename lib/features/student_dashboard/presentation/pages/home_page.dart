@@ -49,6 +49,7 @@ class _HomePageState extends State<HomePage> {
 
   StreamSubscription<AuthState>? _authSubscription;
   bool _hasLoadedData = false;
+  int? _currentStudentId;
 
   @override
   void initState() {
@@ -62,17 +63,25 @@ class _HomePageState extends State<HomePage> {
       // Both widgets share the same WordPressApi singleton; firing two
       // identical requests simultaneously can cause one to hang.
       Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) _loadData(forceRefresh: false);
+        if (mounted) {
+          final authState = context.read<AuthBloc>().state;
+          if (authState is AuthAuthenticated && authState.student != null) {
+            _currentStudentId = authState.student!.id;
+          }
+          _loadData(forceRefresh: false);
+        }
       });
       // Also listen for auth state changes — the student profile may not be
       // loaded yet when IndexedStack creates this widget during the dashboard
       // initState (before GetStudentProfileEvent completes).
       _authSubscription =
           context.read<AuthBloc>().stream.listen((state) {
-        if (state is AuthAuthenticated &&
-            state.student != null &&
-            !_hasLoadedData) {
-          _loadData(forceRefresh: false);
+        if (state is AuthAuthenticated && state.student != null) {
+          final newId = state.student!.id;
+          if (!_hasLoadedData || _currentStudentId != newId) {
+            _currentStudentId = newId;
+            _loadData(forceRefresh: true);
+          }
         }
       });
     });

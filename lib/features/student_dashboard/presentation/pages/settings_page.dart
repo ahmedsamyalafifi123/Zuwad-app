@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -274,12 +275,25 @@ class _SettingsPageState extends State<SettingsPage> {
   ];
 
   bool _hasLoaded = false;
+  int? _currentStudentId;
+  StreamSubscription<AuthState>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
     // Data is loaded lazily on first activation (see didChangeDependencies)
     // to avoid firing API calls at app startup when using IndexedStack.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _authSubscription = context.read<AuthBloc>().stream.listen((state) {
+        if (state is AuthAuthenticated && state.student != null) {
+          final newId = state.student!.id;
+          if (_currentStudentId != null && _currentStudentId != newId) {
+            _currentStudentId = newId;
+            _loadData(forceRefresh: true);
+          }
+        }
+      });
+    });
   }
 
   @override
@@ -287,12 +301,17 @@ class _SettingsPageState extends State<SettingsPage> {
     super.didChangeDependencies();
     if (!_hasLoaded) {
       _hasLoaded = true;
+      final authState = context.read<AuthBloc>().state;
+      if (authState is AuthAuthenticated && authState.student != null) {
+        _currentStudentId = authState.student!.id;
+      }
       _loadData();
     }
   }
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _nameController.dispose();
     _emailController.dispose();
     _birthdayController.dispose();
